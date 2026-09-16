@@ -1,0 +1,14 @@
+{
+  "name": "crunch-week-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CS 262 Team B — Crunch Week",
+  "scripts": {
+    "install:all": "npm install --prefix client",
+    "client": "npm install --prefix client && npm start --prefix client",
+    "web": "npm install --prefix client && npm run web --prefix client",
+    "test": "npm test --prefix client",
+    "test:watch": "npm run test:watch --prefix client",
+    "typecheck": "npm run typecheck --prefix client"
+  }
+}
