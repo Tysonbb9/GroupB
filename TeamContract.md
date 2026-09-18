@@ -19,5 +19,11 @@ The team will meet **every Tuesday at 5:00 PM in the library**. All members are 
 - If a member is struggling to complete a task, they should **ask for help** from the team as soon as the issue arises.
 - If something is not working out — whether it's a task, a process, or a team issue — it should be **brought up during the weekly meeting** for discussion and resolution.
 
-Signatures:
-Colin Redder
+## Team Members
+
+- Tyson Bobeldyk
+- Gabby Odhiambo
+- Nhyira Mante
+- TJ French
+- Bithiah Botsha
+- Colin Redder
