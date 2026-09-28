@@ -1,0 +1,457 @@
+<title>Crunch Week Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --page:#EDEEF2; --card:#FFFFFF; --pink:#12141A; --pmuted:#5B6270; --pfaint:#8D95A5;
+    --prule:#D9DCE4; --shadow:0 2px 10px rgba(18,20,26,.09);
+    --bg:#F3F6F6; --surface:#FFFFFF; --ink:#16202A; --muted:#5A6A72; --faint:#93A3A8;
+    --rule:#DCE4E4; --accent:#1F5C6B; --accentSoft:#E2EDEF;
+    --calm:#3F7F6E; --moderate:#B8912A; --heavy:#A93F30;
+    --exam:#7B3F6E; --project:#35507F; --pset:#2E6B5A; --reading:#6E5A2E; --writing:#8A4A35; --lab:#46607A;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --page:#101319; --card:#181C24; --pink:#E9ECF2; --pmuted:#98A1B2; --pfaint:#6C7688;
+      --prule:#262C37; --shadow:0 2px 10px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --page:#101319; --card:#181C24; --pink:#E9ECF2; --pmuted:#98A1B2; --pfaint:#6C7688;
+    --prule:#262C37; --shadow:0 2px 10px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--page);color:var(--pink);font-family:"Public Sans",-apple-system,BlinkMacSystemFont,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:46px 20px 80px;display:flex;flex-direction:column;gap:40px}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--pmuted)}
+  h1{font-size:clamp(29px,5vw,40px);font-weight:800;letter-spacing:-.022em;line-height:1.05;margin:0}
+  .lede{color:var(--pmuted);margin:0;max-width:64ch}
+  h2{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:0}
+  h3{font-size:15px;font-weight:700;margin:0}
+  p{margin:0;max-width:68ch}
+  .sec{display:flex;flex-direction:column;gap:14px}
+
+  .screens{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+  @media(max-width:980px){.screens{grid-template-columns:1fr 1fr}}
+  @media(max-width:700px){.screens{grid-template-columns:1fr;max-width:400px;margin:0 auto}}
+  .col{display:flex;flex-direction:column;gap:10px}
+  .caption .rt{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--pfaint)}
+  .caption .nm{font-size:15px;font-weight:700;display:block;line-height:1.25}
+
+  .phone{background:var(--bg);border:1px solid var(--prule);border-radius:15px;overflow:hidden;box-shadow:var(--shadow)}
+  .nav{padding:11px 13px 9px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:7px}
+  .nav .back{color:var(--accent);font-size:14px;font-weight:700}
+  .nav .ttl{font-size:13px;font-weight:700;color:var(--ink)}
+  .body{padding:12px;display:flex;flex-direction:column;gap:12px}
+
+  /* unobtrusive region markers */
+  .region{position:relative}
+  .mk{position:absolute;top:-6px;right:-6px;z-index:3;width:15px;height:15px;border-radius:50%;
+      border:1px solid var(--prule);background:var(--card);color:var(--pfaint);
+      font-family:"JetBrains Mono",monospace;font-size:8.5px;line-height:13px;text-align:center;font-weight:600}
+  .keymk{display:inline-block;width:15px;height:15px;border-radius:50%;border:1px solid var(--prule);
+      background:var(--card);color:var(--pfaint);font-family:"JetBrains Mono",monospace;font-size:8.5px;
+      line-height:13px;text-align:center;font-weight:600}
+
+  .lab{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .bignum{font-size:24px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1}
+  .bignum small{font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:0}
+
+  .strip{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:11px}
+  .striphead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .bars{display:grid;grid-template-columns:repeat(15,1fr);gap:2px;align-items:end;height:58px;position:relative;border-bottom:1px solid var(--rule)}
+  .cap{position:absolute;left:0;right:0;bottom:56.6%;border-top:1px dashed var(--faint)}
+  .b{width:100%;border-radius:1.5px 1.5px 0 0;min-height:2px}
+  .b.sel{outline:1.5px solid var(--ink);outline-offset:1px;border-radius:2px}
+  .axis{display:grid;grid-template-columns:repeat(15,1fr);gap:2px;margin-top:4px}
+  .axis span{font-family:"JetBrains Mono",monospace;font-size:7px;color:var(--faint);text-align:center}
+  .axis span.now{color:var(--accent);font-weight:700}
+  .axis span.wall{color:var(--heavy);font-weight:700}
+
+  .wall{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--heavy);border-radius:8px;padding:11px;display:flex;flex-direction:column;gap:8px}
+  .wallttl{font-size:14px;font-weight:800;color:var(--ink);line-height:1.2;letter-spacing:-.01em}
+  .wallsub{font-size:10.5px;color:var(--muted);margin-top:2px}
+  .wallact{display:flex;align-items:center;gap:8px;background:var(--accentSoft);border-radius:6px;padding:8px 9px}
+  .wallact .txt{font-size:11px;color:var(--ink);line-height:1.35;flex:1}
+  .wallact .go{font-size:10.5px;font-weight:700;color:var(--accent);white-space:nowrap}
+
+  .hscroll{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px}
+  .chip{flex:none;background:var(--surface);border:1px solid var(--rule);border-radius:7px;padding:8px 10px;min-width:90px;display:flex;flex-direction:column;gap:3px}
+  .chip .cc{font-size:11.5px;font-weight:800;color:var(--ink)}
+  .chip .cm{font-size:9px;color:var(--muted);display:flex;align-items:center;gap:4px}
+  .dot{width:5px;height:5px;border-radius:50%;flex:none}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .up{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:9px;display:flex;flex-direction:column;gap:5px;position:relative;overflow:hidden}
+  .up::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat,var(--accent))}
+  .badge{font-family:"JetBrains Mono",monospace;font-size:7px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cat);background:color-mix(in srgb, var(--cat) 12%, transparent);padding:2px 5px;border-radius:3px;align-self:flex-start}
+  .ut{font-size:11.5px;font-weight:700;color:var(--ink);line-height:1.2}
+  .um{font-size:9px;color:var(--muted)}
+  .diff{display:inline-flex;align-items:center;gap:3px;font-size:8.5px;color:var(--muted);font-weight:600}
+  .dbar{display:inline-flex;gap:1.5px}
+  .dbar i{width:3px;height:7px;border-radius:1px;background:var(--rule)}
+  .dbar i.on{background:var(--moderate)}
+  .dbar.hard i.on{background:var(--heavy)}
+
+  .sechead{display:flex;align-items:center;gap:7px;margin-top:3px}
+  .sechead .st{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--faint)}
+  .sechead .st.over{color:var(--heavy)}
+  .sechead .sl{flex:1;height:1px;background:var(--rule)}
+
+  .trow{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:8px 9px;display:flex;align-items:center;gap:8px}
+  .tile{width:28px;height:28px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",monospace;font-size:9px;font-weight:700;color:#fff;background:var(--cat)}
+  .tmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .tt{font-size:12px;font-weight:700;color:var(--ink);line-height:1.2}
+  .tmeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .tmeta .x{font-size:9px;color:var(--muted)}
+  .tmeta .x.over{color:var(--heavy);font-weight:700}
+  .check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--rule);flex:none}
+
+  /* option B: square cards */
+  .sq{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sqc{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:10px;
+       display:flex;flex-direction:column;gap:6px;aspect-ratio:1/1;position:relative}
+  .sqtop{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+  .sqtile{width:26px;height:26px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;
+          font-family:"JetBrains Mono",monospace;font-size:8.5px;font-weight:700;color:#fff;background:var(--cat)}
+  .sqcheck{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--rule);flex:none}
+  .sqt{font-size:12px;font-weight:700;color:var(--ink);line-height:1.22;margin-top:1px}
+  .sqfoot{margin-top:auto;display:flex;flex-direction:column;gap:3px}
+  .sqc.od{border-color:color-mix(in srgb, var(--heavy) 45%, var(--rule))}
+
+  .tablewrap{overflow-x:auto;border:1px solid var(--prule);border-radius:5px;background:var(--card)}
+  table{border-collapse:collapse;width:100%;min-width:580px;font-size:14px}
+  th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--prule);vertical-align:top}
+  th{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--pmuted);font-weight:600}
+  tr:last-child td{border-bottom:none}
+  td.k{white-space:nowrap;font-weight:600}
+  td.ref{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--pmuted);white-space:nowrap}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  hr{border:none;border-top:1px solid var(--prule);margin:0}
+</style>
+
+<div class="wrap">
+
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <div class="eyebrow">Crunch Week &middot; screen designs</div>
+    <h1>Screens</h1>
+    <p class="lede">The two screens in this phase, drawn at the fixture data and the palette defined in <code>client/src/theme.ts</code>. Screen 2 is shown in two arrangements. Numbered markers refer to the key below each screen and to sections of UI_DESIGN.md.</p>
+  </header>
+
+  <div class="screens">
+
+    <!-- SCREEN 1 -->
+    <div class="col">
+      <div class="caption"><span class="rt">route /</span><span class="nm">Screen 1: Semester</span></div>
+      <div class="phone">
+        <div class="nav"><span class="ttl">Fall 2026</span></div>
+        <div class="body">
+
+          <div class="region strip">
+            <span class="mk">1</span>
+            <div class="striphead">
+              <div><div class="lab">This week</div><div class="bignum">12<small> / 15 hrs</small></div></div>
+              <div style="text-align:right"><div class="lab">Next wall</div><div class="bignum" style="color:var(--heavy)">wk 6</div></div>
+            </div>
+            <div class="bars">
+              <div class="cap"></div>
+              <div class="b" style="height:1%;background:var(--calm)"></div>
+              <div class="b" style="height:4%;background:var(--calm)"></div>
+              <div class="b sel" style="height:45%;background:var(--moderate)"></div>
+              <div class="b" style="height:23%;background:var(--calm)"></div>
+              <div class="b" style="height:49%;background:var(--moderate)"></div>
+              <div class="b" style="height:100%;background:var(--heavy)"></div>
+              <div class="b" style="height:58%;background:var(--heavy)"></div>
+              <div class="b" style="height:13%;background:var(--calm)"></div>
+              <div class="b" style="height:32%;background:var(--calm)"></div>
+              <div class="b" style="height:19%;background:var(--calm)"></div>
+              <div class="b" style="height:66%;background:var(--heavy)"></div>
+              <div class="b" style="height:87%;background:var(--heavy)"></div>
+              <div class="b" style="height:58%;background:var(--heavy)"></div>
+              <div class="b" style="height:94%;background:var(--heavy)"></div>
+              <div class="b" style="height:87%;background:var(--heavy)"></div>
+            </div>
+            <div class="axis">
+              <span>1</span><span>2</span><span class="now">3</span><span>4</span><span>5</span>
+              <span class="wall">6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+              <span>11</span><span>12</span><span>13</span><span>14</span><span>15</span>
+            </div>
+          </div>
+
+          <div class="region wall">
+            <span class="mk">2</span>
+            <div>
+              <div class="wallttl">Week 6 needs 27 hours</div>
+              <div class="wallsub">You have 15 free that week</div>
+            </div>
+            <div class="wallact">
+              <div class="txt"><b>Start Midterm 1 in week 5.</b> Most students spent 12 hrs on it.</div>
+              <div class="go">Plan &rarr;</div>
+            </div>
+          </div>
+
+          <div class="region">
+            <span class="mk">3</span>
+            <div class="lab" style="margin-bottom:6px">Coming up</div>
+            <div class="grid2">
+              <div class="up" style="--cat:var(--pset)">
+                <span class="badge">Problem set</span>
+                <div class="ut">Problem set 1</div>
+                <div class="um">Due this week</div>
+                <div class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 3 hrs typical</div>
+              </div>
+              <div class="up" style="--cat:var(--exam)">
+                <span class="badge">Exam</span>
+                <div class="ut">Midterm 1</div>
+                <div class="um">Week 6 &middot; MATH 251</div>
+                <div class="diff"><span class="dbar hard"><i class="on"></i><i class="on"></i><i class="on"></i></span> 12 hrs typical</div>
+              </div>
+              <div class="up" style="--cat:var(--project)">
+                <span class="badge">Project</span>
+                <div class="ut">Prototype demo</div>
+                <div class="um">Week 4 &middot; CS 262</div>
+                <div class="diff"><span class="dbar"><i class="on"></i><i class="on"></i><i></i></span> 6 hrs typical</div>
+              </div>
+              <div class="up" style="--cat:var(--writing)">
+                <span class="badge">Writing</span>
+                <div class="ut">Essay 1</div>
+                <div class="um">Week 7 &middot; PHIL 153</div>
+                <div class="diff"><span class="dbar"><i class="on"></i><i class="on"></i><i></i></span> 9 hrs typical</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="region">
+            <span class="mk">4</span>
+            <div class="lab" style="margin-bottom:6px">Courses</div>
+            <div class="hscroll">
+              <div class="chip"><span class="cc">CS 262</span><span class="cm"><span class="dot" style="background:var(--calm)"></span>3 absences</span></div>
+              <div class="chip"><span class="cc">CS 336</span><span class="cm"><span class="dot" style="background:var(--calm)"></span>3 absences</span></div>
+              <div class="chip"><span class="cc">MATH 251</span><span class="cm"><span class="dot" style="background:var(--faint)"></span>no policy</span></div>
+              <div class="chip"><span class="cc">PHIL 153</span><span class="cm"><span class="dot" style="background:var(--heavy)"></span>0 left</span></div>
+              <div class="chip"><span class="cc">STAT 243</span><span class="cm"><span class="dot" style="background:var(--moderate)"></span>2 absences</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div style="font-size:12.5px;color:var(--pmuted);line-height:1.6">
+        <span class="keymk">1</span> Week strip and week figures &nbsp;
+        <span class="keymk">2</span> Wall card &nbsp;
+        <span class="keymk">3</span> Coming up &nbsp;
+        <span class="keymk">4</span> Course chips
+      </div>
+    </div>
+
+    <!-- SCREEN 2 OPTION A -->
+    <div class="col">
+      <div class="caption"><span class="rt">route /week &middot; option A</span><span class="nm">This week: rows</span></div>
+      <div class="phone">
+        <div class="nav"><span class="back">&larr;</span><span class="ttl">Week 3</span></div>
+        <div class="body">
+          <div class="region strip" style="padding:10px 11px">
+            <span class="mk">5</span>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <div><div class="lab">Landing this week</div><div class="bignum">12<small> / 15 hrs</small></div></div>
+              <div style="text-align:right"><div class="lab">Left to do</div><div class="bignum">6<small> items</small></div></div>
+            </div>
+          </div>
+
+          <div class="region" style="display:flex;flex-direction:column;gap:6px">
+            <span class="mk">6</span>
+            <div class="sechead"><span class="st over">Overdue</span><span class="sl"></span></div>
+            <div class="trow" style="--cat:var(--pset)">
+              <div class="tile">PS</div>
+              <div class="tmain"><div class="tt">Syllabus quiz</div>
+                <div class="tmeta"><span class="x over">Was week 2</span><span class="x">MATH 251</span><span class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 1 hr</span></div></div>
+              <div class="check"></div>
+            </div>
+
+            <div class="sechead"><span class="st">Due this week</span><span class="sl"></span></div>
+            <div class="trow" style="--cat:var(--pset)">
+              <div class="tile">PS</div>
+              <div class="tmain"><div class="tt">Problem set 1</div>
+                <div class="tmeta"><span class="x">MATH 251</span><span class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 3 hrs</span></div></div>
+              <div class="check"></div>
+            </div>
+            <div class="trow" style="--cat:var(--lab)">
+              <div class="tile">HW</div>
+              <div class="tmain"><div class="tt">Homework 1</div>
+                <div class="tmeta"><span class="x">STAT 243</span><span class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 2 hrs</span></div></div>
+              <div class="check"></div>
+            </div>
+            <div class="trow" style="--cat:var(--reading)">
+              <div class="tile">RD</div>
+              <div class="tmain"><div class="tt">Reading response 1</div>
+                <div class="tmeta"><span class="x">PHIL 153</span><span class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 2 hrs</span></div></div>
+              <div class="check"></div>
+            </div>
+            <div class="trow" style="--cat:var(--writing)">
+              <div class="tile">WR</div>
+              <div class="tmain"><div class="tt">Vision statement</div>
+                <div class="tmeta"><span class="x">CS 262</span><span class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 2 hrs</span></div></div>
+              <div class="check"></div>
+            </div>
+
+            <div class="sechead"><span class="st">Next week</span><span class="sl"></span></div>
+            <div class="trow" style="--cat:var(--project)">
+              <div class="tile">PJ</div>
+              <div class="tmain"><div class="tt">Prototype demo</div>
+                <div class="tmeta"><span class="x">CS 262</span><span class="diff"><span class="dbar"><i class="on"></i><i class="on"></i><i></i></span> 6 hrs</span><span class="x" style="color:var(--accent);font-weight:700">start now</span></div></div>
+              <div class="check"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;color:var(--pmuted);line-height:1.6">
+        <span class="keymk">5</span> Week figures &nbsp;
+        <span class="keymk">6</span> Grouped task rows
+      </div>
+    </div>
+
+    <!-- SCREEN 2 OPTION B -->
+    <div class="col">
+      <div class="caption"><span class="rt">route /week &middot; option B</span><span class="nm">This week: cards</span></div>
+      <div class="phone">
+        <div class="nav"><span class="back">&larr;</span><span class="ttl">Week 3</span></div>
+        <div class="body">
+          <div class="region strip" style="padding:10px 11px">
+            <span class="mk">5</span>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <div><div class="lab">Landing this week</div><div class="bignum">12<small> / 15 hrs</small></div></div>
+              <div style="text-align:right"><div class="lab">Left to do</div><div class="bignum">6<small> items</small></div></div>
+            </div>
+          </div>
+
+          <div class="region" style="display:flex;flex-direction:column;gap:8px">
+            <span class="mk">7</span>
+
+            <div class="sechead"><span class="st over">Overdue</span><span class="sl"></span></div>
+            <div class="sq">
+              <div class="sqc od" style="--cat:var(--pset)">
+                <div class="sqtop"><div class="sqtile">PS</div><div class="sqcheck"></div></div>
+                <div class="sqt">Syllabus quiz</div>
+                <div class="sqfoot">
+                  <span class="um" style="color:var(--heavy);font-weight:700">Was week 2</span>
+                  <span class="um">MATH 251</span>
+                  <div class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 1 hr</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sechead"><span class="st">Due this week</span><span class="sl"></span></div>
+            <div class="sq">
+              <div class="sqc" style="--cat:var(--pset)">
+                <div class="sqtop"><div class="sqtile">PS</div><div class="sqcheck"></div></div>
+                <div class="sqt">Problem set 1</div>
+                <div class="sqfoot"><span class="um">MATH 251</span>
+                  <div class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 3 hrs</div></div>
+              </div>
+              <div class="sqc" style="--cat:var(--lab)">
+                <div class="sqtop"><div class="sqtile">HW</div><div class="sqcheck"></div></div>
+                <div class="sqt">Homework 1</div>
+                <div class="sqfoot"><span class="um">STAT 243</span>
+                  <div class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 2 hrs</div></div>
+              </div>
+              <div class="sqc" style="--cat:var(--reading)">
+                <div class="sqtop"><div class="sqtile">RD</div><div class="sqcheck"></div></div>
+                <div class="sqt">Reading response 1</div>
+                <div class="sqfoot"><span class="um">PHIL 153</span>
+                  <div class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 2 hrs</div></div>
+              </div>
+              <div class="sqc" style="--cat:var(--writing)">
+                <div class="sqtop"><div class="sqtile">WR</div><div class="sqcheck"></div></div>
+                <div class="sqt">Vision statement</div>
+                <div class="sqfoot"><span class="um">CS 262</span>
+                  <div class="diff"><span class="dbar"><i class="on"></i><i></i><i></i></span> 2 hrs</div></div>
+              </div>
+            </div>
+
+            <div class="sechead"><span class="st">Next week</span><span class="sl"></span></div>
+            <div class="sq">
+              <div class="sqc" style="--cat:var(--project)">
+                <div class="sqtop"><div class="sqtile">PJ</div><div class="sqcheck"></div></div>
+                <div class="sqt">Prototype demo</div>
+                <div class="sqfoot"><span class="um" style="color:var(--accent);font-weight:700">Start now</span>
+                  <span class="um">CS 262</span>
+                  <div class="diff"><span class="dbar"><i class="on"></i><i class="on"></i><i></i></span> 6 hrs</div></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;color:var(--pmuted);line-height:1.6">
+        <span class="keymk">5</span> Week figures &nbsp;
+        <span class="keymk">7</span> Grouped task cards
+      </div>
+    </div>
+
+  </div>
+
+  <hr>
+
+  <section class="sec">
+    <h2>What each part is</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Marker</th><th>Part</th><th>Doc</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="k"><span class="keymk">1</span></td><td class="k">Week strip</td><td class="ref">&sect;4, &sect;7, &sect;8</td>
+            <td>Fifteen bars, one per week of the semester, each sized by the hours of outstanding work projected into that week and coloured by the load band it falls into. The dashed line marks the student's weekly capacity. The current week is outlined and its number is emphasised on the axis; the next week over capacity is marked in the warning colour. Above the chart, two figures state hours landing this week against hours available, and which week is the next wall.</td>
+          </tr>
+          <tr>
+            <td class="k"><span class="keymk">2</span></td><td class="k">Wall card</td><td class="ref">&sect;4, &sect;2</td>
+            <td>States the next week whose projected work exceeds capacity, with both figures given in the heading. Below it, a single recommended action: which assignment to begin, which week to begin it in, and the hours other students recorded for that assignment. The figures are produced by the computation layer, and the action is a link into planning that week.</td>
+          </tr>
+          <tr>
+            <td class="k"><span class="keymk">3</span></td><td class="k">Coming up</td><td class="ref">&sect;4, &sect;7</td>
+            <td>A two-column grid of the next assignments due. Each card carries its category badge and colour bar, its title, the week and course it belongs to, and a difficulty meter with the hours students typically recorded. Ordered by how soon the work starts rather than by due date alone.</td>
+          </tr>
+          <tr>
+            <td class="k"><span class="keymk">4</span></td><td class="k">Course chips</td><td class="ref">&sect;4</td>
+            <td>A horizontally scrolling row, one chip per course, showing the course code and attendance remaining with a status dot. Courses without an attendance policy read "no policy", which is distinct from zero absences left. Each chip opens that course's detail.</td>
+          </tr>
+          <tr>
+            <td class="k"><span class="keymk">5</span></td><td class="k">Week figures</td><td class="ref">&sect;5</td>
+            <td>Hours landing in the current week against hours available, and the count of outstanding items. The same comparison as screen 1, narrowed to the present week.</td>
+          </tr>
+          <tr>
+            <td class="k"><span class="keymk">6</span></td><td class="k">Task rows (option A)</td><td class="ref">&sect;5, &sect;6</td>
+            <td>Outstanding work grouped under Overdue, Due this week, and Next week. Each row carries a category tile, the title, the course, and a difficulty meter, with a circular checkbox on the right that marks the work done. Work that is not yet due but should be started is flagged "start now".</td>
+          </tr>
+          <tr>
+            <td class="k"><span class="keymk">7</span></td><td class="k">Task cards (option B)</td><td class="ref">&sect;5, &sect;6</td>
+            <td>The same groups and the same content arranged as square cards in two columns. The category tile and checkbox sit at the top of each card and the metadata at the bottom, so the title has the middle of the card to itself.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Assignment categories</h2>
+    <p>Every assignment carries one category. The category sets the colour and the two-letter tile used wherever that assignment appears. Categories are assigned at intake; the set is fixed so that colour stays meaningful across screens (&sect;7).</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Category</th><th>Tile</th><th>Covers</th></tr></thead>
+        <tbody>
+          <tr><td class="k"><span class="swatch" style="background:var(--exam)"></span>Exam</td><td><code>EX</code></td><td>Midterms, finals, and quizzes that require study</td></tr>
+          <tr><td class="k"><span class="swatch" style="background:var(--project)"></span>Project</td><td><code>PJ</code></td><td>Multi-week builds, demos, and presentations</td></tr>
+          <tr><td class="k"><span class="swatch" style="background:var(--pset)"></span>Problem set</td><td><code>PS</code></td><td>Problem sets and short graded exercises</td></tr>
+          <tr><td class="k"><span class="swatch" style="background:var(--reading)"></span>Reading</td><td><code>RD</code></td><td>Readings and reading responses</td></tr>
+          <tr><td class="k"><span class="swatch" style="background:var(--writing)"></span>Writing</td><td><code>WR</code></td><td>Essays, reports, and written deliverables</td></tr>
+          <tr><td class="k"><span class="swatch" style="background:var(--lab)"></span>Lab / homework</td><td><code>HW</code></td><td>Labs and routine weekly homework</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Difficulty</h2>
+    <p>The three-bar meter and the hours beside it report the time students recorded for that assignment in previous semesters, not a judgement of how hard it is. One bar is light, two is moderate, three is heavy relative to the student's weekly capacity. Where no hours have been recorded, the meter is omitted rather than estimated (&sect;2).</p>
+  </section>
+
+</div>
