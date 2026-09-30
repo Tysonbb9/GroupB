@@ -4,8 +4,8 @@ Crunch Week is Group B's project for CS 262.
 
 ## Vision Statement
 
-Crunch Week empowers students to take control of their semester by turning their syllabi and insights from past students into a clear picture of what lies ahead, helping them plan for challenges before they happen.
-
+For college students facing exams, projects, and deadlines, Crunch Week is a mobile app that turns their course syllabi into a single semester timeline, highlighting the weeks where workload piles up. It also shows tips from students who previously took the same courses, so users know which assignments and exams need extra preparation. Unlike paper planners, Google Calendar, or Canvas, which only list due dates one course at a time, Crunch Week combines all of a student's courses to predict their hardest weeks and helps them start preparing early.
+ 
 ## Related Systems
 
 Calendar and task-management tools show students when work is due, but typically do not show whether several deadlines will exceed the time a student has available. General-purpose AI assistants can reason about a semester, but they do not provide the verified calculations and persistent semester state that Crunch Week is designed around. Crunch Week focuses on forecasting weekly workload, identifying periods that exceed a student's capacity, and updating that forecast as work is completed.
