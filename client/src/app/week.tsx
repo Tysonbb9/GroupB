@@ -1,7 +1,10 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { rankThisWeek } from '../lib/tasks';
-import { startBy, weeklyLoad } from '../lib/workload';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Figure } from '../components/Figure';
+import { SectionHeader } from '../components/SectionHeader';
+import { TaskRow } from '../components/TaskRow';
+import { groupThisWeek, startsNow } from '../lib/tasks';
+import { hoursInWeek, weeklyLoad, wholeHours } from '../lib/workload';
 import { useSemester } from '../state/semester-store';
 import { theme } from '../theme';
 
@@ -14,59 +17,61 @@ import { theme } from '../theme';
  * work getting smaller.
  */
 export default function WeekScreen() {
-  const { semester, toggleDone } = useSemester();
+  const { semester, toggleDone, setEstimate } = useSemester();
 
-  const ranked = rankThisWeek(semester);
-  const loads = weeklyLoad(semester.tasks);
-  const thisWeekHours = loads.find((l) => l.week === semester.currentWeek)?.hours ?? 0;
+  const groups = groupThisWeek(semester);
+  const itemsLeft = groups.reduce((count, group) => count + group.tasks.length, 0);
+  const thisWeekHours = hoursInWeek(weeklyLoad(semester.tasks), semester.currentWeek);
   const courseCode = (id: string) =>
     semester.courses.find((c) => c.id === id)?.code ?? '';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View>
-        <Text style={styles.title}>Week {semester.currentWeek}</Text>
-        <Text testID="week-hours" style={styles.subtitle}>
-          {Math.round(thisWeekHours)} hours of work land this week · {semester.weeklyCapacity} available
-        </Text>
+      <Text style={styles.title}>Week {semester.currentWeek}</Text>
+
+      <View style={styles.figures}>
+        <Figure
+          testID="week-hours"
+          label="Landing this week"
+          value={String(wholeHours(thisWeekHours))}
+          unit={`/ ${semester.weeklyCapacity} hrs`}
+          accessibilityLabel={`${wholeHours(thisWeekHours)} of ${semester.weeklyCapacity} hours land this week`}
+        />
+        <Figure
+          testID="items-left"
+          label="Left to do"
+          value={String(itemsLeft)}
+          unit={itemsLeft === 1 ? 'item' : 'items'}
+          align="right"
+          accessibilityLabel={`${itemsLeft} items left to do`}
+        />
       </View>
 
-      {ranked.length === 0 ? (
+      {groups.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>Nothing left. Genuinely nothing.</Text>
         </View>
       ) : (
-        <View style={styles.list}>
-          {ranked.map((task) => {
-            const overdue = task.dueWeek < semester.currentWeek;
-            const start = startBy(task, semester.weeklyCapacity);
-            const startsSoon = start !== null && start <= semester.currentWeek;
+        groups.map((group) => (
+          <View key={group.key} style={styles.group}>
+            <SectionHeader label={group.label} warn={group.key === 'overdue'} />
+            {group.tasks.map((task) => {
+              const overdue = task.dueWeek < semester.currentWeek;
 
-            return (
-              <View key={task.id} style={styles.item}>
-                <View style={styles.itemMain}>
-                  <Text style={styles.itemCourse}>{courseCode(task.courseId)}</Text>
-                  <Text style={styles.itemTitle}>{task.title}</Text>
-                  <Text style={[styles.itemMeta, overdue && styles.overdue]}>
-                    {overdue ? `Overdue — was week ${task.dueWeek}` : `Due week ${task.dueWeek}`}
-                    {task.estimatedHours !== null && ` · ~${task.estimatedHours} hrs`}
-                    {!overdue && startsSoon && ' · start now'}
-                  </Text>
-                </View>
-
-                <Pressable
-                  testID={`done-${task.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Mark ${task.title} done`}
-                  style={styles.done}
-                  onPress={() => toggleDone(task.id)}
-                >
-                  <Text style={styles.doneText}>Done</Text>
-                </Pressable>
-              </View>
-            );
-          })}
-        </View>
+              return (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  courseCode={courseCode(task.courseId)}
+                  overdueSince={overdue ? task.dueWeek : null}
+                  startNow={startsNow(task, semester.currentWeek, semester.weeklyCapacity)}
+                  onDone={() => toggleDone(task.id)}
+                  onEstimate={(hours) => setEstimate(task.id, hours)}
+                />
+              );
+            })}
+          </View>
+        ))
       )}
     </ScrollView>
   );
@@ -76,36 +81,17 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.bg },
   content: { padding: theme.space.md, gap: theme.space.md, paddingBottom: theme.space.xl },
   title: { fontSize: 26, fontWeight: '700', color: theme.ink },
-  subtitle: { fontSize: 13, color: theme.muted, marginTop: 2 },
-  list: { gap: theme.space.sm },
-  item: {
+  figures: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     backgroundColor: theme.surface,
     borderRadius: theme.radius,
     borderWidth: 1,
     borderColor: theme.rule,
     padding: theme.space.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.space.sm,
   },
-  itemMain: { flex: 1, gap: 1 },
-  itemCourse: {
-    fontSize: 10,
-    letterSpacing: 0.6,
-    color: theme.faint,
-    fontWeight: '700',
-  },
-  itemTitle: { fontSize: 15, fontWeight: '600', color: theme.ink },
-  itemMeta: { fontSize: 12, color: theme.muted },
-  overdue: { color: theme.heavy, fontWeight: '600' },
-  done: {
-    borderWidth: 1,
-    borderColor: theme.accent,
-    borderRadius: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  doneText: { color: theme.accent, fontWeight: '700', fontSize: 13 },
+  group: { gap: theme.space.sm },
   empty: {
     backgroundColor: theme.accentSoft,
     borderRadius: theme.radius,

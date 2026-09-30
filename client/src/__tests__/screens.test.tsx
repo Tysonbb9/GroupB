@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import React from 'react';
 import { Semester } from '../lib/types';
 import { SemesterProvider } from '../state/semester-store';
@@ -23,8 +23,8 @@ const fixture: Semester = {
   tasks: [
     { id: 'late', courseId: 'c2', title: 'Syllabus quiz', dueWeek: 2, estimatedHours: 1, done: false },
     { id: 'now', courseId: 'c1', title: 'Vision statement', dueWeek: 3, estimatedHours: 4, done: false },
-    { id: 'soon', courseId: 'c1', title: 'Prototype demo', dueWeek: 4, estimatedHours: 2, done: false },
-    { id: 'wall', courseId: 'c2', title: 'Midterm 1', dueWeek: 6, estimatedHours: 30, done: false },
+    { id: 'soon', courseId: 'c1', title: 'Prototype demo', dueWeek: 5, estimatedHours: 2, done: false },
+    { id: 'wall', courseId: 'c2', title: 'Midterm 1', dueWeek: 4, estimatedHours: 30, done: false },
     { id: 'gone', courseId: 'c1', title: 'Team contract', dueWeek: 1, estimatedHours: 1, done: true },
   ],
 };
@@ -48,20 +48,23 @@ describe('Semester screen', () => {
 
   it('warns about the next week that does not fit', () => {
     renderWith(<SemesterScreen />);
-    // 30 hours in week 6 against a capacity of 10.
-    expect(screen.getByText(/Week 6 is your next wall/)).toBeTruthy();
+    // 30 hours in week 4 against a capacity of 10.
+    expect(screen.getByText(/Week 4 needs 30 hours/)).toBeTruthy();
   });
 
   it('lists every course', () => {
     renderWith(<SemesterScreen />);
-    expect(screen.getByText('CS 262')).toBeTruthy();
-    expect(screen.getByText('MATH 251')).toBeTruthy();
+    // Course codes also appear on assignments, so look only in the course list.
+    const courses = within(screen.getByTestId('courses'));
+    expect(courses.getByText('CS 262')).toBeTruthy();
+    expect(courses.getByText('MATH 251')).toBeTruthy();
   });
 
   it('says when a course has no attendance policy', () => {
     renderWith(<SemesterScreen />);
-    expect(screen.getByText('no attendance policy')).toBeTruthy();
-    expect(screen.getByText('3 absences left')).toBeTruthy();
+    const courses = within(screen.getByTestId('courses'));
+    expect(courses.getByText('no policy')).toBeTruthy();
+    expect(courses.getByText('3 absences')).toBeTruthy();
   });
 });
 
@@ -82,7 +85,7 @@ describe('Week screen', () => {
   it('reports how many hours land this week', () => {
     renderWith(<WeekScreen />);
     // Only the 4-hour vision statement is due in week 3.
-    expect(screen.getByTestId('week-hours')).toHaveTextContent(/4 hours of work land this week/);
+    expect(screen.getByTestId('week-hours')).toHaveTextContent(/4 \/ 10 hrs/);
   });
 
   it('removes a task from the list once it is marked done', () => {
@@ -96,11 +99,11 @@ describe('Week screen', () => {
 
   it('takes the finished work out of this week’s hours', () => {
     renderWith(<WeekScreen />);
-    expect(screen.getByTestId('week-hours')).toHaveTextContent(/^4 hours/);
+    expect(screen.getByTestId('week-hours')).toHaveTextContent(/4 \/ 10 hrs/);
 
     fireEvent.press(screen.getByTestId('done-now'));
 
-    expect(screen.getByTestId('week-hours')).toHaveTextContent(/^0 hours/);
+    expect(screen.getByTestId('week-hours')).toHaveTextContent(/0 \/ 10 hrs/);
   });
 });
 
@@ -114,9 +117,9 @@ describe('the two screens together', () => {
       </SemesterProvider>
     );
 
-    // The 30-hour midterm in week 6 is the only thing over the 10-hour capacity.
+    // The 30-hour midterm in week 4 is the only thing over the 10-hour capacity.
     expect(screen.getByTestId('crunch-summary')).toHaveTextContent(
-      /Week 6 is your next wall/
+      /Week 4 needs 30 hours/
     );
 
     fireEvent.press(screen.getByTestId('done-wall'));

@@ -1,3 +1,6 @@
+import { Category } from './lib/categories';
+import { LoadBand, loadBand } from './lib/workload';
+
 /** One place for colours and spacing so the screens stay readable. */
 export const theme = {
   bg: '#F3F6F6',
@@ -18,12 +21,27 @@ export const theme = {
   radius: 6,
 } as const;
 
-/**
- * Which band a week's projected hours falls into.
- * Over capacity is heavy; within two-thirds of capacity is calm.
- */
+const BAND_COLORS: Record<LoadBand, string> = {
+  calm: theme.calm,
+  moderate: theme.moderate,
+  heavy: theme.heavy,
+};
+
+/** The colour of the load band a week's projected hours falls into. */
 export function loadColor(hours: number, capacity: number): string {
-  if (hours > capacity) return theme.heavy;
-  if (hours > capacity * 0.66) return theme.moderate;
-  return theme.calm;
+  return BAND_COLORS[loadBand(hours, capacity)];
+}
+
+const CATEGORY_COLORS: Record<Category, string> = {
+  exam: '#7B3F6E',
+  project: '#35507F',
+  problemSet: '#2E6B5A',
+  reading: '#6E5A2E',
+  writing: '#8A4A35',
+  homework: '#46607A',
+};
+
+/** The colour of a category, or a neutral one when the category is unknown. */
+export function categoryColor(category: Category | undefined): string {
+  return category === undefined ? theme.faint : CATEGORY_COLORS[category];
 }

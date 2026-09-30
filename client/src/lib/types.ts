@@ -1,3 +1,5 @@
+import { Category } from './categories';
+
 /**
  * The whole data model. If a field is not used by a function in lib/
  * or drawn on a screen in app/, it does not belong here yet.
@@ -7,6 +9,11 @@ export type Task = {
   id: string;
   courseId: string;
   title: string;
+  /**
+   * What kind of work this is. Undefined means it could not be classified,
+   * which is not a failure: the task shows a neutral tile and sorts normally.
+   */
+  category?: Category;
   /** Week of the semester the task is due, 1-15. */
   dueWeek: number;
   /** How long we think it takes. null means nobody has estimated it. */

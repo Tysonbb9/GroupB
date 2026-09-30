@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WeekLoad } from '../lib/types';
+import { wholeHours } from '../lib/workload';
 import { loadColor, theme } from '../theme';
 
 const STRIP_HEIGHT = 110;
@@ -9,15 +10,26 @@ const STRIP_HEIGHT = 110;
  * The semester at a glance: one bar per week, height by projected hours,
  * colour by how it sits against the student's capacity. The dashed line
  * is the capacity itself, so "over the line" is literal.
+ *
+ * The selected week (the current week until the student taps another) is
+ * outlined. The current week is numbered in the accent colour and the next
+ * week over capacity in the warning colour, so the two weeks that matter can
+ * be found without counting.
  */
 export function WeekStrip({
   loads,
   capacity,
   currentWeek,
+  selectedWeek,
+  wallWeek,
+  onSelectWeek,
 }: {
   loads: WeekLoad[];
   capacity: number;
   currentWeek: number;
+  selectedWeek: number;
+  wallWeek: number | null;
+  onSelectWeek: (week: number) => void;
 }) {
   const peak = Math.max(capacity, ...loads.map((l) => l.hours));
 
@@ -29,15 +41,19 @@ export function WeekStrip({
         />
         {loads.map((load) => (
           <View key={load.week} style={styles.column}>
-            <View
+            <Pressable
               testID={`week-bar-${load.week}`}
-              accessibilityLabel={`Week ${load.week}, ${Math.round(load.hours)} hours`}
+              accessibilityRole="button"
+              accessibilityLabel={`Week ${load.week}, ${wholeHours(load.hours)} hours`}
+              accessibilityState={{ selected: load.week === selectedWeek }}
+              onPress={() => onSelectWeek(load.week)}
               style={[
                 styles.bar,
                 {
                   height: Math.max(2, (load.hours / peak) * STRIP_HEIGHT),
                   backgroundColor: loadColor(load.hours, capacity),
                 },
+                load.week === selectedWeek && styles.barSelected,
               ]}
             />
           </View>
@@ -48,7 +64,12 @@ export function WeekStrip({
         {loads.map((load) => (
           <Text
             key={load.week}
-            style={[styles.axisLabel, load.week === currentWeek && styles.axisNow]}
+            testID={`week-axis-${load.week}`}
+            style={[
+              styles.axisLabel,
+              load.week === currentWeek && styles.axisNow,
+              load.week === wallWeek && styles.axisWall,
+            ]}
           >
             {load.week}
           </Text>
@@ -80,6 +101,7 @@ const styles = StyleSheet.create({
   },
   column: { flex: 1, paddingHorizontal: 1.5, justifyContent: 'flex-end' },
   bar: { width: '100%', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
+  barSelected: { borderWidth: 1.5, borderColor: theme.ink },
   axis: { flexDirection: 'row', marginTop: theme.space.xs },
   axisLabel: {
     flex: 1,
@@ -88,6 +110,7 @@ const styles = StyleSheet.create({
     color: theme.faint,
   },
   axisNow: { color: theme.accent, fontWeight: '700' },
+  axisWall: { color: theme.heavy, fontWeight: '700' },
   capacityNote: {
     marginTop: theme.space.sm,
     fontSize: 11,
