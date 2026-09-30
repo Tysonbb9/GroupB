@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { semester as fixture } from '../data/semester';
-import { Semester } from '../lib/types';
+import { Semester, Task } from '../lib/types';
 
 /**
  * Holds the one semester the app knows about, so both screens see the same
@@ -13,6 +13,8 @@ import { Semester } from '../lib/types';
 type SemesterStore = {
   semester: Semester;
   toggleDone: (taskId: string) => void;
+  /** Sets a task's estimated hours; null clears it. */
+  setEstimate: (taskId: string, hours: number | null) => void;
 };
 
 const SemesterContext = createContext<SemesterStore | null>(null);
@@ -28,16 +30,23 @@ export function SemesterProvider({
   const [semester, setSemester] = useState<Semester>(initial);
 
   const value = useMemo<SemesterStore>(
-    () => ({
-      semester,
-      toggleDone: (taskId: string) =>
+    () => {
+      const updateTask = (taskId: string, change: (task: Task) => Partial<Task>) =>
         setSemester((current) => ({
           ...current,
           tasks: current.tasks.map((t) =>
-            t.id === taskId ? { ...t, done: !t.done } : t
+            t.id === taskId ? { ...t, ...change(t) } : t
           ),
-        })),
-    }),
+        }));
+
+      return {
+        semester,
+        toggleDone: (taskId: string) =>
+          updateTask(taskId, (task) => ({ done: !task.done })),
+        setEstimate: (taskId: string, hours: number | null) =>
+          updateTask(taskId, () => ({ estimatedHours: hours })),
+      };
+    },
     [semester]
   );
 
