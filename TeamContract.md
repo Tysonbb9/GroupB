@@ -22,7 +22,7 @@ The team will meet **every Tuesday at 5:00 PM in the library**. All members are 
 ## Team Members
 
 - Tyson Bobeldyk
-- Gabby Odhiambo
+- Gabrielle Odhiambo
 - Nhyira Mante
 - TJ French
 - Bithiah Botsha
