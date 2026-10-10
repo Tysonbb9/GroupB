@@ -1,15 +1,23 @@
 # Software Requirements Specification (SRS) — Crunch Week
 
+## Revision History
+
+Earlier changes are recorded in the repository's git history.
+
+| Date | Author | Change |
+| --- | --- | --- |
+| 2026-10-10 | Colin Redder | Removed leftover drafting text, put the non-functional requirements in numeric order, and added an Open Issues section. |
+
 ## 1. Introduction
 
 ### 1.1 Purpose
 
 This Software Requirements Specification (SRS) documents the requirements for **Crunch Week**, a student workload–planning application. The purpose of the software is to help college students see upcoming coursework, understand how much work they have each week, and recognize difficult weeks before they happen. This document defines the functional and non-functional requirements that the development team will build and that testers will validate.
-This SRS also incorporates the "program requirements" for the same product, which cover login/authentication, syllabus input, and difficulty summaries. Where the two sets of requirements are at different maturity levels, both are presented as-is; nothing has been fabricated.
+This SRS also incorporates the "program requirements" for the same product, which cover login/authentication, syllabus input, and difficulty summaries. The two sets of requirements are at different levels of maturity, so the more tentative ones are marked as such (see Section 5, Open Issues).
 
 ### 1.2 Intended Audience
 
-This SRS is intended for the people who produce and use requirements for this product, as described in the guide this document follows: product owners and business analysts (who define requirements), developers (who understand what to build), testers (who create test cases and validate), project managers (who track scope and progress), and clients/stakeholders (who approve features and expectations). The requirements do not identify specific named individuals or departments.
+This SRS is intended for the people who produce and use requirements for this product: product owners and business analysts (who define requirements), developers (who understand what to build), testers (who create test cases and validate), project managers (who track scope and progress), and clients/stakeholders (who approve features and expectations). The requirements do not identify specific named individuals or departments.
 
 ### 1.3 Intended Use
 
@@ -160,7 +168,7 @@ The following functional requirements are taken from the program-requirements dr
 
 #### 3.1.2 EARS Format
 
-Key requirements below are restated using the guide's EARS syntax ("When [event], the system shall [response]"):
+Key requirements below are restated using EARS syntax ("When [event], the system shall [response]"):
 
 *   When a week's estimated workload is greater than the student's available capacity, the system shall identify that week as a crunch week.
     
@@ -193,9 +201,13 @@ The requirements specify responsiveness rather than numeric performance targets:
 
 The requirements do not define specific security requirements. The program-requirements draft mentions authentication and authorization as program requirements, but their details are undecided (e.g., whether OAuth or an existing provider is used). No further security requirements have been asserted.
 
-#### 3.2.3 Usability, Reliability, Compliance
+#### 3.2.3 Platform, Usability, Reliability, and Maintainability
 
-*   **NFR-08 — Usability:** The system shall present workload information in a form that a college student can understand without needing technical knowledge.
+The remaining non-functional requirements are listed in numeric order (NFR-03 appears in Section 3.2.1).
+
+*   **NFR-01 — Platform:** The system shall be developed using Expo and React Native.
+    
+*   **NFR-02 — Web Support:** The prototype shall be able to run in a web browser using Expo Web.
     
 *   **NFR-04 — Reliability:** The application shall continue running when a task has no estimated hours or a course has no attendance policy.
     
@@ -205,16 +217,16 @@ The requirements do not define specific security requirements. The program-requi
     
 *   **NFR-07 — Consistency:** Changes made on one screen shall be reflected correctly on the other screen.
     
-*   **NFR-01 — Platform:** The system shall be developed using Expo and React Native.
-    
-*   **NFR-02 — Web Support:** The prototype shall be able to run in a web browser using Expo Web.
+*   **NFR-08 — Usability:** The system shall present workload information in a form that a college student can understand without needing technical knowledge.
     
 *   **NFR-09 — Prototype Scope:** The current prototype shall operate without requiring authentication, a database, server communication, or live Moodle integration.
     
 
 No compliance-specific requirements are stated in the requirements, and none have been added here.
 
-### 3.3 (Section omitted per instruction — External Interface Requirements is not included.)
+### 3.3 External Interface Requirements
+
+Not yet specified. The current prototype has no server, database, or Moodle integration (NFR-09), so no external interfaces are defined for it. This section should be filled in when interfaces such as a server API or a calendar feed are added.
 
 ### 3.4 System Features
 
@@ -229,9 +241,9 @@ No compliance-specific requirements are stated in the requirements, and none hav
 *   **Difficulty summary (program-requirements draft):** A full summary of class difficulty spikes, notifications including difficulty, and a visual depiction of where assignments fall on which weeks.
     
 
-### 3.5 User Story Traceability (Step 6 — Link User Stories to Requirements)
+### 3.5 User Story Traceability
 
-Connecting user stories to high-level functional requirements ensures traceability throughout the development lifecycle. Since no user stories were previously defined, one user story per functional requirement has been derived below. Consistent identifiers (US-01 through US-25) are used so each story maps unambiguously to a single FR.
+Connecting user stories to functional requirements ensures traceability throughout the development lifecycle. Each user story below is derived from one functional requirement. Consistent identifiers (US-01 through US-25) are used so each story maps unambiguously to a single FR.
 
 #### 3.5.1 User Stories
 
@@ -323,3 +335,17 @@ Connecting user stories to high-level functional requirements ensures traceabili
 ### 4.1 Database Requirements
 
 The current Crunch Week prototype is specified to operate without a database. The program-requirements draft references storage of course reviews (not the syllabus) as an input-storage requirement and includes input processing of scanned syllabi, calculations, and crowd-sourcing input; however, the draft does not define a database schema, technology, or persistence design, so no database requirements are asserted beyond what is stated here.
+
+## 5. Open Issues
+
+These questions are undecided in the current requirements. Each should be resolved by the team and then removed from this list, with the SRS updated to match.
+
+| # | Issue | Affects | Where noted |
+| --- | --- | --- | --- |
+| OI-01 | The prototype scope (no authentication, database, server, or Moodle) conflicts with the program-requirements draft (login, authentication, Moodle input, course reviews). The team needs to decide which requirements belong to the current prototype. | NFR-09, FR-18 to FR-24 | Sections 1.4, 3.1.1 |
+| OI-02 | The authentication approach is undecided: simple authentication, OAuth, or an existing provider. | FR-18, FR-19, FR-20 | Sections 2.2, 3.1.1 |
+| OI-03 | It is undecided whether a Moodle calendar is used as an input. | FR-21 | Section 2.2 |
+| OI-04 | The handling of course reviews (collection, storage, and use as crowd-sourced input) is undecided. | FR-21, FR-22, FR-23 | Section 2.2 |
+| OI-05 | No security requirements are defined beyond the undecided authentication and authorization features. | Section 3.2.2 | Section 3.2.2 |
+| OI-06 | No numeric performance targets are defined. | NFR-03 | Section 3.2.1 |
+| OI-07 | No database schema, technology, or persistence design is defined for stored reviews. | FR-22 | Section 4.1 |
