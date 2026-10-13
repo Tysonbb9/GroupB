@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
-import { semester as fixture } from '../data/semester';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { ErrorView, LoadingView } from '../components/ServerStatus';
+import { fetchSemester } from '../lib/api';
 import { Semester, Task } from '../lib/types';
 
 /**
@@ -19,13 +20,64 @@ type SemesterStore = {
 
 const SemesterContext = createContext<SemesterStore | null>(null);
 
+/**
+ * What the app is given at the top. With no `initial`, the semester is
+ * fetched from the server, behind a loading screen and an error screen with
+ * a retry. Tests, and the fixture switch in the root layout, pass `initial`
+ * to skip the server.
+ */
 export function SemesterProvider({
   children,
-  initial = fixture,
+  initial,
 }: {
   children: React.ReactNode;
-  /** Tests pass their own semester in here. */
   initial?: Semester;
+}) {
+  if (initial !== undefined) {
+    return <SemesterState initial={initial}>{children}</SemesterState>;
+  }
+  return <SemesterFromServer>{children}</SemesterFromServer>;
+}
+
+/** Fetches the semester once, and only renders the app when it has arrived. */
+function SemesterFromServer({ children }: { children: React.ReactNode }) {
+  const [semester, setSemester] = useState<Semester | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Changing this number is what makes the effect below run again.
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSemester()
+      .then((loaded) => {
+        if (!cancelled) setSemester(loaded);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const retry = () => {
+    setError(null);
+    setAttempt((n) => n + 1);
+  };
+
+  if (semester === null) {
+    return error === null ? <LoadingView /> : <ErrorView message={error} onRetry={retry} />;
+  }
+  return <SemesterState initial={semester}>{children}</SemesterState>;
+}
+
+/** Holds the semester in state and hands it, with its two updates, to the app. */
+function SemesterState({
+  children,
+  initial,
+}: {
+  children: React.ReactNode;
+  initial: Semester;
 }) {
   const [semester, setSemester] = useState<Semester>(initial);
 
