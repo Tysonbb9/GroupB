@@ -13,7 +13,7 @@ From the repo root:
 ```bash
 npm run install:all     # installs client dependencies
 npm run web             # opens the app in a browser
-npm test                # runs all 38 tests
+npm test                # runs all the client tests
 ```
 
 Or from `client/`:
@@ -23,6 +23,32 @@ npx expo start          # then press w for web, or scan the QR code with Expo Go
 ```
 
 **On your phone:** install Expo Go from the App Store, run `npx expo start`, scan the QR code. No Apple Developer account, no build step.
+
+### With the server (the default)
+
+The app loads its semester from the server in `server/`, so start that first:
+
+```bash
+cd server
+npm install
+npm start               # listens on port 3000
+```
+
+Then start the client as above. In development the client works out the server's address by itself: it reuses the address of the computer running Expo, with port 3000, so a phone needs no setup as long as it is on the same network as the computer.
+
+To point at a different server, set `EXPO_PUBLIC_API_URL`, for example in `client/.env.local` (git ignores it):
+
+```
+EXPO_PUBLIC_API_URL=http://192.168.1.20:3000
+```
+
+Restart with `npx expo start -c` after changing it, because Expo copies `EXPO_PUBLIC_` variables into the app when it builds the bundle. A release build must have this set. It never falls back to localhost.
+
+If the server cannot be reached, the app shows an error screen with the address it tried and a **Try again** button.
+
+### Without the server
+
+Set `EXPO_PUBLIC_USE_FIXTURE=1` (also in `client/.env.local`) to run on the hard-coded semester in `data/semester.ts` instead. This is a manual switch. The app never falls back to the fixture by itself, so a server that is down always shows.
 
 ---
 
@@ -38,7 +64,9 @@ lib/*.ts             pure functions — arithmetic over that data
 app/*.tsx            screens — draw what the functions return
 ```
 
-`lib/` never imports from `app/`. It does not know React exists. That is why it is easy to test and why it will survive when real data replaces the fixture.
+`lib/` never imports from `app/`. It does not know React exists. That is why it is easy to test and why it survived when real data replaced the fixture.
+
+Since Sprint 3 the semester comes from the server, not from `data/semester.ts`. The only code that talks to the server is `lib/api.ts`, and the only code that decides when to ask is the provider in `state/semester-store.tsx`. Nothing in `lib/` or the screens changed.
 
 ---
 
@@ -103,11 +131,23 @@ The last tiebreaker in `rankThisWeek` exists so tests do not depend on array ord
 
 The six assignment categories (exam, project, problem set, reading, writing, lab / homework) with each one's label and two-letter tile. The set is fixed on purpose, so colour keeps its meaning. A task with no `category` is not an error: it gets a neutral tile with no letters.
 
+### `src/lib/api.ts`
+
+The one place the app talks to the server. `fetchSemester()` does a `GET /semester` and returns a `Semester`, or rejects with a message a person can read. It turns the three ways a request can go wrong into three messages:
+
+- **The server cannot be reached.** `fetch` rejects, and we say `Could not reach the server at <address>`.
+- **The server answers with an error.** `fetch` does not reject on a 404 or 500, so we check `response.ok` ourselves and say `The server answered 500`.
+- **The data is the wrong shape.** The parsed body is typed `unknown` and passed through `isSemester`, a type guard that checks the top-level fields. If it fails we say `The server sent invalid semester data`. The check is shallow on purpose: it catches a wrong URL or a server that answered with something else, not every field of every task.
+
+`resolveBaseUrl` decides the address and is separate so it can be tested without Expo: `EXPO_PUBLIC_API_URL` if set, otherwise (development only) the Expo computer's address with port 3000, otherwise an error. `isObject` returns `value is Record<string, unknown>`, which tells TypeScript the value is an object whose fields we know nothing about yet, so the checks can read `value.label` and test its type.
+
 ### `src/data/semester.ts`
 
 One fake student, five courses, 36 tasks. Every task has a category, and one (the discussion post) has no estimate on purpose so the "Add estimate" path can be seen. Everything the app displays comes from here.
 
 This file is the shape of what syllabus intake and the calendar subscription will produce in phase 2. When real data arrives, this file goes away and nothing else has to change.
+
+The app no longer reads this file by default. It is kept as the offline option behind `EXPO_PUBLIC_USE_FIXTURE=1`, and the server's seed data is a copy of it.
 
 ### `src/state/semester-store.tsx`
 
@@ -117,7 +157,14 @@ It exists for one reason: marking a task done on the week screen has to change t
 
 No state library. If you know `useState` and `useContext`, you know this file.
 
-The provider takes an optional `initial` prop so tests can supply their own semester instead of the fixture.
+`SemesterProvider` takes an optional `initial` prop, and that decides where the semester comes from:
+
+- **`initial` given:** use it as is. Tests do this, and so does the fixture switch in `_layout.tsx`. The server is never called.
+- **`initial` not given:** `SemesterFromServer` calls `fetchSemester()`, shows `LoadingView` while it waits, shows `ErrorView` if it fails, and on success hands the semester to `SemesterState`.
+
+`SemesterState` is the original provider, unchanged: the `useState`, `toggleDone` and `setEstimate`. Splitting it out means the loading logic never touches it, and none of the existing tests had to change.
+
+For now `toggleDone` and `setEstimate` change the semester in memory only. Saving them back to the server is a later step.
 
 ### `src/components/WeekStrip.tsx`
 
@@ -161,9 +208,13 @@ One chip per course in a row that scrolls sideways, with a status dot from `atte
 
 `Figure` is one large number with a small label; `WeekFigures` and the This week screen both use it. `SectionHeader` is the small-caps heading with a rule that starts each group.
 
+### `src/components/ServerStatus.tsx`
+
+`LoadingView` (a spinner and "Loading your semester") and `ErrorView` (the error message and a **Try again** button). Only the provider uses them, while the semester is loading or has failed to load.
+
 ### `src/app/_layout.tsx`
 
-expo-router's root. Wraps everything in `SemesterProvider` and defines the two routes. Twenty lines.
+expo-router's root. Wraps everything in `SemesterProvider` and defines the two routes. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
 
 ### `src/app/index.tsx` — screen 1, Semester
 
@@ -189,7 +240,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-164 of them, in nine files.
+182 of them, in twelve files.
 
 ```bash
 npm test                      # all of them
@@ -202,12 +253,17 @@ npx jest --watch              # while you work
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
+| `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
 | `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the wall card and start-by recommendation |
 | `src/__tests__/estimate-hours.test.tsx` | 11 | US-12, US-13: adding an estimate, and tasks without one |
 | `src/__tests__/assignments-by-week.test.tsx` | 10 | US-25 (visual depiction): tap a week to see its assignments |
 | `src/__tests__/ui-design.test.tsx` | 27 | the UI design: grouped rows, categories, Coming up, course chips, plan link |
+| `src/__tests__/semester-from-server.test.tsx` | 4 | the provider: loading, then the app; the error screen; Try again; `initial` skips the server |
+| `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
+
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/`. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week.
 
 Shared test data for the story tests is in `src/testing/fixtures.ts`, outside `src/__tests__/` so Jest does not treat it as a test file.
 
