@@ -240,7 +240,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-180 of them, in eleven files.
+182 of them, in twelve files.
 
 ```bash
 npm test                      # all of them
@@ -261,6 +261,9 @@ npx jest --watch              # while you work
 | `src/__tests__/assignments-by-week.test.tsx` | 10 | US-25 (visual depiction): tap a week to see its assignments |
 | `src/__tests__/ui-design.test.tsx` | 27 | the UI design: grouped rows, categories, Coming up, course chips, plan link |
 | `src/__tests__/semester-from-server.test.tsx` | 4 | the provider: loading, then the app; the error screen; Try again; `initial` skips the server |
+| `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
+
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/`. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week.
 
 Shared test data for the story tests is in `src/testing/fixtures.ts`, outside `src/__tests__/` so Jest does not treat it as a test file.
 
