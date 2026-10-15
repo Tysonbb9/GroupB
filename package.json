@@ -4,10 +4,12 @@
   "private": true,
   "description": "CS 262 Team B — Crunch Week",
   "scripts": {
-    "install:all": "npm install --prefix client",
+    "install:all": "npm install --prefix client && npm install --prefix server",
+    "server": "npm install --prefix server && npm start --prefix server",
     "client": "npm install --prefix client && npm start --prefix client",
     "web": "npm install --prefix client && npm run web --prefix client",
     "test": "npm test --prefix client",
+    "test:server": "npm test --prefix server",
     "test:watch": "npm run test:watch --prefix client",
     "typecheck": "npm run typecheck --prefix client"
   }

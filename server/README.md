@@ -21,7 +21,9 @@ npm run typecheck
 
 ## API
 
-All responses are JSON. Errors look like `{ "error": "message" }`.
+All responses are JSON. Errors look like `{ "error": "message" }`. The server
+allows requests from any web address (CORS), so the browser version of the
+client can use it.
 
 | Method | Path | Description | Success | Errors |
 |---|---|---|---|---|
