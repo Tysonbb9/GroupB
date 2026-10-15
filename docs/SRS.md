@@ -7,6 +7,7 @@ Earlier changes are recorded in the repository's git history.
 | Date | Author | Change |
 | --- | --- | --- |
 | 2026-10-10 | Colin Redder | Removed leftover drafting text, put the non-functional requirements in numeric order, and added an Open Issues section. |
+| 2026-10-15 | Colin Redder | Added a user story for every non-functional requirement (US-33 to US-41), added US-26 and US-27 from issues #64 and #65, added FR-25 to FR-30 with user stories US-28 to US-32, extended the traceability matrix to non-functional requirements, and added open issues OI-08 and OI-09. |
 
 ## 1. Introduction
 
@@ -31,7 +32,7 @@ This SRS establishes the single source of truth for what Crunch Week must do. It
     
 *   Communicate expected behavior to stakeholders.
     
-*   Provide traceability from user stories to functional requirements (see Section 3.5).
+*   Provide traceability from user stories to functional and non-functional requirements (see Section 3.5).
     
 
 Like any SRS, it is a living document that should be reviewed, updated, and validated as requirements evolve.
@@ -166,6 +167,21 @@ The following functional requirements are taken from the program-requirements dr
 
 > **Note (uncertainty/conflict):** FR-18 through FR-24 describe features (login, authentication, Moodle input) that lie outside the stated scope of the current prototype, which operates without authentication, a database, server communication, or live Moodle integration. Both sets of requirements are presented as-is from their respective sources and need to be reconciled.
 
+The following functional requirements were added with user stories US-26 and US-28 to US-32:
+
+*   **FR-25 — Syllabus Update Reminder:** The system shall remind the student to review and update their syllabus information. When and how often reminders are sent is not yet decided (see OI-09).
+    
+*   **FR-26 — Syllabus Text Entry:** The system shall allow the student to choose a course, enter that course's syllabus text, and see the assignments found in it along with any lines that could not be read.
+    
+*   **FR-27 — Syllabus PDF Upload:** The system shall accept a course syllabus as a PDF file and extract its text for scanning. When a PDF has no readable text, such as a scanned image, the system shall say so and offer text entry instead.
+    
+*   **FR-28 — Review Before Adding:** The system shall let the student edit the title, due week, and estimated hours of each assignment found in a syllabus, or remove it, before any of them are added to the semester.
+    
+*   **FR-29 — Undo Completion:** The system shall allow the student to mark a completed task as not completed, returning its hours to the remaining workload.
+    
+*   **FR-30 — Edit Weekly Capacity:** The system shall allow the student to change their weekly capacity, and shall use the new value for the workload comparison and crunch detection.
+    
+
 #### 3.1.2 EARS Format
 
 Key requirements below are restated using EARS syntax ("When [event], the system shall [response]"):
@@ -185,6 +201,16 @@ Key requirements below are restated using EARS syntax ("When [event], the system
 *   When an assignment spans multiple weeks, the system shall distribute its workload across those weeks.
     
 *   When a course receives sufficient crowd-sourcing input, the system shall process that input to contribute to difficulty estimations.
+    
+*   When the student submits syllabus text for a course, the system shall show the assignments found and the lines it could not read.
+    
+*   When an uploaded syllabus PDF contains no readable text, the system shall tell the student and offer text entry instead.
+    
+*   When the student confirms the reviewed assignments, the system shall add them to the semester.
+    
+*   When the student marks a completed task as not completed, the system shall return its hours to the remaining workload.
+    
+*   When the student changes their weekly capacity, the system shall recompute the workload comparison and the crunch weeks.
     
 
 ### 3.2 Non-Functional Requirements
@@ -243,7 +269,7 @@ Not yet specified. The current prototype has no server, database, or Moodle inte
 
 ### 3.5 User Story Traceability
 
-Connecting user stories to functional requirements ensures traceability throughout the development lifecycle. Each user story below is derived from one functional requirement. Consistent identifiers (US-01 through US-25) are used so each story maps unambiguously to a single FR.
+Connecting user stories to requirements ensures traceability throughout the development lifecycle. Each user story below is derived from one requirement: US-01 through US-32 from a functional requirement (FR), and US-33 through US-41 from a non-functional requirement (NFR). Consistent identifiers are used so each story maps unambiguously to a single requirement.
 
 #### 3.5.1 User Stories
 
@@ -300,9 +326,51 @@ Connecting user stories to functional requirements ensures traceability througho
 
 > **Note:** US-19 through US-25 map to the tentative program requirements (FR-18 through FR-24) and inherit the scope conflict noted in Sections 1.4 and 3.1.1 — these stories fall outside the current prototype's stated scope and need reconciliation.
 
+The following functional user stories were added after the original set. They use the team's current format, "As a user, I can [action] to [goal]":
+
+*   **US-26 (FR-25):** As a user, I can be reminded to update my syllabus to give the app the most recent class information.
+    
+*   **US-27 (FR-18):** As a user, I can visit the login screen to log in to the app.
+    
+*   **US-28 (FR-26):** As a user, I can paste a course's syllabus text and see the assignments found in it to avoid typing each assignment in by hand.
+    
+*   **US-29 (FR-27):** As a user, I can upload my syllabus as a PDF to skip copying its text out first.
+    
+*   **US-30 (FR-28):** As a user, I can fix or remove the assignments found in my syllabus before they are added to keep misread lines out of my forecast.
+    
+*   **US-31 (FR-29):** As a user, I can undo marking a task as done to recover from a mistaken tap.
+    
+*   **US-32 (FR-30):** As a user, I can change how many hours I have available each week to make crunch weeks match my real schedule.
+    
+
+> **Note:** US-26 and US-27 come from issues #64 and #65, where the requirement was marked "tbd". US-26 is mapped to FR-25, added in this revision, and US-27 to the existing FR-18 (Login), since the login screen is the first part of logging in.
+
+The following user stories each restate one non-functional requirement from the point of view of the person it serves, in the same format. Stories about how the code is organized are written for a developer, since a user never sees that part.
+
+*   **US-33 (NFR-01):** As a user, I can use the same app on my phone or in a web browser to plan my semester wherever I am.
+    
+*   **US-34 (NFR-02):** As a user, I can open the prototype in a web browser to try it without installing anything.
+    
+*   **US-35 (NFR-03):** As a user, I can see my workload update the moment I complete a task, without refreshing, to always know where I stand.
+    
+*   **US-36 (NFR-04):** As a user, I can keep using the app when a task has no estimate or a course has no attendance policy to plan even with incomplete information.
+    
+*   **US-37 (NFR-05):** As a developer, I can test the workload calculations separately from the screens to catch mistakes before users see them.
+    
+*   **US-38 (NFR-06):** As a developer, I can change the data, the calculation logic, or the interface code on its own to avoid breaking the other parts.
+    
+*   **US-39 (NFR-07):** As a user, I can make a change on one screen and see it reflected on the other to never see two different answers.
+    
+*   **US-40 (NFR-08):** As a user, I can read my workload in plain terms to understand it without technical knowledge.
+    
+*   **US-41 (NFR-09):** As a developer, I can run the prototype without login, a database, a server, or Moodle to demonstrate the core workload forecast early.
+    
+
+> **Note:** US-35 and US-39 describe the same behavior as US-10 and US-11, seen as a quality of the whole app rather than as a single feature, so each pair is traced to both an NFR and an FR. US-41 restates NFR-09 as written, but NFR-09 no longer matches the prototype (see OI-08).
+
 #### 3.5.2 Traceability Matrix
 
-| User Story | Functional Requirement |
+| User Story | Requirement |
 | --- | --- |
 | US-01 | FR-01 — Semester Workload |
 | US-02 | FR-02 — Weekly Capacity |
@@ -329,6 +397,22 @@ Connecting user stories to functional requirements ensures traceability througho
 | US-23 | FR-22 — Input Storage |
 | US-24 | FR-23 — Input Processing |
 | US-25 | FR-24 — Outputs |
+| US-26 | FR-25 — Syllabus Update Reminder |
+| US-27 | FR-18 — Login |
+| US-28 | FR-26 — Syllabus Text Entry |
+| US-29 | FR-27 — Syllabus PDF Upload |
+| US-30 | FR-28 — Review Before Adding |
+| US-31 | FR-29 — Undo Completion |
+| US-32 | FR-30 — Edit Weekly Capacity |
+| US-33 | NFR-01 — Platform |
+| US-34 | NFR-02 — Web Support |
+| US-35 | NFR-03 — Responsiveness |
+| US-36 | NFR-04 — Reliability |
+| US-37 | NFR-05 — Testability |
+| US-38 | NFR-06 — Maintainability |
+| US-39 | NFR-07 — Consistency |
+| US-40 | NFR-08 — Usability |
+| US-41 | NFR-09 — Prototype Scope |
 
 ## 4. Other Requirements
 
@@ -349,3 +433,5 @@ These questions are undecided in the current requirements. Each should be resolv
 | OI-05 | No security requirements are defined beyond the undecided authentication and authorization features. | Section 3.2.2 | Section 3.2.2 |
 | OI-06 | No numeric performance targets are defined. | NFR-03 | Section 3.2.1 |
 | OI-07 | No database schema, technology, or persistence design is defined for stored reviews. | FR-22 | Section 4.1 |
+| OI-08 | NFR-09 says the prototype runs without a server or login, but a server was added in PR #60 and a login screen in PR #69. NFR-09 needs updating, together with OI-01. | NFR-09, US-41 | Sections 3.2.3, 3.5.1 |
+| OI-09 | When and how often syllabus update reminders are sent is undecided. | FR-25, US-26 | Section 3.1.1 |
