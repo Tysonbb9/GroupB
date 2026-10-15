@@ -14,6 +14,7 @@ From the repo root:
 npm run install:all     # installs client and server dependencies
 npm run web             # opens the app in a browser
 npm test                # runs all the client tests
+npm run test:server     # runs all the server tests
 ```
 
 Or from `client/`:
@@ -123,7 +124,7 @@ US-24: processing what the student hands over. Three steps, each pure, and nothi
 | `applyCrowdEstimates` | fills tasks that have **no** estimate from `crowdEstimate`, matching on course and title (ignoring case and spacing). A student's own estimate is never replaced |
 | `processInputs` | scans each syllabus, adds only assignments the semester does not already have (so processing twice cannot double the workload), applies crowd estimates, then runs `weeklyLoad` and `detectCrunch` over the result |
 
-Reading PDFs and photos, and matching reports to assignments any way other than course and title, are later work. This is what happens once the input is text.
+A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called through `extractSyllabusText` in `lib/api.ts`), and that text is what `scanSyllabus` reads. Reading photos and scanned PDFs, and matching reports to assignments any way other than course and title, are later work.
 
 ### `src/lib/tasks.ts`
 
@@ -243,13 +244,13 @@ One chip per course in a row that scrolls sideways, with a status dot from `atte
 
 ### `src/app/_layout.tsx`
 
-expo-router's root. Wraps everything in `SemesterProvider` and defines the two routes. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
+expo-router's root. Wraps everything in `SemesterProvider` and defines the three routes: `/`, `/week` and `/login`. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
 
 ### `src/app/index.tsx` — screen 1, Semester
 
 Route: `/`
 
-Semester label and week, the week figures and week strip, the wall card (with a **Plan →** link to screen 2), the detail for the selected week, the Coming up grid, the course chips, and a button to screen 2.
+Semester label and week with a **Log in** link beside them, the week figures and week strip, the wall card (with a **Plan →** link to screen 2), the detail for the selected week, the Coming up grid, the course chips, and a button to screen 2.
 
 It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size and clearer than caching.
 
@@ -261,6 +262,12 @@ Two figures (hours landing this week against capacity, and items left to do), th
 
 Tick the checkbox and three things happen at once: the task leaves the list, this week's hours drop, and the bar on screen 1 gets shorter. All from that one `done: true`.
 
+### `src/app/login.tsx` — Log in
+
+Route: `/login`, reached from the **Log in** link on the Semester screen (US-27).
+
+An email field and a password field, with the password hidden. It checks that both are filled in and that the email looks like an email. There is no sign-in behind it yet, so a valid form shows "Sign-in is not connected yet. This is a preview of the login screen." instead of pretending to log the student in. Real authentication is US-19 to US-21.
+
 ### `src/theme.ts`
 
 Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's load band to its colour, and `categoryColor(category)` gives a category's colour (neutral when unknown). The three colour systems (interface, load bands, categories) are never mixed: no element takes colour from more than one.
@@ -269,7 +276,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-491 of them, in fifteen files.
+524 tests across eighteen test suites.
 
 ```bash
 npm test                      # all of them
@@ -284,6 +291,7 @@ npx jest --watch              # while you work
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
 | `src/lib/inputs.test.ts` | 287 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, and hostile or oversized input |
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
+| `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
 | `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the wall card and start-by recommendation |
@@ -292,11 +300,12 @@ npx jest --watch              # while you work
 | `src/__tests__/ui-design.test.tsx` | 27 | the UI design: grouped rows, categories, Coming up, course chips, plan link |
 | `src/__tests__/semester-from-server.test.tsx` | 4 | the provider: loading, then the app; the error screen; Try again; `initial` skips the server |
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
+| `src/__tests__/login.test.tsx` | 6 | US-27: the Log in link, the email and password form, the checks on both fields, and that it never pretends to sign in |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 4 | spike notices, empty state, course summary text and accessibility labels |
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/`. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week.
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 240 of them in seven files, plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint).
 
 Shared test data for the story tests is in `src/testing/fixtures.ts`, outside `src/__tests__/` so Jest does not treat it as a test file.
 
@@ -305,7 +314,7 @@ inside `src/app/` is a route as far as expo-router is concerned, so a test file
 in there gets bundled into the app and breaks it at runtime — while Jest still
 passes, because Jest never touches the bundler. Keep `src/app/` for screens only.
 
-**The function tests were written before the functions existed.** That is the test-driven requirement, and the git history shows it.
+**The original function tests (`workload`, `tasks`, `estimate`) were written before the functions existed.** That is the test-driven requirement, and the git history shows it. The US-24 and PDF reader tests were written after their code, in the same pull request.
 
 The screen tests use their own small fixture — a two-course semester with numbers you can check in your head — rather than the real one, so an edit to `data/semester.ts` never breaks them.
 
@@ -329,8 +338,8 @@ cross-screen behaviour the whole product rests on, so it gets its own test.
 
 ## Deliberately not here
 
-No server, no database, no network calls — so no async, no loading states, no error handling.
+No database. The server keeps the semester in memory, so any change is lost when it restarts, and marking work done or adding an estimate in the app is not yet saved back to the server.
 
-No login, no accounts. No model, and no reading of PDFs or photos: the syllabus scanner in `lib/inputs.ts` reads pasted text in one fixed format, and no screen calls it yet. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
+No real sign-in and no accounts: the login screen is a preview with nothing behind it. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
