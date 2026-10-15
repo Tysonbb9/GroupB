@@ -11,7 +11,7 @@ For *what* we are building and why, see [DESIGN.md](DESIGN.md). This document is
 From the repo root:
 
 ```bash
-npm run install:all     # installs client dependencies
+npm run install:all     # installs client and server dependencies
 npm run web             # opens the app in a browser
 npm test                # runs all the client tests
 ```
@@ -26,12 +26,10 @@ npx expo start          # then press w for web, or scan the QR code with Expo Go
 
 ### With the server (the default)
 
-The app loads its semester from the server in `server/`, so start that first:
+The app loads its semester from the server in `server/`, so start that first, from the repo root:
 
 ```bash
-cd server
-npm install
-npm start               # listens on port 3000
+npm run server          # installs, then listens on port 3000
 ```
 
 Then start the client as above. In development the client works out the server's address by itself: it reuses the address of the computer running Expo, with port 3000, so a phone needs no setup as long as it is on the same network as the computer.

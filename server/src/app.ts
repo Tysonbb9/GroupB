@@ -2,6 +2,24 @@ import express from 'express';
 import { db } from './data/db';
 
 export const app = express();
+
+/**
+ * CORS. A browser (the Expo Web version of the client) refuses to let a page
+ * read a response from a different address unless the server allows it. A
+ * phone does not check. "*" is fine for a prototype with no login or cookies.
+ * The browser also sends an OPTIONS "preflight" before a PATCH, so answer that.
+ */
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 app.use(express.json()); // Lets PATCH read a JSON body
 /**
  * GET /semester
