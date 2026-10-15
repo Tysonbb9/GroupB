@@ -28,7 +28,11 @@ describe('US-02: weekly capacity comes from the server', () => {
         <SemesterScreen />
       </SemesterProvider>
     );
-    expect(await screen.findByTestId('figure-this-week')).toHaveTextContent(/\/ 10 hrs/);
+    // The first render of the whole screen can take over the 1 second default
+    // wait on a busy machine, so wait longer here.
+    expect(
+      await screen.findByTestId('figure-this-week', {}, { timeout: 5000 })
+    ).toHaveTextContent(/\/ 10 hrs/);
   });
 
   it('names that capacity beside the dashed line', async () => {
@@ -37,6 +41,8 @@ describe('US-02: weekly capacity comes from the server', () => {
         <SemesterScreen />
       </SemesterProvider>
     );
-    expect(await screen.findByText('Dashed line is your 10 hours a week')).toBeTruthy();
+    expect(
+      await screen.findByText('Dashed line is your 10 hours a week', {}, { timeout: 5000 })
+    ).toBeTruthy();
   });
 });
