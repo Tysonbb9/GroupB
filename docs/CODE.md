@@ -125,6 +125,14 @@ All functions are pure. `weeklyLoad` and `assignmentsInWeek` both use `workSpan`
 
 The last tiebreaker in `rankThisWeek` exists so tests do not depend on array order.
 
+### `src/lib/difficulty.ts`
+
+`courseSpikes` calculates each course's demanding weeks from the same `weeklyLoad` forecast used by the semester chart. A week is a spike when that course alone needs more than `SPIKE_SHARE`, currently 30%, of the student's weekly capacity. Exactly 30% is not a spike.
+
+On the fixture, 30% gives CS 262, PHIL 153 and STAT 243 two spike weeks each, CS 336 four, and the exam-heavy MATH 251 six, so every course shows some spikes without most weeks being flagged. Completed work and work without an estimate do not count, and multi-week projects stay spread across their work span.
+
+`upcomingSpikes` turns those summaries into at most three heads-up notices. It includes the current week and the following three weeks, then sorts nearest first. Both functions are pure and use only the semester already returned by `GET /semester`, so this feature needs no new endpoint.
+
 ### `src/lib/categories.ts`
 
 The six assignment categories (exam, project, problem set, reading, writing, lab / homework) with each one's label and two-letter tile. The set is fixed on purpose, so colour keeps its meaning. A task with no `category` is not an error: it gets a neutral tile with no letters.
@@ -198,6 +206,14 @@ The two-letter tile, coloured by category through `categoryColor` in `theme.ts`.
 
 The two-column grid of upcoming assignments on the Semester screen. Each card has a category badge and colour edge, the title, the week and course, and the estimated hours when there are any. There is no difficulty meter: that needs hours recorded by other students, which does not exist yet.
 
+### `src/components/SpikeNotice.tsx`
+
+The in-app heads-up cards immediately below the wall card. Each one names the course, week, projected course hours and weekly capacity in words. The section says that difficulty is based on estimated hours, and does not use push notifications.
+
+### `src/components/DifficultySummary.tsx`
+
+The per-course summary after Coming up. It names every course with a spike, its peak week and hours, and all spike weeks. Text and accessibility labels carry the meaning, so colour is never the only signal.
+
 ### `src/components/CourseChips.tsx`
 
 One chip per course in a row that scrolls sideways, with a status dot from `attendanceStatus`.
@@ -238,7 +254,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-182 of them, in twelve files.
+197 of them, in fifteen files.
 
 ```bash
 npm test                      # all of them
@@ -260,6 +276,8 @@ npx jest --watch              # while you work
 | `src/__tests__/ui-design.test.tsx` | 27 | the UI design: grouped rows, categories, Coming up, course chips, plan link |
 | `src/__tests__/semester-from-server.test.tsx` | 4 | the provider: loading, then the app; the error screen; Try again; `initial` skips the server |
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
+| `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
+| `src/__tests__/difficulty-summary.test.tsx` | 4 | spike notices, empty state, course summary text and accessibility labels |
 
 The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/`. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week.
 
