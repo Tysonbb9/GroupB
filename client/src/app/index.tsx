@@ -43,12 +43,22 @@ export default function SemesterScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View>
-        <Text style={styles.title}>{semester.label}</Text>
-        <Text style={styles.subtitle}>
-          Week {semester.currentWeek} of 15 · {semester.courses.length} courses ·{' '}
-          {outstanding} things left
-        </Text>
+      <View style={styles.headingRow}>
+        <View style={styles.headingText}>
+          <Text style={styles.title}>{semester.label}</Text>
+          <Text style={styles.subtitle}>
+            Week {semester.currentWeek} of 15 · {semester.courses.length} courses ·{' '}
+            {outstanding} things left
+          </Text>
+        </View>
+        <Pressable
+          testID="go-to-login"
+          accessibilityRole="button"
+          onPress={() => router.push('/login')}
+          style={styles.loginLink}
+        >
+          <Text style={styles.loginLinkText}>Log in</Text>
+        </Pressable>
       </View>
 
       <View style={styles.card}>
@@ -106,6 +116,17 @@ export default function SemesterScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.bg },
   content: { padding: theme.space.md, gap: theme.space.md, paddingBottom: theme.space.xl },
+  headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.space.sm },
+  headingText: { flex: 1 },
+  loginLink: {
+    backgroundColor: theme.surface,
+    borderColor: theme.rule,
+    borderWidth: 1,
+    borderRadius: theme.radius,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  loginLinkText: { color: theme.accent, fontWeight: '700', fontSize: 13 },
   title: { fontSize: 28, fontWeight: '700', color: theme.ink },
   subtitle: { fontSize: 13, color: theme.muted, marginTop: 2 },
   card: {
