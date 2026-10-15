@@ -129,7 +129,7 @@ The last tiebreaker in `rankThisWeek` exists so tests do not depend on array ord
 
 `courseSpikes` calculates each course's demanding weeks from the same `weeklyLoad` forecast used by the semester chart. A week is a spike when that course alone needs more than `SPIKE_SHARE`, currently 30%, of the student's weekly capacity. Exactly 30% is not a spike.
 
-The 30% share fits the fixture honestly: four of its five courses have one to three spike weeks, while the exam-heavy math course has more. Completed work and work without an estimate do not count, and multi-week projects stay spread across their work span.
+On the fixture, 30% gives CS 262, PHIL 153 and STAT 243 two spike weeks each, CS 336 four, and the exam-heavy MATH 251 six, so every course shows some spikes without most weeks being flagged. Completed work and work without an estimate do not count, and multi-week projects stay spread across their work span.
 
 `upcomingSpikes` turns those summaries into at most three heads-up notices. It includes the current week and the following three weeks, then sorts nearest first. Both functions are pure and use only the semester already returned by `GET /semester`, so this feature needs no new endpoint.
 
