@@ -112,6 +112,19 @@ All functions are pure. `weeklyLoad` and `assignmentsInWeek` both use `workSpan`
 
 `parseEstimate` turns what the student typed into a value to store: a positive number up to 100, blank for "not estimated yet" (`null`), or invalid. It is separate from the editor so the rules can be tested without rendering anything.
 
+### `src/lib/inputs.ts`
+
+US-24: processing what the student hands over. Three steps, each pure, and nothing here touches the screens yet.
+
+| Function | Does |
+|----------|------|
+| `scanSyllabus` | reads assignments out of syllabus **text**, one per line: `Week 7: Midterm 1 (8 hours)`. A line needs a week from 1 to 15 and a title; hours come from a trailing `(N hours)` only when they are a usable estimate. Lines it cannot read are returned in `skipped`, never dropped silently. A week range like `Week 5-7` is skipped rather than guessed at |
+| `crowdEstimate` | the **median** of other students' reported hours, or `null` below `MIN_CROWD_REPORTS` (3) usable reports. Zero, negative, non-finite and over-100 reports do not count. Median rather than mean so one exaggerated report cannot drag it |
+| `applyCrowdEstimates` | fills tasks that have **no** estimate from `crowdEstimate`, matching on course and title (ignoring case and spacing). A student's own estimate is never replaced |
+| `processInputs` | scans each syllabus, adds only assignments the semester does not already have (so processing twice cannot double the workload), applies crowd estimates, then runs `weeklyLoad` and `detectCrunch` over the result |
+
+Reading PDFs and photos, and matching reports to assignments any way other than course and title, are later work. This is what happens once the input is text.
+
 ### `src/lib/tasks.ts`
 
 | Function | Does |
@@ -144,6 +157,8 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 - **The server cannot be reached.** `fetch` rejects, and we say `Could not reach the server at <address>`.
 - **The server answers with an error.** `fetch` does not reject on a 404 or 500, so we check `response.ok` ourselves and say `The server answered 500`.
 - **The data is the wrong shape.** The parsed body is typed `unknown` and passed through `isSemester`, a type guard that checks the top-level fields. If it fails we say `The server sent invalid semester data`. The check is shallow on purpose: it catches a wrong URL or a server that answered with something else, not every field of every task.
+
+`extractSyllabusText(pdf)` does a `POST /syllabus/text` with a PDF and returns its text, one line per line of the PDF, for the syllabus scanner. When the server refuses the PDF (scanned, locked, damaged, too big) it rejects with the server's own message, because that message tells the student what to do. Its tests are in `src/lib/syllabus-api.test.ts`.
 
 `resolveBaseUrl` decides the address and is separate so it can be tested without Expo: `EXPO_PUBLIC_API_URL` if set, otherwise (development only) the Expo computer's address with port 3000, otherwise an error. `isObject` returns `value is Record<string, unknown>`, which tells TypeScript the value is an object whose fields we know nothing about yet, so the checks can read `value.label` and test its type.
 
@@ -254,7 +269,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-197 of them, in fifteen files.
+491 of them, in fifteen files.
 
 ```bash
 npm test                      # all of them
@@ -267,6 +282,7 @@ npx jest --watch              # while you work
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
+| `src/lib/inputs.test.ts` | 287 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, and hostile or oversized input |
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
@@ -276,6 +292,7 @@ npx jest --watch              # while you work
 | `src/__tests__/ui-design.test.tsx` | 27 | the UI design: grouped rows, categories, Coming up, course chips, plan link |
 | `src/__tests__/semester-from-server.test.tsx` | 4 | the provider: loading, then the app; the error screen; Try again; `initial` skips the server |
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
+| `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 4 | spike notices, empty state, course summary text and accessibility labels |
 
@@ -314,6 +331,6 @@ cross-screen behaviour the whole product rests on, so it gets its own test.
 
 No server, no database, no network calls — so no async, no loading states, no error handling.
 
-No login, no accounts. No syllabus parsing and no model. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
+No login, no accounts. No model, and no reading of PDFs or photos: the syllabus scanner in `lib/inputs.ts` reads pasted text in one fixed format, and no screen calls it yet. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.

@@ -64,13 +64,18 @@ function isSemester(value: unknown): value is Semester {
   );
 }
 
-/** GET /semester. Rejects with a message the user can read. */
-export async function fetchSemester(): Promise<Semester> {
-  const baseUrl = resolveBaseUrl({
+/** Where the server is, for this run of the app. */
+function serverBaseUrl(): string {
+  return resolveBaseUrl({
     configured: process.env.EXPO_PUBLIC_API_URL,
     hostUri: Constants.expoConfig?.hostUri,
     isDev: __DEV__,
   });
+}
+
+/** GET /semester. Rejects with a message the user can read. */
+export async function fetchSemester(): Promise<Semester> {
+  const baseUrl = serverBaseUrl();
 
   let response: Response;
   try {
@@ -88,6 +93,71 @@ export async function fetchSemester(): Promise<Semester> {
   const json: unknown = await response.json();
   if (!isSemester(json)) {
     throw new Error('The server sent invalid semester data');
+  }
+  return json;
+}
+
+/** The text the server read out of a syllabus PDF. */
+export type SyllabusText = {
+  /** Every line of the PDF in reading order, separated by "\n". */
+  text: string;
+  pageCount: number;
+  lineCount: number;
+  /** Pages with no text, numbered from 1. Usually scanned images. */
+  pagesWithoutText: number[];
+};
+
+function isSyllabusText(value: unknown): value is SyllabusText {
+  return (
+    isObject(value) &&
+    typeof value.text === 'string' &&
+    typeof value.pageCount === 'number' &&
+    typeof value.lineCount === 'number' &&
+    Array.isArray(value.pagesWithoutText) &&
+    value.pagesWithoutText.every((page) => typeof page === 'number')
+  );
+}
+
+/** The server's own explanation of a failed request, if it sent one. */
+async function serverErrorMessage(response: Response): Promise<string | null> {
+  try {
+    const body: unknown = await response.json();
+    return isObject(body) && typeof body.error === 'string' && body.error !== '' ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * POST /syllabus/text. Sends a syllabus PDF and gets its text back, one line
+ * per line of the PDF, ready for the syllabus scanner from US-24.
+ *
+ * Rejects with a message the user can read. When the PDF itself is the
+ * problem (scanned, locked, damaged, too big), that message is the server's,
+ * because it says what to do about it: "try a PDF where you can select the
+ * text, or paste the syllabus text instead".
+ */
+export async function extractSyllabusText(pdf: Blob | ArrayBuffer | Uint8Array): Promise<SyllabusText> {
+  const baseUrl = serverBaseUrl();
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/syllabus/text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: pdf as BodyInit,
+    });
+  } catch {
+    throw new Error(`Could not reach the server at ${baseUrl}`);
+  }
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isSyllabusText(json)) {
+    throw new Error('The server sent invalid syllabus text');
   }
   return json;
 }
