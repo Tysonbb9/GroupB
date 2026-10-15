@@ -260,7 +260,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-515 of them, in sixteen files.
+524 tests across eighteen test suites.
 
 ```bash
 npm test                      # all of them
