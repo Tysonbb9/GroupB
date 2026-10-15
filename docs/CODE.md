@@ -150,6 +150,8 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 - **The server answers with an error.** `fetch` does not reject on a 404 or 500, so we check `response.ok` ourselves and say `The server answered 500`.
 - **The data is the wrong shape.** The parsed body is typed `unknown` and passed through `isSemester`, a type guard that checks the top-level fields. If it fails we say `The server sent invalid semester data`. The check is shallow on purpose: it catches a wrong URL or a server that answered with something else, not every field of every task.
 
+`extractSyllabusText(pdf)` does a `POST /syllabus/text` with a PDF and returns its text, one line per line of the PDF, for the syllabus scanner. When the server refuses the PDF (scanned, locked, damaged, too big) it rejects with the server's own message, because that message tells the student what to do. Its tests are in `src/lib/syllabus-api.test.ts`.
+
 `resolveBaseUrl` decides the address and is separate so it can be tested without Expo: `EXPO_PUBLIC_API_URL` if set, otherwise (development only) the Expo computer's address with port 3000, otherwise an error. `isObject` returns `value is Record<string, unknown>`, which tells TypeScript the value is an object whose fields we know nothing about yet, so the checks can read `value.label` and test its type.
 
 ### `src/data/semester.ts`
