@@ -3,11 +3,14 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ComingUp } from '../components/ComingUp';
 import { CourseChips } from '../components/CourseChips';
+import { DifficultySummary } from '../components/DifficultySummary';
+import { SpikeNotice } from '../components/SpikeNotice';
 import { WallCard } from '../components/WallCard';
 import { WeekDetail } from '../components/WeekDetail';
 import { WeekFigures } from '../components/WeekFigures';
 import { WeekStrip } from '../components/WeekStrip';
 import { comingUp } from '../lib/tasks';
+import { courseSpikes, upcomingSpikes } from '../lib/difficulty';
 import {
   assignmentsInWeek,
   crunchPeriodAt,
@@ -40,6 +43,8 @@ export default function SemesterScreen() {
   const recommendation =
     wall && recommendStart(semester.tasks, wall.week, semester.weeklyCapacity);
   const outstanding = semester.tasks.filter((t) => !t.done).length;
+  const spikeSummaries = courseSpikes(semester);
+  const notices = upcomingSpikes(spikeSummaries, semester.currentWeek);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -86,6 +91,8 @@ export default function SemesterScreen() {
         onPlan={() => router.push('/week')}
       />
 
+      <SpikeNotice notices={notices} capacity={semester.weeklyCapacity} />
+
       <WeekDetail
         week={selectedWeek}
         hours={hoursInWeek(loads, selectedWeek)}
@@ -98,6 +105,8 @@ export default function SemesterScreen() {
         courses={semester.courses}
         currentWeek={semester.currentWeek}
       />
+
+      <DifficultySummary summaries={spikeSummaries} />
 
       <CourseChips courses={semester.courses} />
 
