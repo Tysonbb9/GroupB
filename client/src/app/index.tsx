@@ -55,6 +55,7 @@ export default function SemesterScreen() {
             Week {semester.currentWeek} of 15 · {semester.courses.length} courses ·{' '}
             {outstanding} things left
           </Text>
+          <Text style={{ color: theme.accent }}>⚠️Reminder: You can re-upload your syllabus at any time</Text>
         </View>
         <Pressable
           testID="go-to-login"
