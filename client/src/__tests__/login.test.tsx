@@ -38,6 +38,20 @@ describe('US-27: visit the login screen', () => {
     expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
   });
 
+  it('lets students show and hide the password without changing its value', () => {
+    render(<LoginScreen />);
+    fireEvent.changeText(screen.getByTestId('login-password'), 'example-password');
+
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
+    fireEvent.press(screen.getByLabelText('Show password'));
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(false);
+    expect(screen.getByTestId('login-password').props.value).toBe('example-password');
+
+    fireEvent.press(screen.getByLabelText('Hide password'));
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
+    expect(screen.getByTestId('login-password').props.value).toBe('example-password');
+  });
+
   it('asks for both fields before continuing', () => {
     render(<LoginScreen />);
     fireEvent.press(screen.getByTestId('login-submit'));
