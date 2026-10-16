@@ -10,7 +10,7 @@
  *
  * Implemented Features:
  * - Email and password input fields.
- * - Password characters are hidden.
+ * - Password characters are hidden by default, with an optional Show / Hide control.
  * - Basic validation for empty fields and email format.
  * - A login button with clear feedback.
  * - Styling consistent with the existing app theme.
@@ -38,6 +38,7 @@ import { theme } from '../theme';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [message, setMessage] = useState('');
 
   const handleLogin = () => {
@@ -81,21 +82,33 @@ export default function LoginScreen() {
 
         <View style={styles.field}>
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            testID="login-password"
-            accessibilityLabel="Password"
-            style={styles.input}
-            placeholder="Enter your password"
-            placeholderTextColor={theme.faint}
-            secureTextEntry
-            autoCapitalize="none"
-            autoComplete="password"
-            value={password}
-            onChangeText={(value) => {
-              setPassword(value);
-              setMessage('');
-            }}
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              testID="login-password"
+              accessibilityLabel="Password"
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Enter your password"
+              placeholderTextColor={theme.faint}
+              secureTextEntry={!passwordVisible}
+              autoCapitalize="none"
+              autoComplete="password"
+              value={password}
+              onChangeText={(value) => {
+                setPassword(value);
+                setMessage('');
+              }}
+            />
+            {/* Keep the password hidden by default; this control only changes visibility. */}
+            <Pressable
+              testID="toggle-password-visibility"
+              accessibilityRole="button"
+              accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+              onPress={() => setPasswordVisible((visible) => !visible)}
+              style={styles.visibilityButton}
+            >
+              <Text style={styles.visibilityText}>{passwordVisible ? 'Hide' : 'Show'}</Text>
+            </Pressable>
+          </View>
         </View>
 
         <Pressable
@@ -153,6 +166,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
   },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space.sm },
+  passwordInput: { flex: 1 },
+  visibilityButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: theme.space.sm,
+    borderRadius: theme.radius,
+  },
+  visibilityText: { color: theme.accent, fontWeight: '700', fontSize: 14 },
   button: {
     backgroundColor: theme.accent,
     borderRadius: theme.radius,
