@@ -11,6 +11,11 @@ jest.mock('expo-router', () => ({
 jest.mock('../lib/api', () => ({ fetchSemester: jest.fn() }));
 const mockFetchSemester = jest.mocked(fetchSemester);
 
+// Jest stops any test that runs longer than 5 seconds. The first render of the
+// whole screen can pass that when the full suite runs on a busy machine, so
+// give these tests more room. Nothing here is slow when it runs normally.
+jest.setTimeout(30000);
+
 /**
  * US-02 once the data comes from the server: the hours available are
  * whatever the server says, not a number built into the app. wallSemester has
