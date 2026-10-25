@@ -226,6 +226,10 @@ The two-column grid of upcoming assignments on the Semester screen. Each card ha
 
 The in-app heads-up cards immediately below the wall card. Each one names the course, week, projected course hours and weekly capacity in words. The section says that difficulty is based on estimated hours, and does not use push notifications.
 
+### `src/components/SyllabusReminder.tsx`
+
+US-26. A card under the heads-up notices that says "Keep your syllabi up to date" and why: if a class changed its schedule, the student should update its syllabus so the forecast stays accurate. The SRS has not decided when or how often reminders appear (OI-09), so it shows whenever the Semester screen opens, and a **Dismiss** button hides it until the app is opened again. Nothing is stored. It has no link to follow, because there is no syllabus upload screen yet (US-28 and US-29).
+
 ### `src/components/DifficultySummary.tsx`
 
 The per-course summary after Coming up. It names every course with a spike, its peak week and hours, and all spike weeks. Text and accessibility labels carry the meaning, so colour is never the only signal.
@@ -276,7 +280,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-524 tests across eighteen test suites.
+531 tests across nineteen test suites.
 
 ```bash
 npm test                      # all of them
@@ -304,6 +308,7 @@ npx jest --watch              # while you work
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 4 | spike notices, empty state, course summary text and accessibility labels |
+| `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Semester screen in place of the old one-line text |
 
 The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 240 of them in seven files, plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint).
 
