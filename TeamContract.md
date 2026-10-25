@@ -19,7 +19,9 @@ The team will meet **every Tuesday at 5:00 PM in the library**. All members are 
 - If a member is struggling to complete a task, they should **ask for help** from the team as soon as the issue arises.
 - If something is not working out — whether it's a task, a process, or a team issue — it should be **brought up during the weekly meeting** for discussion and resolution.
 
-## Team Members
+## Signed
+
+We agreed to this contract at a team meeting and signed it by typing our names here.
 
 - Tyson Bobeldyk
 - Gabby Odhiambo
