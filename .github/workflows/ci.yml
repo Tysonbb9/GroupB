@@ -1,0 +1,58 @@
+# Continuous integration: GitHub runs these checks on its own computers every
+# time someone opens or updates a pull request, or pushes to main. If any step
+# fails, the pull request shows a red X, so a broken change is noticed before it
+# is merged. This is what automates our testing (see docs/CodingStandard.md,
+# section 4).
+name: CI
+
+# When to run.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The workflow only needs to read the repository.
+permissions:
+  contents: read
+
+# Each job below runs on its own fresh machine, in parallel with the others.
+jobs:
+  client:
+    name: Client (lint, typecheck, tests)
+    runs-on: ubuntu-latest
+    # Run every "run:" step inside the client/ folder.
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      # Download the repository onto the machine.
+      - uses: actions/checkout@v4
+      # Install Node and remember downloaded packages between runs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      # Install exactly what package-lock.json says (faster and stricter than npm install).
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      # --ci makes Jest fail instead of silently writing new snapshots.
+      - run: npm test -- --ci
+
+  server:
+    name: Server (typecheck, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
