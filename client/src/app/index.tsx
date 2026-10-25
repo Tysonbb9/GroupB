@@ -5,6 +5,7 @@ import { ComingUp } from '../components/ComingUp';
 import { CourseChips } from '../components/CourseChips';
 import { DifficultySummary } from '../components/DifficultySummary';
 import { SpikeNotice } from '../components/SpikeNotice';
+import { SyllabusReminder } from '../components/SyllabusReminder';
 import { WallCard } from '../components/WallCard';
 import { WeekDetail } from '../components/WeekDetail';
 import { WeekFigures } from '../components/WeekFigures';
@@ -55,7 +56,6 @@ export default function SemesterScreen() {
             Week {semester.currentWeek} of 15 · {semester.courses.length} courses ·{' '}
             {outstanding} things left
           </Text>
-          <Text style={{ color: theme.accent }}>⚠️Reminder: You can re-upload your syllabus at any time</Text>
         </View>
         <Pressable
           testID="go-to-login"
@@ -93,6 +93,8 @@ export default function SemesterScreen() {
       />
 
       <SpikeNotice notices={notices} capacity={semester.weeklyCapacity} />
+
+      <SyllabusReminder />
 
       <WeekDetail
         week={selectedWeek}
