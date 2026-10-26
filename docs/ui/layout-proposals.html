@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crunch Week layout proposals</title>
+<style>
+  :root {
+    --bg: #F3F6F6; --surface: #FFFFFF; --ink: #16202A; --muted: #5A6A72; --faint: #93A3A8;
+    --rule: #DCE4E4; --accent: #1F5C6B; --accent-soft: #E2EDEF;
+    --calm: #3F7F6E; --moderate: #B8912A; --heavy: #A93F30;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px 24px 64px; background: #E9EEEE; color: var(--ink);
+         font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .lead { max-width: 920px; color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 8px; }
+  .option { margin-top: 40px; padding-top: 24px; border-top: 2px solid var(--rule); }
+  .option h2 { font-size: 20px; margin: 0 0 4px; }
+  .option .tag { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  .row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .notes { width: 420px; font-size: 14px; line-height: 1.5; }
+  .notes h3 { font-size: 12px; letter-spacing: .8px; text-transform: uppercase; color: var(--faint); margin: 14px 0 4px; }
+  .notes ul { margin: 0; padding-left: 18px; }
+
+  /* phone frame */
+  .phone { width: 340px; height: 700px; background: var(--bg); border: 8px solid #1B2430; border-radius: 34px;
+           overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .caption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; width: 340px; }
+  .status { height: 22px; display: flex; justify-content: space-between; align-items: center; padding: 4px 18px 0;
+            font-size: 11px; font-weight: 600; color: var(--ink); }
+  .hdr { padding: 10px 16px 8px; display: flex; justify-content: space-between; align-items: center; }
+  .hdr h4 { margin: 0; font-size: 22px; }
+  .hdr .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .bell { position: relative; width: 34px; height: 34px; border-radius: 17px; background: var(--surface);
+          border: 1px solid var(--rule); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .bell b { position: absolute; top: -4px; right: -4px; background: var(--heavy); color: #fff; font-size: 10px;
+            width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .body { flex: 1; padding: 4px 14px 10px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .tabs { height: 58px; background: var(--surface); border-top: 1px solid var(--rule); display: flex; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+         font-size: 11px; color: var(--faint); }
+  .tab i { font-style: normal; font-size: 17px; }
+  .tab.on { color: var(--accent); font-weight: 700; }
+
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px; }
+  .label { font-size: 10px; letter-spacing: .9px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .big { font-size: 34px; font-weight: 800; line-height: 1; }
+  .unit { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px; }
+  .pill.moderate { background: #F3E9CC; color: #7B5E10; }
+  .pill.heavy { background: #F1D9D4; color: var(--heavy); }
+  .pill.calm { background: #D9EADF; color: #2A5E4C; }
+  .strip { display: flex; align-items: flex-end; gap: 3px; height: 70px; margin-top: 10px; border-bottom: 1px solid var(--rule); }
+  .strip.tall { height: 120px; }
+  .strip div { flex: 1; border-radius: 2px 2px 0 0; }
+  .strip .now { outline: 2px solid var(--ink); }
+  .axis { display: flex; gap: 3px; font-size: 9px; color: var(--faint); margin-top: 3px; }
+  .axis span { flex: 1; text-align: center; }
+  .action { background: var(--accent); color: #fff; border-radius: 10px; padding: 14px; }
+  .action .t { font-weight: 700; font-size: 15px; }
+  .action .s { font-size: 12px; opacity: .85; margin-top: 3px; }
+  .list { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+  .item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--rule); }
+  .item:first-child { border-top: 0; }
+  .item .main { flex: 1; min-width: 0; }
+  .item .main b { display: block; font-size: 14px; }
+  .item .main span { font-size: 12px; color: var(--muted); }
+  .item .chev { color: var(--faint); font-size: 18px; }
+  .item .val { font-size: 13px; font-weight: 700; }
+  .check { width: 22px; height: 22px; border-radius: 11px; border: 2px solid var(--faint); flex: none; }
+  .dot { width: 9px; height: 9px; border-radius: 5px; flex: none; }
+  .banner { background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; color: var(--accent);
+            display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+  .banner b { font-weight: 700; }
+  .sec { font-size: 12px; font-weight: 700; color: var(--muted); margin: 2px 2px -4px; }
+  .hint { font-size: 11px; color: var(--faint); text-align: center; padding: 2px 0 0; }
+</style>
+</head>
+<body>
+
+<h1>Crunch Week: layout proposals</h1>
+<p class="lead">Two starting points for making the screens feel more intentional (issue #96). A third, a home screen made of a list of summary rows, was dropped because it still read as a list. They use the real sample data (Fall 2026, week 3, 12 of 15 hours this week, the next heavy week is week 6). They answer the same question differently: what should a student see first, and what can wait one tap away? Task names, hours and bar heights are scaled from that sample data (week 6 is 26.5 hours, shown as 27). These are mockups, not code.</p>
+
+<!-- ===================== OPTION A ===================== -->
+<section class="option">
+  <h2>Option A: Tabs, with one focus per screen</h2>
+  <p class="tag">Split the long scroll into three tabs. The Forecast tab keeps only the headline and the one thing to act on.</p>
+  <div class="row">
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><h4>Forecast</h4><div class="sub">Fall 2026 &middot; Week 3 of 15</div></div><div class="bell">&#128276;<b>3</b></div></div>
+        <div class="body">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="label">This week</div><div class="big">12 <span class="unit">/ 15 hrs</span></div></div>
+              <span class="pill moderate">Busy</span>
+            </div>
+            <div class="strip">
+              <div style="height:1%;background:#3F7F6E"></div><div style="height:4%;background:#3F7F6E"></div>
+              <div class="now" style="height:45%;background:#B8912A"></div><div style="height:23%;background:#3F7F6E"></div>
+              <div style="height:49%;background:#B8912A"></div><div style="height:100%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:13%;background:#3F7F6E"></div>
+              <div style="height:32%;background:#3F7F6E"></div><div style="height:19%;background:#3F7F6E"></div>
+              <div style="height:66%;background:#A93F30"></div><div style="height:87%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:94%;background:#A93F30"></div>
+              <div style="height:87%;background:#A93F30"></div>
+            </div>
+            <div class="axis"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span></div>
+          </div>
+          <div class="action">
+            <div class="t">Start Midterm 1 in week 5</div>
+            <div class="s">Week 6 needs 27 hours, and you have 15. About 12 hours of work.</div>
+          </div>
+          <div class="list">
+            <div class="item"><div class="main"><b>Heads up</b><span>3 notices in the next 3 weeks</span></div><span class="chev">&rsaquo;</span></div>
+            <div class="item"><div class="main"><b>Course spikes</b><span>5 courses, 16 spike weeks</span></div><span class="chev">&rsaquo;</span></div>
+          </div>
+        </div>
+        <div class="tabs"><div class="tab on"><i>&#9636;</i>Forecast</div><div class="tab"><i>&#9745;</i>This week</div><div class="tab"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">Forecast tab (home)</div>
+    </div>
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><h4>This week</h4><div class="sub">5 things &middot; 12 of 15 hrs</div></div><span class="pill moderate">Busy</span></div>
+        <div class="body">
+          <div class="sec">DUE THIS WEEK</div>
+          <div class="list">
+            <div class="item"><span class="check"></span><div class="main"><b>Problem set 1</b><span>MATH 251</span></div><span class="val">3 hrs</span></div>
+            <div class="item"><span class="check"></span><div class="main"><b>Prototype demo</b><span>CS 262</span></div><span class="val">3 hrs</span></div>
+            <div class="item"><span class="check"></span><div class="main"><b>Homework 1</b><span>STAT 243</span></div><span class="val">2 hrs</span></div>
+            <div class="item"><span class="check"></span><div class="main"><b>Reading response 1</b><span>PHIL 153</span></div><span class="val">2 hrs</span></div>
+            <div class="item"><span class="check"></span><div class="main"><b>Vision statement</b><span>CS 262</span></div><span class="val">2 hrs</span></div>
+          </div>
+          <div class="sec">NEXT WEEK</div>
+          <div class="list">
+            <div class="item"><span class="check"></span><div class="main"><b>Lab 2: Layout</b><span>CS 336</span></div><span class="val">3 hrs</span></div>
+          </div>
+        </div>
+        <div class="tabs"><div class="tab"><i>&#9636;</i>Forecast</div><div class="tab on"><i>&#9745;</i>This week</div><div class="tab"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">This week tab</div>
+    </div>
+    <div class="notes">
+      <h3>What you see first</h3>
+      <ul><li>This week's hours, the 15-week strip, and the single action to take.</li></ul>
+      <h3>Behind a tap</h3>
+      <ul><li>Heads-up notices, the course spike summary, the per-week detail, the syllabus reminder, and course attendance (Courses tab).</li></ul>
+      <h3>Colour rule</h3>
+      <ul><li>Load colours only on bars and the busy pill. One accent colour for the action. Everything else is neutral.</li></ul>
+      <h3>Build effort</h3>
+      <ul><li>Medium. Adds a tab bar and splits the Semester screen into three. Most components are reused as they are.</li></ul>
+      <h3>Trade-offs</h3>
+      <ul><li>Notices need one extra tap. Familiar pattern, so little to learn.</li><li>Tests that render the whole Semester screen will need to move to the screen that now holds each part.</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== OPTION C ===================== -->
+<section class="option">
+  <h2>Option C: Start with what to do now</h2>
+  <p class="tag">Make This week the home screen. The forecast moves behind a tab, and notices collapse into one bell with a badge.</p>
+  <div class="row">
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><h4>This week</h4><div class="sub">Week 3 of 15 &middot; <span style="color:var(--moderate);font-weight:700">12 of 15 hrs</span></div></div><div class="bell">&#128276;<b>3</b></div></div>
+        <div class="body">
+          <div class="banner"><span><b>Week 6 is heavy.</b> Start Midterm 1 in week 5.</span><span style="font-weight:700">Plan &rsaquo;</span></div>
+          <div class="sec">DO NEXT</div>
+          <div class="list">
+            <div class="item"><span class="check"></span><div class="main"><b>Problem set 1</b><span>MATH 251 &middot; due this week</span></div><span class="val">3 hrs</span></div>
+            <div class="item"><span class="check"></span><div class="main"><b>Prototype demo</b><span>CS 262 &middot; due this week</span></div><span class="val">3 hrs</span></div>
+            <div class="item"><span class="check"></span><div class="main"><b>Homework 1</b><span>STAT 243 &middot; due this week</span></div><span class="val">2 hrs</span></div>
+          </div>
+          <div class="item card" style="padding:12px 14px"><div class="main"><b>2 more this week</b><span>Reading response 1, Vision statement</span></div><span class="chev">&rsaquo;</span></div>
+        </div>
+        <div class="tabs"><div class="tab on"><i>&#9745;</i>This week</div><div class="tab"><i>&#9636;</i>Semester</div><div class="tab"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">This week (home)</div>
+    </div>
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><h4>Semester</h4><div class="sub">Fall 2026 &middot; 15 weeks</div></div></div>
+        <div class="body">
+          <div class="card">
+            <div class="label">Workload by week</div>
+            <div class="strip tall">
+              <div style="height:1%;background:#3F7F6E"></div><div style="height:4%;background:#3F7F6E"></div>
+              <div class="now" style="height:45%;background:#B8912A"></div><div style="height:23%;background:#3F7F6E"></div>
+              <div style="height:49%;background:#B8912A"></div><div style="height:100%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:13%;background:#3F7F6E"></div>
+              <div style="height:32%;background:#3F7F6E"></div><div style="height:19%;background:#3F7F6E"></div>
+              <div style="height:66%;background:#A93F30"></div><div style="height:87%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:94%;background:#A93F30"></div>
+              <div style="height:87%;background:#A93F30"></div>
+            </div>
+            <div class="axis"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span></div>
+          </div>
+          <div class="sec">COURSE SPIKES</div>
+          <div class="list">
+            <div class="item"><div class="main"><b>MATH 251</b><span>peaks in week 5 at 9 hours</span></div><span class="chev">&rsaquo;</span></div>
+            <div class="item"><div class="main"><b>CS 336</b><span>peaks in week 6 at 6.5 hours</span></div><span class="chev">&rsaquo;</span></div>
+            <div class="item"><div class="main"><b>CS 262</b><span>peaks in week 3 at 5 hours</span></div><span class="chev">&rsaquo;</span></div>
+          </div>
+        </div>
+        <div class="tabs"><div class="tab"><i>&#9745;</i>This week</div><div class="tab on"><i>&#9636;</i>Semester</div><div class="tab"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">Semester tab (forecast and spikes)</div>
+    </div>
+    <div class="notes">
+      <h3>What you see first</h3>
+      <ul><li>What to do now: three tasks, one heavy-week banner, and the bell with its count. The first screen is about action, not analysis.</li></ul>
+      <h3>Behind a tap</h3>
+      <ul><li>The forecast chart and course spikes (Semester tab), notices (the bell), the rest of the week's tasks, and the syllabus reminder (inside the bell).</li></ul>
+      <h3>Colour rule</h3>
+      <ul><li>Load colours only on the chart and the hours figure. One accent colour for the banner.</li></ul>
+      <h3>Build effort</h3>
+      <ul><li>Small to medium. The This week screen already exists; the main work is the tab bar, the bell, and moving the Semester sections.</li></ul>
+      <h3>Trade-offs</h3>
+      <ul><li>Fits how people use a phone (what do I do now?), but the semester-wide view is no longer the first impression, and the app's signature chart sits behind a tab.</li></ul>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
