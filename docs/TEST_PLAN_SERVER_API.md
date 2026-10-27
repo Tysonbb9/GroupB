@@ -161,12 +161,21 @@ Each one needs a decision on the intended behavior first (the **D** rows), then 
 
 ## 8. The team code review (VV10)
 
-The review is **one session of the whole team** on the same segment, with one person recording. It is not the same as approving pull requests.
+The review is a **team activity on the same segment**. It is not the same as approving pull requests. The segment is divided into **five sections**, and each reviewer accepts one section as a GitHub issue (Code review 1/5 to 5/5):
 
-- **Before:** the author says what to look at. Everyone reads the code and the new tests, using the coding standard checklist (`docs/CodingStandard.md`).
-- **During:** go through the files, and the recorder writes down each finding with the file, who raised it, and whether it needs a change.
-- **Record:** `docs/CODE_REVIEW_SERVER_API.md` lists who reviewed, the checklist used, each finding, and how it was resolved (fixed in PR number, or declined with a reason). The reviewer is never the author of that part.
+| Section | What it covers |
+|---|---|
+| 1 | The routes that read data (`GET`) |
+| 2 | The routes that change data, the review endpoints, and request handling (CORS, JSON) |
+| 3 | The syllabus PDF endpoint, its limits and error handling |
+| 4 | Reading the PDF: the worker and rebuilding lines |
+| 5 | The data layer, configuration and keys (including the new Supabase layer once merged) |
 
+- **Rule:** a reviewer is never an author of the code in their section. Each issue lists who wrote it.
+- **Before:** each reviewer reads their section and its tests, with the coding standard checklist (`docs/CodingStandard.md`).
+- **Record:** each finding is a comment on the section's issue, with the file and line, a severity (must fix, should fix, nit), the finding and a suggestion.
+- **Session:** one meeting of the whole team, where each reviewer presents their findings and the author responds. The chair (the LE) runs it, and the scribe notes who attended and what was decided.
+- **After:** each finding is fixed in a PR or declined with a reason. The scribe then writes `docs/CODE_REVIEW_SERVER_API.md` from the five issues.
 ## 9. Questions for the team
 
 1. Is the server API the right segment, or is the syllabus input pipeline better?
@@ -264,8 +273,8 @@ The plan has about 45 rows, and each row is roughly 15 to 45 minutes of work. So
 | **New endpoints** | to be assigned | `PATCH /semester` (US-32) and `POST /tasks` (US-30), each test first | TP-36 and more | M to L |
 | **Data layer** | Gabby (owns the server) | The store interface, the memory implementation, the Supabase implementation, and making the routes `async` | TP-40 to TP-44 | L |
 | **Contract tests and CI** | to be assigned | The shared contract suite, skipped without keys, and a CI check that no key is in a tracked file | TP-40 to TP-44 | M |
-| **Scribe** | PM or TJ | Records the review: who, checklist, findings, resolutions | the review document | S |
-| **Everyone** | all | Read the segment before the review, and review at least one other person's PR | | S |
+| **Scribe** | PM or TJ | Notes who attended and the decisions, then writes the review record from the five section issues | the review document | S |
+| **Reviewers** | all | Each person accepts one of the five review sections (not one they wrote), reviews it, and presents the findings | | S to M |
 
 **What one person does, step by step (about 8 steps, once per batch of rows):**
 1. Take rows and put your name in the Owner column of this plan.
@@ -279,8 +288,8 @@ The plan has about 45 rows, and each row is roughly 15 to 45 minutes of work. So
 
 ## 13. The review session
 
-One session of about 60 minutes, once the tests are in, with everyone present:
-1. The author of each part says what to look at (5 minutes each).
-2. Everyone has read the code, and the checklist is `docs/CodingStandard.md`.
-3. The scribe writes each finding into `docs/CODE_REVIEW_SERVER_API.md` with the file, who raised it, and what is needed.
-4. Afterwards each finding becomes a fix in a PR, or is declined with a reason, and the document records which.
+The five review sections are separate issues (Code review 1/5 to 5/5), and an umbrella issue (Code review 0/5) tracks the session and the record. In the session of about 60 minutes, with everyone present:
+1. Each reviewer presents the findings from their section in a few minutes, and the author of that section responds.
+2. The chair keeps time and makes sure each finding ends in a decision: fix it, or decline it with a reason.
+3. The scribe notes who attended and the decisions.
+4. Afterwards each finding becomes a fix in a PR, or is declined with a reason, and the record states which.
