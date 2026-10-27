@@ -1,6 +1,6 @@
 // server/src/data/db.ts
 import { semester as seed } from './semester';
-import { Semester } from '../types';
+import { Inputs, Semester } from '../types';
 
 /**
  * The live in-memory "database". It starts as a deep copy of the seed data,
@@ -9,6 +9,10 @@ import { Semester } from '../types';
  */
 export let db: Semester = structuredClone(seed);
 
+/** US-22: what the student has handed us. Starts empty. */
+export let inputs: Inputs = { calendarUrl: null, reviews: [] };
+
 export function resetDb(): void {
   db = structuredClone(seed);
+  inputs = { calendarUrl: null, reviews: [] };
 }
