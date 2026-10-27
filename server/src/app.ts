@@ -1,5 +1,5 @@
 import express from 'express';
-import { db } from './data/db';
+import { db, inputs } from './data/db';
 import { syllabusRouter } from './syllabus/routes';
 
 export const app = express();
@@ -131,4 +131,57 @@ app.patch('/tasks/:id', (req, res) => {
   if (done !== undefined) task.done = done;
   if (estimatedHours !== undefined) task.estimatedHours = estimatedHours;
   res.json(task);
+});
+
+/**
+ * POST /courses/:id/reviews
+ * Body: { title: string, hours: number (more than 0, up to 100), comment?: string }.
+ * Saves how long an assignment took. 201 with the new review, 400 if a field
+ * is invalid, 404 if the course is unknown.
+ */
+app.post('/courses/:id/reviews', (req, res) => {
+  const course = db.courses.find((c) => c.id === req.params.id);
+  if (!course) {
+    res.status(404).json({ error: 'Course not found' });
+    return;
+  }
+
+  const { title, hours, comment } = req.body ?? {};
+
+  // Check every field before saving anything (same idea as PATCH /tasks).
+  if (typeof title !== 'string' || title.trim() === '') {
+    res.status(400).json({ error: 'title must name the assignment' });
+    return;
+  }
+  if (typeof hours !== 'number' || !(hours > 0) || hours > 100) {
+    res.status(400).json({ error: 'hours must be a number more than 0 and up to 100' });
+    return;
+  }
+  if (comment !== undefined && typeof comment !== 'string') {
+    res.status(400).json({ error: 'comment must be text' });
+    return;
+  }
+
+  const review = {
+    id: `review-${inputs.reviews.length + 1}`,
+    courseId: course.id,
+    title: title.trim(),
+    hours,
+    comment: comment?.trim() ?? '',
+  };
+  inputs.reviews.push(review);
+  res.status(201).json(review); // 201 = "Created"
+});
+
+/**
+ * GET /courses/:id/reviews
+ * Returns every review of one course, or 404 if the course is unknown.
+ */
+app.get('/courses/:id/reviews', (req, res) => {
+  const course = db.courses.find((c) => c.id === req.params.id);
+  if (!course) {
+    res.status(404).json({ error: 'Course not found' });
+    return;
+  }
+  res.json(inputs.reviews.filter((r) => r.courseId === course.id));
 });

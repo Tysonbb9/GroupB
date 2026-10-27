@@ -66,3 +66,21 @@ export type CrunchWindow = {
 
 /** Weeks in a semester. Fixed for now; real dates arrive in phase 2. */
 export const WEEKS_IN_SEMESTER = 15;
+/**
+ * US-22: one student's report of how long an assignment took them.
+ * Same fields as CrowdReport in client/src/lib/inputs.ts (US-24), so the
+ * crowd estimate can use reviews as they are.
+ */
+export type Review = {
+  id: string;
+  courseId: string;
+  /** The assignment, as its title appears in the syllabus. */
+  title: string;
+  hours: number;
+  comment: string;
+};
+
+/** US-22: everything the student has handed us, kept apart from the semester. */
+export type Inputs = {
+  reviews: Review[];
+};

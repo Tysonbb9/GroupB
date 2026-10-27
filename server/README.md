@@ -34,6 +34,9 @@ client can use it.
 | GET | `/tasks/:id` | One task | 200 | 404 |
 | PATCH | `/tasks/:id` | Update `done` and/or `estimatedHours` | 200 | 400 bad body, 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
+| POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |
+| GET | `/courses/:id/reviews` | Reviews of one course | 200 | 404 |
+
 
 ### Example: mark a task done
 
@@ -88,6 +91,6 @@ OCR), and two columns of text side by side read across both columns.
 - `src/syllabus/pdf-text.ts`: checks the upload and rebuilds lines from the PDF's text
 - `src/syllabus/read-pdf.worker.mjs`: opens the PDF with pdf.js, in a worker thread. Plain JavaScript because pdf.js is an ES module, which the CommonJS server and Jest cannot load directly
 - `src/testing/pdfs.ts`: builds real PDFs for the tests; `src/testing/fixtures/password-protected.pdf` is a locked one
-- `src/types.ts`: Task, Course, Semester (copied from the client)
+- `src/types.ts`: Task, Course, Semester (copied from the client), Review and Inputs
 - `src/data/semester.ts`: the mock data
-- `src/data/db.ts`: in-memory copy of the data, plus `resetDb()` for tests
+- `src/data/db.ts`: in-memory copy of the data, plus `resetDb()` for tests.
