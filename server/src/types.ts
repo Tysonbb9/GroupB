@@ -82,7 +82,5 @@ export type Review = {
 
 /** US-22: everything the student has handed us, kept apart from the semester. */
 export type Inputs = {
-  /** Moodle calendar subscription URL, or null if none was given. */
-  calendarUrl: string | null;
   reviews: Review[];
 };

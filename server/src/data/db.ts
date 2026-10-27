@@ -10,9 +10,9 @@ import { Inputs, Semester } from '../types';
 export let db: Semester = structuredClone(seed);
 
 /** US-22: what the student has handed us. Starts empty. */
-export let inputs: Inputs = { calendarUrl: null, reviews: [] };
+export let inputs: Inputs = { reviews: [] };
 
 export function resetDb(): void {
   db = structuredClone(seed);
-  inputs = { calendarUrl: null, reviews: [] };
+  inputs = { reviews: [] };
 }
