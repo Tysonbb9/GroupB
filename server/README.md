@@ -1,8 +1,41 @@
 # Crunch Week server
 
-Express + TypeScript REST API for the Crunch Week app. The database is
-**mocked**: data is hardcoded in `src/data/semester.ts` and held in memory,
-so changes are lost when the server restarts.
+Express + TypeScript REST API for the Crunch Week app. The app is moving from
+an in-memory mock to a hosted **Supabase** (Postgres) database. Until the data
+layer is wired up, the server still runs on **mocked** data: it is hardcoded in
+`src/data/semester.ts` and held in memory, so changes are lost when the server
+restarts.
+
+## Supabase
+
+The team's database is a hosted Supabase (Postgres) project.
+
+- **Project URL:** https://gyrruunfpwoexoncceel.supabase.co
+- **Owner:** TJ French (tjf24)
+- **Plan:** Free
+
+The project URL is not a secret and is safe to keep in this file. **Never**
+write a Supabase key (anon, service-role, or database password) into the
+repository, an issue, a chat, or an email — keys are kept out of version
+control and configured locally instead.
+
+### Free-tier limits (checked 2026-10-28)
+
+From the [Supabase pricing page](https://supabase.com/pricing#compare-plans):
+
+- **Cost:** $0/month
+- **Database size:** 500 MB per project (Shared CPU, 500 MB RAM)
+- **API requests:** unlimited
+- **Monthly active users:** 50,000
+- **Egress:** 5 GB (plus 5 GB cached egress)
+- **File storage:** 1 GB
+- **Projects:** 2 active projects
+- **Pausing:** a free project is **paused after 1 week of inactivity**
+- **Backups:** not included on the Free plan
+- **Support:** community support only
+
+Because free projects pause after a week of inactivity, an unused project may
+need to be unpaused from the Supabase dashboard before the app can reach it.
 
 ## Run it
 
