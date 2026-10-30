@@ -50,4 +50,23 @@ describe('PATCH /tasks/:id', () => {
   it.todo('returns 400 when estimatedHours is negative'); // send { estimatedHours: -1 }
   it.todo('does not change anything when the request is invalid'); // send { done: true, estimatedHours: -1 }, then GET and check done is still false
   it.todo('returns 404 for an unknown id');
+
+  // TP-25 and TP-26 (risk R1): the same limits as the client (MAX_ESTIMATE_HOURS)
+  // and the database CHECK in server/db/schema.sql, so the database never
+  // rejects what the API accepted.
+  it('accepts estimatedHours of exactly 100', async () => {
+    const res = await request(app).patch('/tasks/262-2').send({ estimatedHours: 100 });
+    expect(res.status).toBe(200);
+    expect(res.body.estimatedHours).toBe(100);
+  });
+
+  it.each([[0], [100.5], [101]])('returns 400 when estimatedHours is %p', async (hours) => {
+    const res = await request(app).patch('/tasks/262-2').send({ estimatedHours: hours });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/estimatedHours/);
+
+    // the task keeps its old estimate
+    const get = await request(app).get('/tasks/262-2');
+    expect(get.body.estimatedHours).toBe(2);
+  });
 });

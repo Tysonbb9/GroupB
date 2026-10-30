@@ -111,8 +111,8 @@ The server in `server/`:
 | TP-22 | PATCH /tasks/:id | `estimatedHours` is negative | 400 with a JSON error | R1 | T | |
 | TP-23 | PATCH /tasks/:id | One valid and one invalid field together | 400, and nothing changed | R4 | T | |
 | TP-24 | PATCH /tasks/:id | Unknown id | 404 with a JSON error | | T | |
-| TP-25 | PATCH /tasks/:id | `estimatedHours` is 0 | 400, to match the client (more than 0) | R1 | N | |
-| TP-26 | PATCH /tasks/:id | `estimatedHours` is over 100 | 400, to match the client (at most 100) | R1 | N | |
+| TP-25 | PATCH /tasks/:id | `estimatedHours` is 0 | 400, to match the client (more than 0) | R1 | E | ColinRedder |
+| TP-26 | PATCH /tasks/:id | `estimatedHours` is over 100 | 400, to match the client (at most 100) | R1 | E | ColinRedder |
 | TP-27 | PATCH /tasks/:id | A malformed JSON body | 400 with a **JSON** error, not a web page | R2 | N | |
 | TP-28 | PATCH /tasks/:id | An empty body `{}` | change nothing: 200 unchanged, or 400? | R4 | D | |
 | TP-29 | PATCH /tasks/:id | An unknown extra field | ignored, nothing else changes | R4 | N | |
