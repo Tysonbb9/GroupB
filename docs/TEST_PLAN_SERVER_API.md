@@ -130,7 +130,7 @@ The server in `server/`:
 | TP-41 | Database layer | A `PATCH` persists across requests and after a restart | the change is still there | R5 | N | |
 | TP-42 | Database layer | An unknown id | 404, not 500 | R5 | N | |
 | TP-43 | Database layer | The database cannot be reached | a clear JSON error, no stack trace | R7 | N | |
-| TP-44 | Database layer | Keys come from environment variables, and no key is in the repository | no secret in any tracked file | R6 | N | |
+| TP-44 | Database layer | Keys come from environment variables, and no key is in the repository | no secret in any tracked file | R6 | E | ColinRedder |
 
 The rows marked **E** already exist (see `server/src/__tests__/`), so the plan also shows what is already covered. The 13 placeholders are TP-08 to TP-12, TP-16, TP-17, and TP-19 to TP-24.
 

@@ -37,6 +37,28 @@ From the [Supabase pricing page](https://supabase.com/pricing#compare-plans):
 Because free projects pause after a week of inactivity, an unused project may
 need to be unpaused from the Supabase dashboard before the app can reach it.
 
+### Keys
+
+The server needs two values to reach the database. `server/.env.example`
+lists them with no values:
+
+| Variable | What it is | Secret? |
+|---|---|---|
+| `SUPABASE_URL` | The project URL above | No |
+| `SUPABASE_SECRET_KEY` | The secret key (`sb_secret_...`). It bypasses every access rule, so it lives **only on the server** | **Yes** |
+
+To set them up, copy `server/.env.example` to `server/.env` and fill in the
+values. `server/.env` is ignored by git, so it cannot be committed by accident.
+
+**How teammates get the values:** each person opens the Supabase dashboard with
+their own invitation (Project Settings > API Keys) and copies them. Keys are
+never sent in chat or email, and never go in the client, in an `EXPO_PUBLIC_`
+variable (those are visible inside the app), in a test, a screenshot or an
+issue. If a key leaks, the owner rotates it in the dashboard.
+
+`src/__tests__/no-secrets.test.ts` (TP-44) fails if a key-shaped string is in
+any file git would commit, and checks that `server/.env` is ignored.
+
 ## Run it
 
 ```bash
