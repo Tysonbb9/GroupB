@@ -37,6 +37,50 @@ From the [Supabase pricing page](https://supabase.com/pricing#compare-plans):
 Because free projects pause after a week of inactivity, an unused project may
 need to be unpaused from the Supabase dashboard before the app can reach it.
 
+### Keys
+
+The server needs two values to reach the database. `server/.env.example`
+lists them with no values:
+
+| Variable | What it is | Secret? |
+|---|---|---|
+| `SUPABASE_URL` | The project URL above | No |
+| `SUPABASE_SECRET_KEY` | The secret key (`sb_secret_...`). It bypasses every access rule, so it lives **only on the server** | **Yes** |
+
+To set them up, copy `server/.env.example` to `server/.env` and fill in the
+values. `server/.env` is ignored by git, so it cannot be committed by accident.
+
+**How teammates get the values:** each person opens the Supabase dashboard with
+their own invitation (Project Settings > API Keys) and copies them. Keys are
+never sent in chat or email, and never go in the client, in an `EXPO_PUBLIC_`
+variable (those are visible inside the app), in a test, a screenshot or an
+issue. If a key leaks, the owner rotates it in the dashboard.
+
+`src/__tests__/no-secrets.test.ts` (TP-44) fails if a key-shaped string is in
+any file git would commit, and checks that `server/.env` is ignored.
+
+### Build the database from scratch
+
+The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
+
+| File | What it does |
+|---|---|
+| `db/schema.sql` | Creates the four tables, their rules, and turns on Row Level Security |
+| `db/seed.sql` | Loads the sample data from `src/data/semester.ts`: 1 semester, 5 courses, 36 tasks |
+| `db/reset.sql` | **Deletes every table and all data**, including saved reviews |
+
+On an empty project:
+
+1. In the Supabase dashboard, open **SQL Editor** and start a new query.
+2. Paste all of `db/schema.sql` and press **Run**. It should say "Success. No rows returned".
+3. Paste all of `db/seed.sql` and press **Run**. The last result should show
+   `semester_rows 1`, `courses 5`, `tasks 36`, `reviews 0`.
+
+To start over, run `db/reset.sql` first, then steps 2 and 3. Check with the
+team before you do: it deletes every review students have saved.
+
+Each file runs as one transaction, so if anything fails, nothing changes.
+
 ## Run it
 
 ```bash
@@ -127,3 +171,5 @@ OCR), and two columns of text side by side read across both columns.
 - `src/types.ts`: Task, Course, Semester (copied from the client), Review and Inputs
 - `src/data/semester.ts`: the mock data
 - `src/data/db.ts`: in-memory copy of the data, plus `resetDb()` for tests.
+- `db/schema.sql`, `db/seed.sql`, `db/reset.sql`: build the Supabase database (see above)
+- `.env.example`: the names of the Supabase keys, with no values

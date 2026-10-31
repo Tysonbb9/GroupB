@@ -5,3 +5,9 @@ web-build/
 *.log
 .DS_Store
 .env*.local
+
+# Supabase keys (and any other secrets) go in .env files, which are never
+# committed. server/.env.example lists the names with no values.
+.env
+.env.*
+!.env.example
