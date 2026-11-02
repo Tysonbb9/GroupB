@@ -101,7 +101,7 @@ app.get('/tasks', (req, res) => {
 
 /**
  * PATCH /tasks/:id
- * Body: { done?: boolean, estimatedHours?: number | null }.
+ * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null }.
  * Returns the updated task, 400 if a field is invalid, 404 if the id is unknown.
  */
 app.patch('/tasks/:id', (req, res) => {
@@ -119,12 +119,14 @@ app.patch('/tasks/:id', (req, res) => {
     res.status(400).json({ error: 'done must be true or false' });
     return;
   }
+  // Same limits as the client's MAX_ESTIMATE_HOURS and the database's CHECK,
+  // so a value the API accepts can always be saved.
   if (
     estimatedHours !== undefined &&
     estimatedHours !== null &&
-    (typeof estimatedHours !== 'number' || estimatedHours < 0)
+    (typeof estimatedHours !== 'number' || !(estimatedHours > 0) || estimatedHours > 100)
   ) {
-    res.status(400).json({ error: 'estimatedHours must be a number 0 or more, or null' });
+    res.status(400).json({ error: 'estimatedHours must be a number more than 0 and up to 100, or null' });
     return;
   }
 

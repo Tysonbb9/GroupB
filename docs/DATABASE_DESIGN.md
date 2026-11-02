@@ -11,6 +11,9 @@ Every table and column below can be traced to a field in `server/src/types.ts`
 not use yet is listed in [Not in this design yet](#not-in-this-design-yet) and
 left out of the tables.
 
+The SQL that builds this design is in `server/db/` (`schema.sql`, `seed.sql`,
+`reset.sql`); `server/README.md` says how to run it.
+
 ---
 
 ## 1. The shapes the API already sends
@@ -118,6 +121,8 @@ single-row table; the `id` is a fixed sentinel value.
 ```sql
 CHECK (current_week BETWEEN 1 AND 15)
 CHECK (weekly_capacity > 0)
+-- Only one row: every row indexes to the same value, so a second is refused.
+CREATE UNIQUE INDEX semester_one_row ON semester ((true))
 ```
 
 ### 3.2 `courses`
@@ -171,13 +176,15 @@ CHECK (category IN ('exam','project','problemSet','reading','writing','homework'
 CHECK (due_week BETWEEN 1 AND 15)
 CHECK (estimated_hours IS NULL OR (estimated_hours > 0 AND estimated_hours <= 100))
 CHECK (spread_weeks >= 1 AND spread_weeks <= due_week)
+-- A course that still has tasks cannot be deleted, so no work disappears silently.
+FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE RESTRICT
 ```
 
 ### 3.4 `reviews`
 
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
-| `id` | `TEXT` | no | — | Primary key. Text id, e.g. `'review-1'`. |
+| `id` | `TEXT` | no | `'review-' \|\| nextval(...)` | Primary key. Made by the database, e.g. `'review-1'`. |
 | `course_id` | `TEXT` | no | — | Foreign key → `courses.id`. `Review.courseId`. |
 | `title` | `TEXT` | no | — | `Review.title`. The assignment, as in the syllabus. |
 | `hours` | `NUMERIC` | no | — | `Review.hours`. Must be > 0 and ≤ 100. |
@@ -188,9 +195,31 @@ CHECK (spread_weeks >= 1 AND spread_weeks <= due_week)
 
 - `hours` must be > 0 and ≤ 100, matching the server's `POST /courses/:id/reviews`
   validation.
+- The database makes the `id` from a sequence, in the same `review-N` form the
+  in-memory server uses. The data layer inserts a review without an id and
+  reads the new one back. A failed insert still uses up its number, so the
+  numbers can skip (`review-1`, `review-3`); that is fine, an id only has to be
+  unique.
+- Like tasks, a course with reviews cannot be deleted.
 
 ```sql
 CHECK (hours > 0 AND hours <= 100)
+id TEXT PRIMARY KEY DEFAULT 'review-' || nextval('review_id_seq')
+FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE RESTRICT
+```
+
+### 3.5 Access: Row Level Security
+
+Supabase serves every table to anyone holding the project's **public**
+(publishable) key, which is not a secret. Tables made with SQL start with Row
+Level Security (RLS) **off**, which would let anyone with that key read and
+change the data. All four tables turn RLS **on** with **no policies**, which
+refuses every request made with the public key. The server uses the **secret**
+key, which bypasses RLS, so the app is unaffected. Per-user policies arrive
+with login (US-20, US-21).
+
+```sql
+ALTER TABLE semester ENABLE ROW LEVEL SECURITY;  -- and courses, tasks, reviews
 ```
 
 ---
@@ -216,7 +245,7 @@ then, text ids keep the API contract byte-for-byte identical.
 
 | Rule | Database | Server (`app.ts`) | Client |
 |------|----------|-------------------|--------|
-| `estimated_hours` null or 0 < h ≤ 100 | `CHECK` on `tasks` | PATCH rejects `< 0`; client caps at 100 | `MAX_ESTIMATE_HOURS = 100` |
+| `estimated_hours` null or 0 < h ≤ 100 | `CHECK` on `tasks` | PATCH rejects `!(h > 0) \|\| h > 100` (TP-25, TP-26) | `MAX_ESTIMATE_HOURS = 100` |
 | `due_week` 1–15 | `CHECK` on `tasks` | — | `WEEKS_IN_SEMESTER = 15`; scanner skips outside 1–15 |
 | `review.hours` 0 < h ≤ 100 | `CHECK` on `reviews` | POST rejects `!(hours > 0) \|\| hours > 100` | — |
 | `category` closed set | `CHECK` on `tasks` | — | `categories.ts` closed union |

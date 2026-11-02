@@ -111,8 +111,8 @@ The server in `server/`:
 | TP-22 | PATCH /tasks/:id | `estimatedHours` is negative | 400 with a JSON error | R1 | T | |
 | TP-23 | PATCH /tasks/:id | One valid and one invalid field together | 400, and nothing changed | R4 | T | |
 | TP-24 | PATCH /tasks/:id | Unknown id | 404 with a JSON error | | T | |
-| TP-25 | PATCH /tasks/:id | `estimatedHours` is 0 | 400, to match the client (more than 0) | R1 | N | |
-| TP-26 | PATCH /tasks/:id | `estimatedHours` is over 100 | 400, to match the client (at most 100) | R1 | N | |
+| TP-25 | PATCH /tasks/:id | `estimatedHours` is 0 | 400, to match the client (more than 0) | R1 | E | ColinRedder |
+| TP-26 | PATCH /tasks/:id | `estimatedHours` is over 100 | 400, to match the client (at most 100) | R1 | E | ColinRedder |
 | TP-27 | PATCH /tasks/:id | A malformed JSON body | 400 with a **JSON** error, not a web page | R2 | N | |
 | TP-28 | PATCH /tasks/:id | An empty body `{}` | change nothing: 200 unchanged, or 400? | R4 | D | |
 | TP-29 | PATCH /tasks/:id | An unknown extra field | ignored, nothing else changes | R4 | N | |
@@ -130,7 +130,7 @@ The server in `server/`:
 | TP-41 | Database layer | A `PATCH` persists across requests and after a restart | the change is still there | R5 | N | |
 | TP-42 | Database layer | An unknown id | 404, not 500 | R5 | N | |
 | TP-43 | Database layer | The database cannot be reached | a clear JSON error, no stack trace | R7 | N | |
-| TP-44 | Database layer | Keys come from environment variables, and no key is in the repository | no secret in any tracked file | R6 | N | |
+| TP-44 | Database layer | Keys come from environment variables, and no key is in the repository | no secret in any tracked file | R6 | E | ColinRedder |
 
 The rows marked **E** already exist (see `server/src/__tests__/`), so the plan also shows what is already covered. The 13 placeholders are TP-08 to TP-12, TP-16, TP-17, and TP-19 to TP-24.
 
