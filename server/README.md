@@ -113,7 +113,7 @@ client can use it.
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
 | POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |
 | GET | `/courses/:id/reviews` | Reviews of one course | 200 | 404 |
-
+| POST | `/tasks` | Add reviewed syllabus assignments, all or nothing: `{ tasks: [{ courseId, title, dueWeek (1-15), estimatedHours (over 0, up to 100, or null) }] }` | 201 | 400 bad body |
 
 ### Example: mark a task done
 
