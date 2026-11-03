@@ -228,7 +228,7 @@ The in-app heads-up cards immediately below the wall card. Each one names the co
 
 ### `src/components/SyllabusReminder.tsx`
 
-US-26. A card under the heads-up notices that says "Keep your syllabi up to date" and why: if a class changed its schedule, the student should update its syllabus so the forecast stays accurate. The SRS has not decided when or how often reminders appear (OI-09), so it shows whenever the Semester screen opens, and a **Dismiss** button hides it until the app is opened again. Nothing is stored. It has no link to follow, because there is no syllabus upload screen yet (US-28 and US-29).
+US-26. A card under the heads-up notices that says "Keep your syllabi up to date" and why: if a class changed its schedule, the student should update its syllabus so the forecast stays accurate. The SRS has not decided when or how often reminders appear (OI-09), so it shows whenever the Semester screen opens, and a **Dismiss** button hides it until the app is opened again. Nothing is stored. The **Add a syllabus** link just below it opens the syllabus screen (US-28).
 
 ### `src/components/DifficultySummary.tsx`
 
@@ -272,6 +272,13 @@ Route: `/login`, reached from the **Log in** link on the Semester screen (US-27)
 
 An email field and a password field, with the password hidden. It checks that both are filled in and that the email looks like an email. There is no sign-in behind it yet, so a valid form shows "Sign-in is not connected yet. This is a preview of the login screen." instead of pretending to log the student in. Real authentication is US-19 to US-21.
 
+### `src/app/syllabus.tsx` — Add a syllabus
+
+Route: `/syllabus`, reached from the **Add a syllabus** link on the Semester screen (US-28).
+
+The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Nothing is added to the semester yet: reviewing and adding the assignments is US-30.
+
+
 ### `src/theme.ts`
 
 Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's load band to its colour, and `categoryColor(category)` gives a category's colour (neutral when unknown). The three colour systems (interface, load bands, categories) are never mixed: no element takes colour from more than one.
@@ -280,7 +287,7 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ## Tests
 
-531 tests across nineteen test suites.
+538 tests across twenty test suites.
 
 ```bash
 npm test                      # all of them
@@ -309,6 +316,7 @@ npx jest --watch              # while you work
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 4 | spike notices, empty state, course summary text and accessibility labels |
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Semester screen in place of the old one-line text |
+| `src/__tests__/syllabus-text.test.tsx` | 7 | US-28: choosing a course, the assignments found with week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the link from the Semester screen |
 
 The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 254 of them in nine files, plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or zero hours, 404 for an unknown course) and `GET /courses/:id/reviews`. `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
 

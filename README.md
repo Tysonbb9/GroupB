@@ -17,10 +17,12 @@ The prototype has two parts that run separately:
 - **Server** (`server/`): an Express and TypeScript REST API on port 3000. It serves one semester of sample data (5 courses, 36 tasks) from memory, so any change is lost when the server restarts. There is no real database.
 - **Client** (`client/`): an Expo / React Native app. When it starts it loads the semester from the server, showing a loading screen first and an error screen with a **Try again** button if the server cannot be reached.
 
-The client has two routes:
+The client has three routes:
 
 - **Semester**: a 15-week workload forecast, capacity line, next-crunch summary, course attendance information, and a link to the weekly view.
 - **This week**: ranked outstanding work with overdue items first, estimated effort, start-by guidance, and a **Done** action.
+
+- **Add a syllabus**: paste a course's syllabus text and see the assignments found in it, plus any lines that could not be read.
 
 Completing a task removes it from the outstanding work and lowers the projected workload. For now that change lives only in the app and is not saved back to the server. There is no authentication, syllabus parser, or model in this phase.
 

@@ -25,6 +25,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ title: 'Crunch Week' }} />
         <Stack.Screen name="week" options={{ title: 'This week' }} />
         <Stack.Screen name="login" options={{ title: 'Log in' }} />
+        <Stack.Screen name="syllabus" options={{title:"Add a Syllabus"}}/>
       </Stack>
     </SemesterProvider>
   );
