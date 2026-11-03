@@ -95,6 +95,15 @@ export default function SemesterScreen() {
       <SpikeNotice notices={notices} capacity={semester.weeklyCapacity} />
 
       <SyllabusReminder />
+      
+      <Pressable
+        testID="go-to-syllabus"
+        accessibilityRole="button"
+        onPress={() => router.push('/syllabus')}
+        style={styles.loginLink}
+      >
+        <Text style={styles.loginLinkText}>Add a syllabus</Text>
+      </Pressable>
 
       <WeekDetail
         week={selectedWeek}
