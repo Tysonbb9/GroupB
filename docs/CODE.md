@@ -285,6 +285,39 @@ Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's lo
 
 ---
 
+## Server Data Access Layer
+
+The Express server uses a Data Access Layer to separate API routes from database operations.
+
+### `server/src/data/store.ts`
+
+Defines the asynchronous `Store` interface for accessing semesters, courses, tasks, and reviews.
+
+### `server/src/data/memory-store.ts`
+
+Implements the `Store` interface using the existing in-memory database. This preserves development and test behavior without requiring Supabase credentials.
+
+### `server/src/data/supabase-store.ts`
+
+Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types.
+
+### `server/src/data/create-store.ts`
+
+Selects the storage implementation at startup:
+
+- When `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are configured, the server uses `SupabaseStore`.
+- Otherwise, the server uses `MemoryStore`.
+
+The environment variables are configured in `server/.env`, which must never be committed to Git.
+
+### `server/src/data/database-error.ts`
+
+Defines `DatabaseError` for database query failures. The Express error handler returns HTTP 503 with a JSON error response for these failures.
+
+### `server/src/app.ts`
+
+The Express routes use asynchronous `Store` methods rather than directly accessing the in-memory database.
+
 ## Tests
 
 538 tests across twenty test suites.
@@ -351,7 +384,8 @@ cross-screen behaviour the whole product rests on, so it gets its own test.
 
 ## Deliberately not here
 
-No database. The server keeps the semester in memory, so any change is lost when it restarts, and marking work done or adding an estimate in the app is not yet saved back to the server.
+
+The server now supports Supabase as its persistent database through the Data Access Layer. When `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are configured, the server uses Supabase; otherwise, it uses the existing in-memory store. The client still manages task completion and estimate changes locally, so those client-side changes are not yet automatically saved back to the server.
 
 No real sign-in and no accounts: the login screen is a preview with nothing behind it. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
