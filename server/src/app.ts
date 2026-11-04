@@ -1,7 +1,7 @@
 import express from 'express';
 import { db, inputs } from './data/db';
 import { syllabusRouter } from './syllabus/routes';
-
+import { Task } from './types'
 export const app = express();
 
 /**
@@ -187,3 +187,80 @@ app.get('/courses/:id/reviews', (req, res) => {
   }
   res.json(inputs.reviews.filter((r) => r.courseId === course.id));
 });
+
+/**
+ * POST /tasks
+ * Body: { tasks: [{ courseId, title, dueWeek (1-15), estimatedHours (more than 0, up to 100, or null) }] }.
+ * US-30: adds the assignments a student reviewed. All or nothing: if any task
+ * is invalid, none are added. 201 with the new tasks, 400 with a message.
+ */
+app.post('/tasks', (req, res) => {
+  const { tasks } = req.body ?? {};
+  if (!Array.isArray(tasks) || tasks.length === 0) {
+    res.status(400).json({ error: 'tasks must be a list with at least one task' });
+    return;
+  }
+
+  // Check every task before adding any (same idea as PATCH /tasks/:id).
+  for (const [i, t] of tasks.entries()) {
+    const n = i + 1; // "Task 1" reads better than "Task 0"
+
+    if (!db.courses.some((c) => c.id === t?.courseId)) {
+      res.status(400).json({ error: `Task ${n}: courseId must be one of your courses` });
+      return;
+    }
+
+
+    // CHECK 1: the course exists.
+    db.courses.some((c) => c.id === t?.courseId)
+    if(!db.courses){
+      res.status(400).json({error: `Task ${t} : courseId must be one of your courses`})
+      return;
+    }
+
+
+    // CHECK 2: title is a string and not blank after .trim()
+    if (typeof t.title !== 'string' || t.title.trim() === ''){
+      res.status(400).json({error: `Task ${n}: title must name the assignment`});
+      return;
+    }
+
+    // CHECK 3: dueWeek is a whole number from 1 to 15.
+    if (!Number.isInteger(t.dueWeek) || t.dueWeek < 1 || t.dueWeek > 15) {
+      res.status(400).json({ error: `Task ${n}: dueWeek must be a whole number from 1 to 15`});
+      return;
+    }
+
+
+    // CHECK 4: estimatedHours is null, OR a number more than 0 and up to 100.
+    if(
+      t.estimatedHours !== null &&
+      (typeof t.estimatedHours !== 'number' || !(t.estimatedHours>0) || t.estimatedHours > 100)
+    ){
+      res.status(400).json({ error: `Rask ${n}: estimatedHours must be more than 0 and up to 100, or null`});
+      return;
+    }
+  }
+
+  // Only now, with everything checked, change the data.
+  const added: Task[] = tasks.map((t) => {
+    const task: Task = {
+      id: nextTaskId(t.courseId),
+      courseId: t.courseId,
+      title: t.title.trim(),
+      dueWeek: t.dueWeek,
+      estimatedHours: t.estimatedHours,
+      done: false,
+    };
+    db.tasks.push(task); // push one at a time so the next id sees this one
+    return task;
+  });
+  res.status(201).json(added); // 201 = "Created"
+});
+
+/** The first "<course>-syl-N" no task is using, the same pattern as the client's processInputs. */
+function nextTaskId(courseId: string): string {
+  let n = 1;
+  while (db.tasks.some((t) => t.id === `${courseId}-syl-${n}`)) n++;
+  return `${courseId}-syl-${n}`;
+}
