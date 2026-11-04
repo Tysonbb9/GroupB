@@ -2,8 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import React from 'react';
 import { Semester } from '../lib/types';
 import { SemesterProvider } from '../state/semester-store';
-import SemesterScreen from '../app/index';
-import WeekScreen from '../app/week';
+import SemesterScreen from '../app/(tabs)/index';
+import WeekScreen from '../app/(tabs)/week';
 
 // The screens only use the router to navigate, which is not what we are
 // testing here.

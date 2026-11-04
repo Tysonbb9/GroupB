@@ -1,13 +1,13 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CompletedTasks } from '../components/CompletedTasks';
-import { Figure } from '../components/Figure';
-import { SectionHeader } from '../components/SectionHeader';
-import { TaskRow } from '../components/TaskRow';
-import { groupThisWeek, startsNow } from '../lib/tasks';
-import { hoursInWeek, weeklyLoad, wholeHours } from '../lib/workload';
-import { useSemester } from '../state/semester-store';
-import { theme } from '../theme';
+import { CompletedTasks } from '../../components/CompletedTasks';
+import { Figure } from '../../components/Figure';
+import { SectionHeader } from '../../components/SectionHeader';
+import { TaskRow } from '../../components/TaskRow';
+import { groupThisWeek, startsNow } from '../../lib/tasks';
+import { hoursInWeek, weeklyLoad, wholeHours } from '../../lib/workload';
+import { useSemester } from '../../state/semester-store';
+import { theme } from '../../theme';
 
 /**
  * Screen 2 — This week.

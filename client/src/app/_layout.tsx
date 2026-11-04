@@ -22,8 +22,8 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: theme.bg },
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'Crunch Week' }} />
-        <Stack.Screen name="week" options={{ title: 'This week' }} />
+        {/* The tabs bring their own headers, so the stack's is hidden there. */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ title: 'Log in' }} />
         <Stack.Screen name="syllabus" options={{title:"Add a Syllabus"}}/>
       </Stack>

@@ -1,17 +1,17 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ComingUp } from '../components/ComingUp';
-import { CourseChips } from '../components/CourseChips';
-import { DifficultySummary } from '../components/DifficultySummary';
-import { SpikeNotice } from '../components/SpikeNotice';
-import { SyllabusReminder } from '../components/SyllabusReminder';
-import { WallCard } from '../components/WallCard';
-import { WeekDetail } from '../components/WeekDetail';
-import { WeekFigures } from '../components/WeekFigures';
-import { WeekStrip } from '../components/WeekStrip';
-import { comingUp } from '../lib/tasks';
-import { courseSpikes, upcomingSpikes } from '../lib/difficulty';
+import { ComingUp } from '../../components/ComingUp';
+import { CourseChips } from '../../components/CourseChips';
+import { DifficultySummary } from '../../components/DifficultySummary';
+import { SpikeNotice } from '../../components/SpikeNotice';
+import { SyllabusReminder } from '../../components/SyllabusReminder';
+import { WallCard } from '../../components/WallCard';
+import { WeekDetail } from '../../components/WeekDetail';
+import { WeekFigures } from '../../components/WeekFigures';
+import { WeekStrip } from '../../components/WeekStrip';
+import { comingUp } from '../../lib/tasks';
+import { courseSpikes, upcomingSpikes } from '../../lib/difficulty';
 import {
   assignmentsInWeek,
   crunchPeriodAt,
@@ -19,9 +19,9 @@ import {
   nextWall,
   recommendStart,
   weeklyLoad,
-} from '../lib/workload';
-import { useSemester } from '../state/semester-store';
-import { theme } from '../theme';
+} from '../../lib/workload';
+import { useSemester } from '../../state/semester-store';
+import { theme } from '../../theme';
 
 /** How many assignments the "Coming up" grid shows. */
 const COMING_UP_COUNT = 4;

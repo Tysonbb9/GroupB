@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
-import SemesterScreen from '../app/index';
+import SemesterScreen from '../app/(tabs)/index';
 import LoginScreen from '../app/login';
 import { SemesterProvider } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';

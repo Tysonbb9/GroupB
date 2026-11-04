@@ -252,9 +252,13 @@ One chip per course in a row that scrolls sideways, with a status dot from `atte
 
 ### `src/app/_layout.tsx`
 
-expo-router's root. Wraps everything in `SemesterProvider` and defines the three routes: `/`, `/week` and `/login`. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
+expo-router's root. Wraps everything in `SemesterProvider` and holds a stack: the tab group `(tabs)`, which has its own headers, with `/login` and `/syllabus` on top of it. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
 
-### `src/app/index.tsx` — screen 1, Semester
+### `src/app/(tabs)/_layout.tsx`
+
+The tab bar from layout Option A (#96): **Forecast** (`/`) and **This week** (`/week`), one focus per screen. A folder in brackets groups screens without changing their addresses, so `router.push('/week')` lands on the This week tab. The tabs are labels only until an icon set is added.
+
+### `src/app/(tabs)/index.tsx` — screen 1, Semester
 
 Route: `/`
 
@@ -262,7 +266,7 @@ Semester label and week with a **Log in** link beside them, the week figures and
 
 It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size and clearer than caching.
 
-### `src/app/week.tsx` — screen 2, This week
+### `src/app/(tabs)/week.tsx` — screen 2, This week
 
 Route: `/week`
 
@@ -345,6 +349,7 @@ npx jest --watch              # while you work
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
+| `src/__tests__/tabs.test.tsx` | 3 | the tab bar: opens on Forecast, switches to This week, and `/week` still lands on its tab |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
 | `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the wall card and start-by recommendation |
 | `src/__tests__/estimate-hours.test.tsx` | 11 | US-12, US-13: adding an estimate, and tasks without one |

@@ -4,7 +4,7 @@ import { Text } from 'react-native';
 import SyllabusScreen from '../app/syllabus';
 import { SemesterProvider, useSemester } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';
-import SemesterScreen from '../app/index';
+import SemesterScreen from '../app/(tabs)/index';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
