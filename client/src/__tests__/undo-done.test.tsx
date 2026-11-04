@@ -13,67 +13,90 @@ jest.mock('expo-router', () => ({
 
 /**
  * Week 5, so the Midterm and the Big project (both due week 6) are on the
- * This week screen under "Next week", and the forecast shows week 6's hours.
+ * This week screen under "Next week". The Big project is spread over two
+ * weeks, so 10 of its 20 hours land in week 5 and 10 in week 6.
  */
 const semesterInWeek5 = { ...wallSemester, currentWeek: 5 };
 
 /** Both screens under one provider, which is how the app runs them. */
-function renderApp() {
+function renderApp(semester = semesterInWeek5) {
   return render(
-    <SemesterProvider initial={semesterInWeek5}>
+    <SemesterProvider initial={semester}>
       <SemesterScreen />
       <WeekScreen />
     </SemesterProvider>
   );
 }
 
-const openCompleted = () => fireEvent.press(screen.getByTestId('completed-toggle'));
+// Found by role and name, so the tests also hold the accessibility the
+// controls promise: a button that says whether it is open, and a checked box.
+const completedLine = () => screen.getByRole('button', { name: /^Completed,/ });
+const undoBox = (title: string) => screen.getByRole('checkbox', { name: `Mark ${title} not done` });
+const openCompleted = () => fireEvent.press(completedLine());
 
 describe('US-31: undo marking a task as done', () => {
   it('counts the finished tasks on a Completed line, closed by default', () => {
     renderApp();
     // "Old quiz" is already done in the fixture.
-    expect(screen.getByTestId('completed-toggle')).toHaveTextContent(/Completed \(1\)/);
-    expect(screen.queryByTestId('undo-gone')).toBeNull();
+    expect(completedLine()).toHaveTextContent(/Completed \(1\)/);
+    expect(completedLine()).toHaveAccessibleName('Completed, 1 task');
+    expect(completedLine()).not.toBeExpanded();
+    expect(screen.queryByRole('checkbox', { name: 'Mark Old quiz not done' })).toBeNull();
   });
 
-  it('lists the finished tasks once the Completed line is opened', () => {
+  it('opens to list the finished tasks, checked, and closes again', () => {
     renderApp();
     openCompleted();
+    expect(completedLine()).toBeExpanded();
     expect(screen.getByText('Old quiz')).toBeTruthy();
-    expect(screen.getByTestId('undo-gone')).toBeTruthy();
+    expect(undoBox('Old quiz')).toBeChecked();
+
+    openCompleted();
+    expect(completedLine()).not.toBeExpanded();
+    expect(screen.queryByText('Old quiz')).toBeNull();
   });
 
   it('moves a task to Completed when it is marked done', () => {
     renderApp();
     fireEvent.press(screen.getByTestId('done-exam'));
     expect(screen.queryByTestId('row-exam')).toBeNull();
-    expect(screen.getByTestId('completed-toggle')).toHaveTextContent(/Completed \(2\)/);
+    expect(completedLine()).toHaveTextContent(/Completed \(2\)/);
     openCompleted();
-    expect(screen.getByTestId('undo-exam')).toBeTruthy();
+    expect(undoBox('Midterm')).toBeChecked();
   });
 
   it('puts the task back in This week when it is marked not done', () => {
     renderApp();
     fireEvent.press(screen.getByTestId('done-exam'));
     openCompleted();
-    fireEvent.press(screen.getByTestId('undo-exam'));
+    fireEvent.press(undoBox('Midterm'));
     expect(screen.getByTestId('row-exam')).toBeTruthy();
-    expect(screen.getByTestId('completed-toggle')).toHaveTextContent(/Completed \(1\)/);
+    expect(completedLine()).toHaveTextContent(/Completed \(1\)/);
   });
 
-  it('returns its hours to the forecast on both screens', () => {
+  it("returns its hours to this week's figure and to the forecast", () => {
     renderApp();
-    // Week 6 holds the Big project (10h) and the Midterm (8h).
+    // Week 5 holds half the Big project; week 6 holds the other half and the Midterm.
+    expect(screen.getByLabelText('10 of 10 hours land this week')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('done-exam'));
-    expect(screen.getByLabelText('Week 6, 10 hours')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('done-proj'));
+    expect(screen.getByLabelText('0 of 10 hours land this week')).toBeTruthy();
+    expect(screen.getByLabelText('Week 6, 8 hours')).toBeTruthy();
 
     openCompleted();
-    fireEvent.press(screen.getByTestId('undo-exam'));
+    fireEvent.press(undoBox('Big project'));
+    expect(screen.getByLabelText('10 of 10 hours land this week')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
     // Left to do: Discussion post, Big project and Midterm.
     expect(screen.getByTestId('items-left')).toHaveTextContent(/3 items/);
+  });
+
+  it('removes the Completed line when the last finished task is undone', () => {
+    renderApp();
+    openCompleted();
+    fireEvent.press(undoBox('Old quiz'));
+    expect(screen.queryByRole('button', { name: /^Completed,/ })).toBeNull();
   });
 
   it('shows nothing to open when no task is done', () => {
@@ -84,6 +107,6 @@ describe('US-31: undo marking a task as done', () => {
         <WeekScreen />
       </SemesterProvider>
     );
-    expect(screen.queryByTestId('completed-toggle')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Completed,/ })).toBeNull();
   });
 });
