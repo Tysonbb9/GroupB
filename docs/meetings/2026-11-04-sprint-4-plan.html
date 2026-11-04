@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprint 4 Plan</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --ink: #1f2933;
+    --muted: #5f6b7a;
+    --line: #e1e5ea;
+    --accent: #2f6fb3;
+    --open-bg: #fdf1dc; --open-ink: #8a5300; --open-line: #e8b866;
+    --taken-bg: #eef1f5; --taken-ink: #3e4a59; --taken-line: #b9c2cd;
+    --doing-bg: #e4effb; --doing-ink: #1d4f86; --doing-line: #8db6e3;
+    --review-bg: #e2f4ec; --review-ink: #12613f; --review-line: #7fc8a6;
+    --done-bg: #dff1e7; --done-ink: #165c38;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3adba; --line: #2f3540; --accent: #7fb0e6;
+      --open-bg: #3a2c12; --open-ink: #f3c77a; --open-line: #8a6420;
+      --taken-bg: #262b33; --taken-ink: #c9d1db; --taken-line: #4a5361;
+      --doing-bg: #182b42; --doing-ink: #a9cbf0; --doing-line: #35608f;
+      --review-bg: #15342a; --review-ink: #9fdcbf; --review-line: #2f7656;
+      --done-bg: #15342a; --done-ink: #9fdcbf;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 19px; font-weight: 600; margin: 40px 0 12px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; }
+  p { margin: 0 0 10px; }
+  .sub { color: var(--muted); margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
+  .tile .n { font-size: 24px; font-weight: 600; }
+  .tile .l { color: var(--muted); font-size: 13px; }
+  .note { border-left: 4px solid var(--accent); background: var(--card); padding: 12px 16px; border-radius: 0; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .wrap { overflow-x: auto; }
+  code { font: 13px ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .open { background: var(--open-bg); color: var(--open-ink); }
+  .taken { background: var(--taken-bg); color: var(--taken-ink); }
+  .doing { background: var(--doing-bg); color: var(--doing-ink); }
+  .review { background: var(--review-bg); color: var(--review-ink); }
+  .done { background: var(--done-bg); color: var(--done-ink); }
+  .bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin: 8px 0 10px; }
+  .bar span { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+  ul { margin: 0 0 10px; padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Sprint 4 plan</h1>
+<p class="sub">Where the implementation sprint stands and what is left. Taken from the board and GitHub on Wednesday 11/4. Owners are the people assigned on each card. <span class="pill open">Open</span> means nobody has taken it yet. Sprint 4 ends Friday 11/13.</p>
+
+<h2>Where we are</h2>
+<div class="tiles">
+  <div class="card tile"><div class="n">10</div><div class="l">PRs merged this sprint, most recently #120 (POST /tasks)</div></div>
+  <div class="card tile"><div class="n">20 of 44</div><div class="l">test plan rows have a passing test</div></div>
+  <div class="card tile"><div class="n">5 of 5</div><div class="l">code review sections taken, no findings posted yet</div></div>
+  <div class="card tile"><div class="n">9 days</div><div class="l">left, to Friday 11/13</div></div>
+</div>
+
+<h2>What the sprint is graded on</h2>
+<p>The Project Implementation rubric on Moodle has three items. The stories and the layout sit alongside them.</p>
+<div class="wrap">
+<table>
+  <tr><th>Rubric item</th><th>What it is for us</th><th>Cards</th><th>State</th></tr>
+  <tr><td><b>SD2</b> Create an appropriate database design</td><td><code>docs/DATABASE_DESIGN.md</code> and the Supabase tables</td><td>#101 to #104</td><td><span class="pill done">Done</span></td></tr>
+  <tr><td><b>VV7</b> Implement a test plan for a medium-size code segment</td><td>The rows in <code>docs/TEST_PLAN_SERVER_API.md</code> become passing tests</td><td>#109, #110</td><td><span class="pill doing">Ready to start</span></td></tr>
+  <tr><td><b>VV10</b> Undertake, as a team, a code review of a medium-size code segment</td><td>Five review sections, one session with everyone, and a written record</td><td>#111 to #116</td><td><span class="pill taken">Sections taken</span></td></tr>
+</table>
+</div>
+
+<h3>The test plan and the code review are two separate items</h3>
+<div class="note">
+  <p><b>Test plan (VV7, #109 and #110):</b> we write the tests the plan lists, so the plan describes tests that exist and pass. The 13 placeholder tests (<code>it.todo</code>) in <code>server/src/__tests__/taskts.test.ts</code> are most of what is left.</p>
+  <p><b>Code review (VV10, #111 to #116):</b> we read the code together and record what we find. The review looks at the tests too, so #111 depends on #109 and #110.</p>
+  <p>One does not replace the other. Both are graded.</p>
+</div>
+
+<h2>The test plan, row by row</h2>
+<div class="bar" role="img" aria-label="44 rows: 20 done, 13 placeholder tests, 4 with an agreed answer and no test yet, 7 not written yet">
+  <span class="done" style="width:45.5%">20</span>
+  <span class="doing" style="width:29.5%">13</span>
+  <span class="open" style="width:9.1%">4</span>
+  <span class="taken" style="width:15.9%">7</span>
+</div>
+<div class="legend">
+  <span><span class="sw done"></span>E: a passing test exists</span>
+  <span><span class="sw doing"></span>T: a placeholder (<code>it.todo</code>) waiting for its test</span>
+  <span><span class="sw open"></span>D: answer agreed, test not written yet</span>
+  <span><span class="sw taken"></span>N: not written yet</span>
+</div>
+<div class="wrap" style="margin-top:12px">
+<table>
+  <tr><th>Rows</th><th>What is left</th><th>Card</th></tr>
+  <tr><td>TP-08 to TP-12, TP-16, TP-17</td><td>7 placeholders for the GET routes</td><td>#109</td></tr>
+  <tr><td>TP-13, TP-14, TP-15</td><td>Test the agreed answers: a course that matches nothing gives 200 and an empty list, a week of 99 gives 400, an empty week gives 400</td><td>#109</td></tr>
+  <tr><td>TP-19 to TP-24</td><td>6 placeholders for PATCH /tasks/:id</td><td>#110</td></tr>
+  <tr><td>TP-27</td><td>A body that is not valid JSON should get a JSON error. The shared error handler arrives with PR #121</td><td>#110</td></tr>
+  <tr><td>TP-28</td><td>Test the agreed answer: an empty PATCH body gives 400</td><td>#110</td></tr>
+  <tr><td>TP-29</td><td>An unknown extra field is ignored</td><td>#110</td></tr>
+  <tr><td>TP-36</td><td>The new PATCH /semester</td><td>#84 (US-32)</td></tr>
+  <tr><td>TP-40 to TP-43</td><td>The data layer</td><td>#106</td></tr>
+</table>
+</div>
+<p style="margin-top:8px">TP-25 and TP-26 (estimate limits) and TP-44 (no keys in the repo) are already done in #118.</p>
+<p>Each test PR changes its own rows in the plan to E, so the plan always matches the tests.</p>
+
+<h2>How the work connects</h2>
+<div class="card">
+<svg viewBox="0 0 690 330" width="100%" role="img" aria-label="Dependencies: PR #121 feeds #110 and #106; #109, #110 and #106 feed the review session #111. Separately, US-31 leads to the Option A layout, which leads to US-32.">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#8792a0" stroke-width="1.6"/></marker></defs>
+  <g fill="none" stroke="#8792a0" stroke-width="1.3" marker-end="url(#a)">
+    <line x1="220" y1="174" x2="246" y2="114"/>
+    <line x1="220" y1="174" x2="246" y2="174"/>
+    <line x1="440" y1="44" x2="466" y2="102"/>
+    <line x1="440" y1="104" x2="466" y2="108"/>
+    <line x1="440" y1="174" x2="466" y2="114"/>
+    <line x1="220" y1="274" x2="246" y2="274"/>
+    <line x1="440" y1="274" x2="466" y2="274"/>
+  </g>
+  <g font-size="13">
+    <rect x="250" y="20" width="190" height="48" rx="7" style="fill:var(--open-bg);stroke:var(--open-line)"/>
+    <text x="345" y="40" text-anchor="middle" style="fill:var(--open-ink)" font-weight="600">#109 Read route tests</text>
+    <text x="345" y="58" text-anchor="middle" style="fill:var(--open-ink)" font-size="12">can start now</text>
+
+    <rect x="250" y="80" width="190" height="48" rx="7" style="fill:var(--open-bg);stroke:var(--open-line)"/>
+    <text x="345" y="100" text-anchor="middle" style="fill:var(--open-ink)" font-weight="600">#110 Write route tests</text>
+    <text x="345" y="118" text-anchor="middle" style="fill:var(--open-ink)" font-size="12">most can start now</text>
+
+    <rect x="30" y="150" width="190" height="48" rx="7" style="fill:var(--review-bg);stroke:var(--review-line)"/>
+    <text x="125" y="170" text-anchor="middle" style="fill:var(--review-ink)" font-weight="600">#105 Data layer</text>
+    <text x="125" y="188" text-anchor="middle" style="fill:var(--review-ink)" font-size="12">PR #121, needs review</text>
+
+    <rect x="250" y="150" width="190" height="48" rx="7" style="fill:var(--doing-bg);stroke:var(--doing-line)"/>
+    <text x="345" y="170" text-anchor="middle" style="fill:var(--doing-ink)" font-weight="600">#106 Data layer tests</text>
+    <text x="345" y="188" text-anchor="middle" style="fill:var(--doing-ink)" font-size="12">TP-40 to TP-43</text>
+
+    <rect x="470" y="84" width="190" height="48" rx="7" style="fill:var(--open-bg);stroke:var(--open-line)"/>
+    <text x="565" y="104" text-anchor="middle" style="fill:var(--open-ink)" font-weight="600">#111 Review session</text>
+    <text x="565" y="122" text-anchor="middle" style="fill:var(--open-ink)" font-size="12">and the record (VV10)</text>
+
+    <rect x="30" y="250" width="190" height="48" rx="7" style="fill:var(--review-bg);stroke:var(--review-line)"/>
+    <text x="125" y="270" text-anchor="middle" style="fill:var(--review-ink)" font-weight="600">#83 US-31 undo done</text>
+    <text x="125" y="288" text-anchor="middle" style="fill:var(--review-ink)" font-size="12">built, PR to open</text>
+
+    <rect x="250" y="250" width="190" height="48" rx="7" style="fill:var(--taken-bg);stroke:var(--taken-line)"/>
+    <text x="345" y="270" text-anchor="middle" style="fill:var(--taken-ink)" font-weight="600">#96 Option A layout</text>
+    <text x="345" y="288" text-anchor="middle" style="fill:var(--taken-ink)" font-size="12">the screens we build on</text>
+
+    <rect x="470" y="250" width="190" height="48" rx="7" style="fill:var(--taken-bg);stroke:var(--taken-line)"/>
+    <text x="565" y="270" text-anchor="middle" style="fill:var(--taken-ink)" font-weight="600">#84 US-32 capacity</text>
+    <text x="565" y="288" text-anchor="middle" style="fill:var(--taken-ink)" font-size="12">includes TP-36</text>
+  </g>
+</svg>
+<div class="legend">
+  <span><span class="sw open"></span>Open</span>
+  <span><span class="sw taken"></span>Taken, not started</span>
+  <span><span class="sw doing"></span>In progress</span>
+  <span><span class="sw review"></span>Built, waiting on review</span>
+</div>
+</div>
+
+<h2>Every open card</h2>
+
+<h3>Graded: test plan (VV7)</h3>
+<div class="wrap"><table>
+  <tr><th>Card</th><th>What it involves</th><th>When</th><th>Owner</th></tr>
+  <tr><td>#109 Read route tests</td><td>Turn the 7 GET placeholders in <code>taskts.test.ts</code> into real tests, and add TP-13 to TP-15. A week of 99 or an empty week now gives 400, so GET /tasks needs a small check.</td><td>Now</td><td><span class="pill open">Open</span></td></tr>
+  <tr><td>#110 Write route tests and fixes</td><td>Turn the 6 PATCH placeholders into real tests and add TP-29. Then TP-28 (an empty body gives 400) and TP-27 (a body that is not JSON gets a JSON error, added to the shared error handler from #121).</td><td>Placeholders and TP-29 now. TP-27 and TP-28 after #121 merges</td><td><span class="pill open">Open</span></td></tr>
+</table></div>
+
+<h3>Graded: code review (VV10)</h3>
+<div class="wrap"><table>
+  <tr><th>Card</th><th>What it involves</th><th>When</th><th>Owner</th></tr>
+  <tr><td>#114 Section 3: the PDF endpoint</td><td>The syllabus upload route and its safety checks.</td><td>Now</td><td>Tyson</td></tr>
+  <tr><td>#115 Section 4: reading the PDF</td><td>The worker thread and the line rebuilding.</td><td>Now</td><td>Colin</td></tr>
+  <tr><td>#116 Section 5: data and the new layer</td><td>Part 1: the data files and SQL. Part 2: the new store.</td><td>Part 1 now, part 2 after #121 merges</td><td>Bithiah</td></tr>
+  <tr><td>#112 Section 1: read routes</td><td>The GET routes in <code>app.ts</code> and their tests.</td><td>After #121 merges</td><td>TJ</td></tr>
+  <tr><td>#113 Section 2: write routes</td><td>PATCH /tasks/:id, the reviews routes, CORS and JSON parsing.</td><td>After #121 merges</td><td>Gabby</td></tr>
+  <tr><td>#111 Session and record</td><td>One session with the whole team, a chair and a scribe, then <code>docs/CODE_REVIEW_SERVER_API.md</code> listing every finding and how it was resolved.</td><td>After #109 and #110 land</td><td><span class="pill open">Open</span></td></tr>
+</table></div>
+<p style="margin-top:8px">The review does not wait for the test plan. Sections 1 and 2 wait for #121 only because it rewrites those routes, so findings written earlier would point at old lines. Findings go as comments on each section issue, one per finding, with a severity.</p>
+
+<h3>Data layer</h3>
+<div class="wrap"><table>
+  <tr><th>Card</th><th>Where it is</th><th>Owner</th></tr>
+  <tr><td>#105 Data access layer</td><td>PR #121 is open with passing checks. It needs a review, and an update from main because #120 also changed <code>app.ts</code>.</td><td>Bithiah, Colin</td></tr>
+  <tr><td>#106 Tests and CI for the data layer</td><td>In progress. Covers TP-40 to TP-43.</td><td>Bithiah</td></tr>
+  <tr><td>#107 How to run with and without the database</td><td>The READMEs, <code>docs/CODE.md</code>, and the SRS line that still says there is no database.</td><td><span class="pill open">Open</span></td></tr>
+</table></div>
+
+<h3>Stories and layout</h3>
+<div class="wrap"><table>
+  <tr><th>Card</th><th>Where it is</th><th>Owner</th></tr>
+  <tr><td>#81 US-29 Upload a syllabus PDF</td><td>Not started. The client call to the server already exists in <code>lib/api.ts</code>, so this is mostly the file picker on the Add a syllabus screen.</td><td>Gabby</td></tr>
+  <tr><td>#82 US-30 Fix or remove found assignments</td><td>The server side (POST /tasks) is merged in #120. The edit, remove and Add to semester steps on the screen are not on main yet.</td><td>Gabby</td></tr>
+  <tr><td>#83 US-31 Undo a done task</td><td>Built and tested on its branch. The PR is next.</td><td>Nhyira</td></tr>
+  <tr><td>#96 Option A layout</td><td>The tab layout we chose. Built in the background so the other screens can build on it.</td><td>Nhyira</td></tr>
+  <tr><td>#84 US-32 Change weekly capacity</td><td>After the layout. A control for hours per week and a PATCH /semester, with TP-36.</td><td>Nhyira</td></tr>
+</table></div>
+
+<h2>Who is on what</h2>
+<div class="wrap"><table>
+  <tr><th>Person</th><th>Cards</th></tr>
+  <tr><td>Bithiah</td><td>#105 (with Colin), #106, #116 review</td></tr>
+  <tr><td>Colin</td><td>#105 (with Bithiah), #115 review</td></tr>
+  <tr><td>Gabby</td><td>#81 US-29, #82 US-30 screen steps, #113 review</td></tr>
+  <tr><td>TJ</td><td>#112 review</td></tr>
+  <tr><td>Tyson</td><td>Reviewing and merging PRs (LE), #114 review</td></tr>
+  <tr><td>Nhyira</td><td>#83 US-31, #96 Option A, #84 US-32, weekly PM reports</td></tr>
+  <tr><td><span class="pill open">Open</span></td><td>#109, #110 (test plan), #111 (session and record), #107 (docs)</td></tr>
+</table></div>
+
+<h2>After the graded work: AI screens</h2>
+<div class="card">
+  <p>Our design gives the model one job: deciding what to ask and when. Code still produces every number (<code>docs/DESIGN.md</code>, section 1). The plan for the AI features is screens first. Once we are all happy with how they look, the work behind them follows.</p>
+  <p>This comes after the test plan, the code review and the stories above, and does not change any of them.</p>
+</div>
+
+<h2>Dates</h2>
+<div class="wrap"><table>
+  <tr><th>When</th><th>What</th></tr>
+  <tr><td>Thursdays, 5 pm</td><td>Individual weekly status report (Teammates): 11/5 and 11/12</td></tr>
+  <tr><td>Thursdays, 11:59 pm</td><td>LE status report: 11/5 and 11/12</td></tr>
+  <tr><td>Fridays, 1 pm</td><td>PM status report: 11/6 and 11/13</td></tr>
+  <tr><td>To agree</td><td>The code review session (#111)</td></tr>
+  <tr><td>Friday 11/13</td><td>Sprint 4 ends</td></tr>
+  <tr><td>Monday 11/16</td><td>The usability testing sprint begins</td></tr>
+</table></div>
+
+<footer>Sources: the GitHub project board and issues, the Moodle rubric for Project Implementation, and the course calendar, all as of Wednesday 11/4.</footer>
+</main>
+</body>
+</html>
