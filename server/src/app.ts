@@ -1,8 +1,10 @@
 import express from 'express';
-import { db, inputs } from './data/db';
+import { createStore } from './data/create-store';
 import { syllabusRouter } from './syllabus/routes';
-import { Task } from './types'
+import { DatabaseError } from './data/database-error';
+
 export const app = express();
+const store = createStore();
 
 /**
  * CORS. A browser (the Expo Web version of the client) refuses to let a page
@@ -26,24 +28,28 @@ app.use(express.json()); // Lets PATCH read a JSON body
 
 // POST /syllabus/text: a syllabus PDF in, its text out. See syllabus/routes.ts.
 app.use('/syllabus', syllabusRouter);
+
 /**
  * GET /semester
  * Returns the whole semester: label, current week, weekly capacity,
  * courses and tasks.
  */
-app.get('/semester', (_req, res) => {
-    res.json(db);
-  });
-app.get('/courses', (_req, res) => {
-  res.json(db.courses);
+app.get('/semester', async (_req, res) => {
+  const semester = await store.getSemester();
+  res.json(semester);
+});
+
+app.get('/courses', async (_req, res) => {
+  const courses = await store.listCourses();
+  res.json(courses);
 });
 
 /**
  * GET /courses/:id
  * Returns one course, or 404 if the id is unknown.
  */
-app.get('/courses/:id', (req, res) => {
-  const course = db.courses.find((c) => c.id === req.params.id);
+app.get('/courses/:id', async (req, res) => {
+  const course = await store.getCourse(req.params.id);
   if (!course) {
     res.status(404).json({ error: 'Course not found' });
     return; // stop here, or Express tries to send a second response
@@ -55,8 +61,8 @@ app.get('/courses/:id', (req, res) => {
  * GET /tasks/:id
  * Returns one task, or 404 if the id is unknown.
  */
-app.get('/tasks/:id', (req, res) => {
-  const task = db.tasks.find((t) => t.id === req.params.id);
+app.get('/tasks/:id', async (req, res) => {
+  const task = await store.getTask(req.params.id);
   if (!task) {
     res.status(404).json({ error: 'Task not found' });
     return;
@@ -70,22 +76,20 @@ app.get('/tasks/:id', (req, res) => {
  * ?courseId=cs262, ?week=7 (due week), ?done=true|false.
  * Returns 400 if week or done isn't a valid value.
  */
-app.get('/tasks', (req, res) => {
+app.get('/tasks', async (req, res) => {
   const { courseId, week, done } = req.query;
-  let result = db.tasks;
 
-  if (courseId !== undefined) {
-    result = result.filter((t) => t.courseId === courseId);
-  }
+  let weekNumber: number | undefined;
+  let doneValue: boolean | undefined;
 
   // Query values always arrive as strings ("7", not 7), so convert and check.
   if (week !== undefined) {
-    const weekNumber = Number(week); // "7" becomes 7, "abc" becomes NaN
-    if (!Number.isInteger(weekNumber)) {
+    const parsedWeek = Number(week); // "7" becomes 7, "abc" becomes NaN
+    if (!Number.isInteger(parsedWeek)) {
       res.status(400).json({ error: 'week must be a whole number' });
       return;
     }
-    result = result.filter((t) => t.dueWeek === weekNumber);
+    weekNumber = parsedWeek;
   }
 
   if (done !== undefined) {
@@ -93,10 +97,16 @@ app.get('/tasks', (req, res) => {
       res.status(400).json({ error: 'done must be true or false' });
       return;
     }
-    result = result.filter((t) => t.done === (done === 'true'));
+    doneValue = done === 'true';
   }
 
-  res.json(result);
+  const tasks = await store.listTasks({
+    courseId: typeof courseId === 'string' ? courseId : undefined,
+    week: weekNumber,
+    done: doneValue,
+  });
+
+  res.json(tasks);
 });
 
 /**
@@ -104,8 +114,8 @@ app.get('/tasks', (req, res) => {
  * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null }.
  * Returns the updated task, 400 if a field is invalid, 404 if the id is unknown.
  */
-app.patch('/tasks/:id', (req, res) => {
-  const task = db.tasks.find((t) => t.id === req.params.id);
+app.patch('/tasks/:id', async (req, res) => {
+  const task = await store.getTask(req.params.id);
   if (!task) {
     res.status(404).json({ error: 'Task not found' });
     return;
@@ -119,6 +129,7 @@ app.patch('/tasks/:id', (req, res) => {
     res.status(400).json({ error: 'done must be true or false' });
     return;
   }
+
   // Same limits as the client's MAX_ESTIMATE_HOURS and the database's CHECK,
   // so a value the API accepts can always be saved.
   if (
@@ -130,9 +141,12 @@ app.patch('/tasks/:id', (req, res) => {
     return;
   }
 
-  if (done !== undefined) task.done = done;
-  if (estimatedHours !== undefined) task.estimatedHours = estimatedHours;
-  res.json(task);
+  const updatedTask = await store.updateTask(req.params.id, {
+    done,
+    estimatedHours,
+  });
+
+  res.json(updatedTask);
 });
 
 /**
@@ -141,8 +155,8 @@ app.patch('/tasks/:id', (req, res) => {
  * Saves how long an assignment took. 201 with the new review, 400 if a field
  * is invalid, 404 if the course is unknown.
  */
-app.post('/courses/:id/reviews', (req, res) => {
-  const course = db.courses.find((c) => c.id === req.params.id);
+app.post('/courses/:id/reviews', async (req, res) => {
+  const course = await store.getCourse(req.params.id);
   if (!course) {
     res.status(404).json({ error: 'Course not found' });
     return;
@@ -155,23 +169,24 @@ app.post('/courses/:id/reviews', (req, res) => {
     res.status(400).json({ error: 'title must name the assignment' });
     return;
   }
+
   if (typeof hours !== 'number' || !(hours > 0) || hours > 100) {
     res.status(400).json({ error: 'hours must be a number more than 0 and up to 100' });
     return;
   }
+
   if (comment !== undefined && typeof comment !== 'string') {
     res.status(400).json({ error: 'comment must be text' });
     return;
   }
 
-  const review = {
-    id: `review-${inputs.reviews.length + 1}`,
+  const review = await store.addReview({
     courseId: course.id,
     title: title.trim(),
     hours,
     comment: comment?.trim() ?? '',
-  };
-  inputs.reviews.push(review);
+  });
+
   res.status(201).json(review); // 201 = "Created"
 });
 
@@ -179,88 +194,37 @@ app.post('/courses/:id/reviews', (req, res) => {
  * GET /courses/:id/reviews
  * Returns every review of one course, or 404 if the course is unknown.
  */
-app.get('/courses/:id/reviews', (req, res) => {
-  const course = db.courses.find((c) => c.id === req.params.id);
+app.get('/courses/:id/reviews', async (req, res) => {
+  const course = await store.getCourse(req.params.id);
   if (!course) {
     res.status(404).json({ error: 'Course not found' });
     return;
   }
-  res.json(inputs.reviews.filter((r) => r.courseId === course.id));
+
+  const reviews = await store.listReviews(course.id);
+  res.json(reviews);
 });
 
-/**
- * POST /tasks
- * Body: { tasks: [{ courseId, title, dueWeek (1-15), estimatedHours (more than 0, up to 100, or null) }] }.
- * US-30: adds the assignments a student reviewed. All or nothing: if any task
- * is invalid, none are added. 201 with the new tasks, 400 with a message.
- */
-app.post('/tasks', (req, res) => {
-  const { tasks } = req.body ?? {};
-  if (!Array.isArray(tasks) || tasks.length === 0) {
-    res.status(400).json({ error: 'tasks must be a list with at least one task' });
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const error = err as { status?: number; type?: string };
+
+  if (error.status === 413 || error.type === 'entity.too.large') {
+    res.status(413).json({
+      error: 'Request entity too large',
+    });
     return;
   }
 
-  // Check every task before adding any (same idea as PATCH /tasks/:id).
-  for (const [i, t] of tasks.entries()) {
-    const n = i + 1; // "Task 1" reads better than "Task 0"
+  console.error('API request failed:', err);
 
-    if (!db.courses.some((c) => c.id === t?.courseId)) {
-      res.status(400).json({ error: `Task ${n}: courseId must be one of your courses` });
-      return;
-    }
-
-
-    // CHECK 1: the course exists.
-    db.courses.some((c) => c.id === t?.courseId)
-    if(!db.courses){
-      res.status(400).json({error: `Task ${t} : courseId must be one of your courses`})
-      return;
-    }
-
-
-    // CHECK 2: title is a string and not blank after .trim()
-    if (typeof t.title !== 'string' || t.title.trim() === ''){
-      res.status(400).json({error: `Task ${n}: title must name the assignment`});
-      return;
-    }
-
-    // CHECK 3: dueWeek is a whole number from 1 to 15.
-    if (!Number.isInteger(t.dueWeek) || t.dueWeek < 1 || t.dueWeek > 15) {
-      res.status(400).json({ error: `Task ${n}: dueWeek must be a whole number from 1 to 15`});
-      return;
-    }
-
-
-    // CHECK 4: estimatedHours is null, OR a number more than 0 and up to 100.
-    if(
-      t.estimatedHours !== null &&
-      (typeof t.estimatedHours !== 'number' || !(t.estimatedHours>0) || t.estimatedHours > 100)
-    ){
-      res.status(400).json({ error: `Rask ${n}: estimatedHours must be more than 0 and up to 100, or null`});
-      return;
-    }
+  if (err instanceof DatabaseError) {
+    res.status(503).json({
+      error: 'Database unavailable',
+    });
+    return;
   }
 
-  // Only now, with everything checked, change the data.
-  const added: Task[] = tasks.map((t) => {
-    const task: Task = {
-      id: nextTaskId(t.courseId),
-      courseId: t.courseId,
-      title: t.title.trim(),
-      dueWeek: t.dueWeek,
-      estimatedHours: t.estimatedHours,
-      done: false,
-    };
-    db.tasks.push(task); // push one at a time so the next id sees this one
-    return task;
+  res.status(500).json({
+    error: 'Internal server error',
   });
-  res.status(201).json(added); // 201 = "Created"
 });
-
-/** The first "<course>-syl-N" no task is using, the same pattern as the client's processInputs. */
-function nextTaskId(courseId: string): string {
-  let n = 1;
-  while (db.tasks.some((t) => t.id === `${courseId}-syl-${n}`)) n++;
-  return `${courseId}-syl-${n}`;
-}
