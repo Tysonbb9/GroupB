@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { Store, TaskFilters, TaskUpdates, NewReview } from './store';
+import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask } from './store';
 import { DatabaseError } from './database-error';
+import { nextTaskId } from './task-ids';
 
 export class SupabaseStore implements Store {
   private client: SupabaseClient;
@@ -177,6 +178,51 @@ async updateTask(id: string, updates: TaskUpdates) {
     spreadWeeks: data.spread_weeks,
     done: data.done,
   };
+}
+
+async addTasks(newTasks: NewTask[]) {
+  // The ids already in use, so the new ones never clash with them.
+  const { data: existing, error: idsError } = await this.client
+    .from('tasks')
+    .select('id');
+
+  if (idsError) {
+    throw new DatabaseError(`Failed to add tasks: ${idsError.message}`);
+  }
+
+  const taken = new Set(existing.map((row) => row.id as string));
+  const rows = newTasks.map((newTask) => {
+    const id = nextTaskId(newTask.courseId, taken);
+    taken.add(id);
+    return {
+      id,
+      course_id: newTask.courseId,
+      title: newTask.title,
+      due_week: newTask.dueWeek,
+      estimated_hours: newTask.estimatedHours,
+    };
+  });
+
+  // One insert for every row, so the database adds all of them or none.
+  const { data, error } = await this.client
+    .from('tasks')
+    .insert(rows)
+    .select('*');
+
+  if (error) {
+    throw new DatabaseError(`Failed to add tasks: ${error.message}`);
+  }
+
+  return data.map((task) => ({
+    id: task.id,
+    courseId: task.course_id,
+    title: task.title,
+    category: task.category ?? undefined,
+    dueWeek: task.due_week,
+    estimatedHours: task.estimated_hours,
+    spreadWeeks: task.spread_weeks,
+    done: task.done,
+  }));
 }
 
 async addReview(review: NewReview) {

@@ -11,6 +11,13 @@ export type TaskUpdates = {
   estimatedHours?: number | null;
 };
 
+export type NewTask = {
+  courseId: string;
+  title: string;
+  dueWeek: number;
+  estimatedHours: number | null;
+};
+
 export type NewReview = {
   courseId: string;
   title: string;
@@ -30,6 +37,8 @@ export interface Store {
     id: string,
     updates: TaskUpdates
   ): Promise<Task | null>;
+  /** Adds every task or none (US-30), and returns them with their new ids. */
+  addTasks(tasks: NewTask[]): Promise<Task[]>;
 
   addReview(review: NewReview): Promise<Review>;
   listReviews(courseId: string): Promise<Review[]>;

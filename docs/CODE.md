@@ -305,6 +305,10 @@ Implements the `Store` interface using the existing in-memory database. This pre
 
 Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types.
 
+### `server/src/data/task-ids.ts`
+
+`nextTaskId(courseId, taken)` gives each task added through POST /tasks the first free `<course>-syl-N` id. Both stores use it, so an added task gets the same kind of id either way.
+
 ### `server/src/data/create-store.ts`
 
 Selects the storage implementation at startup:
