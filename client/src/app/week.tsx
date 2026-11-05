@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CompletedTasks } from '../components/CompletedTasks';
 import { Figure } from '../components/Figure';
 import { SectionHeader } from '../components/SectionHeader';
 import { TaskRow } from '../components/TaskRow';
@@ -73,6 +74,11 @@ export default function WeekScreen() {
           </View>
         ))
       )}
+      <CompletedTasks
+        tasks={semester.tasks.filter((t) => t.done)}
+        courseCode={courseCode}
+        onUndo={toggleDone}
+      />
     </ScrollView>
   );
 }

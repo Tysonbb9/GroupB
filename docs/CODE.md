@@ -214,6 +214,10 @@ An **Add estimate** link for a task that has no estimate. Saving runs the text t
 
 One assignment as a row on the This week screen: category tile, title, details (course, hours or "Add estimate", "Was week N", "start now") and a circular checkbox. The checkbox has `accessibilityRole="checkbox"` and a label naming the work it completes.
 
+### `src/components/CompletedTasks.tsx`
+
+The finished work on the This week screen (US-31). It draws one "Completed (n)" line, closed by default, and nothing at all when no task is done. Opening the line lists each finished task with a filled circle, and tapping the circle calls `onUndo` (the store's `toggleDone`), which puts the task back in the This week list and its hours back in the forecast. The circle has `accessibilityRole="checkbox"`, checked, with a label naming the task.
+
 ### `src/components/CategoryTile.tsx`
 
 The two-letter tile, coloured by category through `categoryColor` in `theme.ts`. The letters mean colour is never the only signal.
@@ -262,7 +266,7 @@ It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size 
 
 Route: `/week`
 
-Two figures (hours landing this week against capacity, and items left to do), then the outstanding work in `groupThisWeek`'s groups: Overdue, Due this week, Next week. Each `TaskRow` has a circular checkbox calling `toggleDone` and, when the task has no estimate, an **Add estimate** link calling `setEstimate`.
+Two figures (hours landing this week against capacity, and items left to do), then the outstanding work in `groupThisWeek`'s groups: Overdue, Due this week, Next week. Each `TaskRow` has a circular checkbox calling `toggleDone` and, when the task has no estimate, an **Add estimate** link calling `setEstimate`. Below the groups, `CompletedTasks` lists the done work behind a "Completed (n)" line, so a mistaken tap can be undone with `toggleDone`.
 
 Tick the checkbox and three things happen at once: the task leaves the list, this week's hours drop, and the bar on screen 1 gets shorter. All from that one `done: true`.
 
@@ -317,6 +321,7 @@ npx jest --watch              # while you work
 | `src/__tests__/difficulty-summary.test.tsx` | 4 | spike notices, empty state, course summary text and accessibility labels |
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Semester screen in place of the old one-line text |
 | `src/__tests__/syllabus-text.test.tsx` | 7 | US-28: choosing a course, the assignments found with week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the link from the Semester screen |
+| `src/__tests__/undo-done.test.tsx` | 7 | US-31: the Completed line and its count, opening and closing it, moving a task there and back, the hours returning to this week and the forecast, the line going away after the last undo, and nothing drawn when no task is done. Queries by role and name, so the open and checked states are tested too |
 
 The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 269 of them in ten files, plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or zero hours, 404 for an unknown course) and `GET /courses/:id/reviews`. `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
