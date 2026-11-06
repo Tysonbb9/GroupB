@@ -205,6 +205,61 @@ app.get('/courses/:id/reviews', async (req, res) => {
   res.json(reviews);
 });
 
+/**
+ * POST /tasks
+ * Body: { tasks: [{ courseId, title, dueWeek (1-15), estimatedHours (more than 0, up to 100, or null) }] }.
+ * US-30: adds the assignments a student reviewed. All or nothing: if any task
+ * is invalid, none are added. 201 with the new tasks, 400 with a message.
+ */
+app.post('/tasks', async (req, res) => {
+  const { tasks } = req.body ?? {};
+  if (!Array.isArray(tasks) || tasks.length === 0) {
+    res.status(400).json({ error: 'tasks must be a list with at least one task' });
+    return;
+  }
+
+  const courseIds = new Set((await store.listCourses()).map((course) => course.id));
+
+  // Check every task before adding any (same idea as PATCH /tasks/:id).
+  for (const [i, t] of tasks.entries()) {
+    const n = i + 1; // "Task 1" reads better than "Task 0"
+
+    if (!courseIds.has(t?.courseId)) {
+      res.status(400).json({ error: `Task ${n}: courseId must be one of your courses` });
+      return;
+    }
+
+    if (typeof t.title !== 'string' || t.title.trim() === '') {
+      res.status(400).json({ error: `Task ${n}: title must name the assignment` });
+      return;
+    }
+
+    if (!Number.isInteger(t.dueWeek) || t.dueWeek < 1 || t.dueWeek > 15) {
+      res.status(400).json({ error: `Task ${n}: dueWeek must be a whole number from 1 to 15` });
+      return;
+    }
+
+    if (
+      t.estimatedHours !== null &&
+      (typeof t.estimatedHours !== 'number' || !(t.estimatedHours > 0) || t.estimatedHours > 100)
+    ) {
+      res.status(400).json({ error: `Task ${n}: estimatedHours must be more than 0 and up to 100, or null` });
+      return;
+    }
+  }
+
+  // Only now, with everything checked, change the data.
+  const added = await store.addTasks(
+    tasks.map((t) => ({
+      courseId: t.courseId,
+      title: t.title.trim(),
+      dueWeek: t.dueWeek,
+      estimatedHours: t.estimatedHours,
+    }))
+  );
+  res.status(201).json(added); // 201 = "Created"
+});
+
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const error = err as { status?: number; type?: string };
 

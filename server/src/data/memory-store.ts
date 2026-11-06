@@ -1,6 +1,7 @@
 import { db, inputs } from './db';
-import type { Store, TaskFilters, TaskUpdates, NewReview } from './store';
-import type { Review } from '../types';
+import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask } from './store';
+import { nextTaskId } from './task-ids';
+import type { Review, Task } from '../types';
 
 export class MemoryStore implements Store {
 async getSemester() {
@@ -60,6 +61,26 @@ async updateTask(id: string, updates: TaskUpdates) {
   }
 
   return task;
+}
+
+// The route checks every task before calling this, so nothing here can fail
+// halfway and leave only some of them added.
+async addTasks(newTasks: NewTask[]) {
+  const taken = new Set(db.tasks.map((task) => task.id));
+
+  return newTasks.map((newTask) => {
+    const task: Task = {
+      id: nextTaskId(newTask.courseId, taken),
+      courseId: newTask.courseId,
+      title: newTask.title,
+      dueWeek: newTask.dueWeek,
+      estimatedHours: newTask.estimatedHours,
+      done: false,
+    };
+    taken.add(task.id);
+    db.tasks.push(task);
+    return task;
+  });
 }
 
 async addReview(review: NewReview) {
