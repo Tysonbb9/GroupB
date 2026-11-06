@@ -1,0 +1,92 @@
+-- Syllabus Workload Predictor: PostgreSQL schema
+-- Individual assignments are NOT stored; only each week's predicted difficulty.
+
+-- ---------------------------------------------------------------
+-- Core entities
+-- ---------------------------------------------------------------
+
+CREATE TABLE students (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    email       VARCHAR(255) NOT NULL UNIQUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE semesters (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(50) NOT NULL UNIQUE,      -- e.g. 'Fall 2026'
+    start_date  DATE NOT NULL,
+    end_date    DATE NOT NULL,
+    CHECK (end_date > start_date)
+);
+
+-- A class offered in a specific semester
+CREATE TABLE classes (
+    id            SERIAL PRIMARY KEY,
+    semester_id   INT NOT NULL REFERENCES semesters(id) ON DELETE CASCADE,
+    code          VARCHAR(20) NOT NULL,           -- e.g. 'BIO 201'
+    title         VARCHAR(200) NOT NULL,
+    instructor    VARCHAR(100),
+    credits       NUMERIC(3,1),
+    UNIQUE (semester_id, code)
+);
+
+-- Which students take which classes (many-to-many)
+CREATE TABLE enrollments (
+    student_id  INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    class_id    INT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    PRIMARY KEY (student_id, class_id)
+);
+
+-- ---------------------------------------------------------------
+-- Syllabus + prediction
+-- ---------------------------------------------------------------
+
+CREATE TABLE syllabi (
+    id            SERIAL PRIMARY KEY,
+    class_id      INT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    uploaded_by   INT REFERENCES students(id) ON DELETE SET NULL,
+    file_name     VARCHAR(255) NOT NULL,
+    file_url      TEXT NOT NULL,                  -- storage location (e.g. S3)
+    parse_status  VARCHAR(20) NOT NULL DEFAULT 'pending'
+                  CHECK (parse_status IN ('pending', 'processing', 'done', 'failed')),
+    parse_error   TEXT,
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE,  -- latest version in use
+    uploaded_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Only one active syllabus per class
+CREATE UNIQUE INDEX one_active_syllabus_per_class
+    ON syllabi (class_id) WHERE is_active;
+
+-- One row per week of the semester per syllabus: the predicted difficulty
+CREATE TABLE weekly_difficulty (
+    id               SERIAL PRIMARY KEY,
+    syllabus_id      INT NOT NULL REFERENCES syllabi(id) ON DELETE CASCADE,
+    week_number      INT NOT NULL CHECK (week_number >= 1),  -- 1 = first week of semester
+    difficulty       NUMERIC(3,1) NOT NULL CHECK (difficulty BETWEEN 0 AND 10),
+    notes            TEXT,                                    -- short reason, e.g. 'Midterm + heavy reading'
+    UNIQUE (syllabus_id, week_number)
+);
+
+-- ---------------------------------------------------------------
+-- The main query: total difficulty per week for each student,
+-- across all of their classes
+-- ---------------------------------------------------------------
+
+CREATE VIEW student_weekly_workload AS
+SELECT
+    e.student_id,
+    c.semester_id,
+    wd.week_number,
+    sem.start_date + (wd.week_number - 1) * 7  AS week_start,
+    SUM(wd.difficulty)                         AS total_difficulty,
+    COUNT(*)                                   AS classes_counted
+FROM enrollments e
+JOIN classes c             ON c.id = e.class_id
+JOIN semesters sem         ON sem.id = c.semester_id
+JOIN syllabi sy            ON sy.class_id = c.id AND sy.is_active
+JOIN weekly_difficulty wd  ON wd.syllabus_id = sy.id
+GROUP BY e.student_id, c.semester_id, wd.week_number, sem.start_date;
+
+CREATE INDEX idx_enrollments_class ON enrollments (class_id);
