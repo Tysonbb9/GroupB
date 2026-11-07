@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CrunchWindow, WeekLoad } from '../lib/types';
@@ -17,10 +18,14 @@ type Props = {
   onPlan: () => void;
 };
 
+/** White at partial strength, for the quieter text on the teal card. */
+const ON_ACCENT_SOFT = 'rgba(255, 255, 255, 0.78)';
+
 /**
- * The one place on the Semester screen that tells the student what to do.
- * It states the next wall with both figures, says how long the heavy stretch
- * lasts, and names a single assignment to start and when.
+ * The one place on Forecast that tells the student what to do. It leads with
+ * the action ("Start Midterm 1 in week 5."), then says why: the next week over
+ * capacity with both figures, and how long the heavy stretch lasts. It is the
+ * only solid-colour card in the app, so it reads as the thing to act on.
  */
 export function WallCard({
   wall,
@@ -32,48 +37,68 @@ export function WallCard({
 }: Props) {
   if (wall === null) {
     return (
-      <View testID="crunch-summary" style={[styles.card, styles.clear]}>
-        <Text style={styles.title}>Nothing over capacity ahead</Text>
-        <Text style={styles.sub}>Every remaining week fits in {capacity} hours</Text>
+      <View testID="crunch-summary" style={[styles.card, styles.clearCard]}>
+        <View style={[styles.bubble, styles.clearBubble]}>
+          <Ionicons name="checkmark-done" size={20} color={theme.calm} />
+        </View>
+        <View style={styles.clearText}>
+          <Text style={styles.clearTitle}>Nothing over capacity ahead</Text>
+          <Text style={styles.clearSub}>Every remaining week fits in {capacity} hours</Text>
+        </View>
       </View>
     );
   }
 
+  const why = (
+    <Text style={recommendation !== null ? styles.why : styles.headline}>
+      Week {wall.week} needs {wholeHours(wall.hours)} hours. You have {capacity} free that week.
+    </Text>
+  );
+
   return (
     <View testID="crunch-summary" style={styles.card}>
-      <View>
-        <Text style={styles.title}>
-          Week {wall.week} needs {wholeHours(wall.hours)} hours
-        </Text>
-        <Text style={styles.sub}>You have {capacity} free that week</Text>
-        {period !== null && period.endWeek > period.startWeek && (
-          <Text testID="crunch-period" style={styles.period}>
-            Weeks {period.startWeek}–{period.endWeek} are over capacity
-          </Text>
-        )}
+      <View style={styles.eyebrowRow}>
+        <Ionicons name="flag" size={13} color={ON_ACCENT_SOFT} />
+        <Text style={styles.eyebrow}>Next crunch · week {wall.week}</Text>
       </View>
 
-      {recommendation !== null && (
-        <View testID="start-recommendation" style={styles.action}>
-          <Text style={styles.actionText}>
-            <Text style={styles.actionStrong}>
-              Start {recommendation.task.title}{' '}
-              {recommendation.startWeek <= currentWeek
-                ? 'now'
-                : `in week ${recommendation.startWeek}`}
-              .
-            </Text>{' '}
-            About {wholeHours(recommendation.task.estimatedHours ?? 0)} hours of
-            work.
+      {recommendation !== null ? (
+        <View testID="start-recommendation" style={styles.stack}>
+          <Text style={styles.headline}>
+            Start {recommendation.task.title}{' '}
+            {recommendation.startWeek <= currentWeek
+              ? 'now'
+              : `in week ${recommendation.startWeek}`}
+            .
           </Text>
+          <Text style={styles.why}>
+            About {wholeHours(recommendation.task.estimatedHours ?? 0)} hours of work.
+          </Text>
+          {why}
+          {period !== null && period.endWeek > period.startWeek && (
+            <Text testID="crunch-period" style={styles.why}>
+              Weeks {period.startWeek}–{period.endWeek} are over capacity
+            </Text>
+          )}
           <Pressable
             testID="plan-link"
             accessibilityRole="link"
             accessibilityLabel="Plan this week"
             onPress={onPlan}
+            style={styles.plan}
           >
-            <Text style={styles.plan}>Plan →</Text>
+            <Text style={styles.planText}>Plan this week</Text>
+            <Ionicons name="arrow-forward" size={16} color={theme.accent} />
           </Pressable>
+        </View>
+      ) : (
+        <View style={styles.stack}>
+          {why}
+          {period !== null && period.endWeek > period.startWeek && (
+            <Text testID="crunch-period" style={styles.why}>
+              Weeks {period.startWeek}–{period.endWeek} are over capacity
+            </Text>
+          )}
         </View>
       )}
     </View>
@@ -82,28 +107,45 @@ export function WallCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: theme.surface,
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.rule,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.heavy,
+    backgroundColor: theme.accent,
+    borderRadius: 14,
     padding: theme.space.md,
     gap: theme.space.sm,
   },
-  clear: { borderLeftColor: theme.calm },
-  title: { fontSize: 14, fontWeight: '800', color: theme.ink },
-  sub: { fontSize: 11, color: theme.muted, marginTop: 2 },
-  period: { fontSize: 11, color: theme.heavy, fontWeight: '600', marginTop: 2 },
-  action: {
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: ON_ACCENT_SOFT,
+  },
+  stack: { gap: 4 },
+  headline: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', lineHeight: 26 },
+  why: { fontSize: 13, color: ON_ACCENT_SOFT, lineHeight: 18 },
+  plan: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.space.sm,
-    backgroundColor: theme.accentSoft,
-    borderRadius: theme.radius,
-    padding: theme.space.sm,
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: theme.space.sm,
   },
-  actionText: { flex: 1, fontSize: 12, color: theme.ink, lineHeight: 17 },
-  plan: { fontSize: 12, fontWeight: '700', color: theme.accent },
-  actionStrong: { fontWeight: '700' },
+  planText: { fontSize: 13, fontWeight: '800', color: theme.accent },
+  clearCard: {
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.rule,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.md,
+  },
+  bubble: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  clearBubble: { backgroundColor: `${theme.calm}22` },
+  clearText: { flex: 1, gap: 2 },
+  clearTitle: { fontSize: 15, fontWeight: '800', color: theme.ink },
+  clearSub: { fontSize: 13, color: theme.muted },
 });

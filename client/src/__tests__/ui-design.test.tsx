@@ -54,8 +54,14 @@ const row = (id: string) => within(screen.getByTestId(`row-${id}`));
 describe('This week: grouped rows', () => {
   it('groups the work under Overdue, Due this week and Next week, in that order', () => {
     renderApp();
-    const headers = screen.getAllByRole('header').map((h) => h.props.children[0].props.children);
-    expect(headers).toEqual(['Overdue', 'Due this week', 'Next week']);
+    // The screen title is a header too, so find the group headers by name and
+    // check they come in this order among all the headers.
+    const all = screen.getAllByRole('header');
+    const positions = ['Overdue', 'Due this week', 'Next week'].map((name) =>
+      all.indexOf(screen.getByRole('header', { name }))
+    );
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
   it('puts each assignment under the right heading', () => {

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Task } from '../lib/types';
@@ -52,9 +53,10 @@ export function CompletedTasks({ tasks, courseCode, onUndo }: Props) {
               accessibilityState={{ checked: true }}
               accessibilityLabel={`Mark ${task.title} not done`}
               hitSlop={10}
-              style={styles.check}
               onPress={() => onUndo(task.id)}
-            />
+            >
+              <Ionicons name="checkmark-circle" size={30} color={theme.accent} />
+            </Pressable>
           </View>
         ))}
     </View>
@@ -84,12 +86,4 @@ const styles = StyleSheet.create({
   main: { flex: 1, gap: 2 },
   title: { fontSize: 14, fontWeight: '700', color: theme.muted, textDecorationLine: 'line-through' },
   metaText: { fontSize: 11, color: theme.muted },
-  check: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: theme.accent,
-    backgroundColor: theme.accent,
-  },
 });

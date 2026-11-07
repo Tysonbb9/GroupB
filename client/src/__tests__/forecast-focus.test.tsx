@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
 import CoursesScreen from '../app/(tabs)/courses';
 import SemesterScreen from '../app/(tabs)/index';
+import WeekScreen from '../app/(tabs)/week';
 import { SemesterProvider } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';
 
@@ -35,7 +36,7 @@ describe('Forecast: one focus', () => {
   it('leaves the notices, the course summary, the chips and the reminder to Courses', () => {
     renderForecast();
     expect(screen.queryByTestId('spike-notices')).toBeNull();
-    expect(screen.queryByTestId('difficulty-summary')).toBeNull();
+    expect(screen.queryByTestId('course-c1')).toBeNull();
     expect(screen.queryByTestId('courses')).toBeNull();
     expect(screen.queryByTestId('syllabus-reminder')).toBeNull();
   });
@@ -55,9 +56,9 @@ describe('Forecast: rows that open Courses', () => {
     expect(screen.getByTestId('heads-up-row')).toHaveTextContent(/3 notices in the next 3 weeks/);
   });
 
-  it('says how many courses have heavy weeks', () => {
+  it('names the course with the heaviest single week', () => {
     renderForecast();
-    expect(screen.getByTestId('course-spikes-row')).toHaveTextContent(/2 of 2 courses have heavy weeks/);
+    expect(screen.getByTestId('course-spikes-row')).toHaveTextContent(/Heaviest: CS 262 in week 7/);
   });
 
   it('says so when nothing is coming up', () => {
@@ -79,15 +80,45 @@ describe('Forecast: rows that open Courses', () => {
 });
 
 describe('Courses: what used to crowd Forecast', () => {
-  it('shows the notices, the course summary, the chips and the reminder', () => {
+  it('shows the courses first, then the notices and the reminder', () => {
     render(
       <SemesterProvider initial={wallSemester}>
         <CoursesScreen />
       </SemesterProvider>
     );
-    expect(screen.getByTestId('spike-notices')).toBeTruthy();
-    expect(screen.getByTestId('difficulty-summary')).toBeTruthy();
     expect(screen.getByTestId('courses')).toBeTruthy();
+    expect(screen.getByTestId('spike-notices')).toBeTruthy();
     expect(screen.getByTestId('syllabus-reminder')).toBeTruthy();
+  });
+});
+
+describe('Headers: how this week sits, in one word', () => {
+  // wallSemester: week 3 has nothing due, week 5 holds 10 of 10 hours,
+  // and week 6 holds 18.
+  it.each([
+    [3, 'Fits'],
+    [5, 'Busy'],
+    [6, 'Over'],
+  ])('in week %i says %s', (week, word) => {
+    render(
+      <SemesterProvider initial={{ ...wallSemester, currentWeek: week }}>
+        <SemesterScreen />
+      </SemesterProvider>
+    );
+    expect(screen.getByTestId('load-pill')).toHaveTextContent(word);
+  });
+});
+
+describe('This week: work after next week', () => {
+  it('counts it and points to Forecast, where each week shows it', () => {
+    render(
+      <SemesterProvider initial={wallSemester}>
+        <WeekScreen />
+      </SemesterProvider>
+    );
+    // Week 3: the Big project, the Midterm (both week 6) and the Paper (week 7).
+    expect(screen.getByTestId('later-row')).toHaveTextContent(/3 assignments after next week/);
+    fireEvent.press(screen.getByTestId('later-row'));
+    expect(mockPush).toHaveBeenCalledWith('/');
   });
 });

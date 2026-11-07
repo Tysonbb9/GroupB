@@ -2,6 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LoadPill } from '../../components/LoadPill';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { SummaryRow } from '../../components/SummaryRow';
 import { WallCard } from '../../components/WallCard';
 import { WeekDetail } from '../../components/WeekDetail';
@@ -24,8 +27,8 @@ import { theme } from '../../theme';
  *
  * One focus (Option A, #96): this week's hours, the fifteen weeks with the
  * ones that do not fit marked, and the one thing to act on. The notices and
- * the course summary are one tap away on the Courses tab, and a week's
- * assignments open when its bar is tapped.
+ * the courses are one tap away on the Courses tab, and a week's assignments
+ * open when its bar is tapped.
  */
 export default function SemesterScreen() {
   const router = useRouter();
@@ -34,99 +37,122 @@ export default function SemesterScreen() {
   const [openWeek, setOpenWeek] = useState<number | null>(null);
 
   const loads = weeklyLoad(semester.tasks);
+  const thisWeekHours = hoursInWeek(loads, semester.currentWeek);
   const wall = nextWall(loads, semester.weeklyCapacity, semester.currentWeek);
   const period = wall && crunchPeriodAt(loads, semester.weeklyCapacity, wall.week);
   const recommendation =
     wall && recommendStart(semester.tasks, wall.week, semester.weeklyCapacity);
   const spikeSummaries = courseSpikes(semester);
   const notices = upcomingSpikes(spikeSummaries, semester.currentWeek);
-  const spikingCourses = spikeSummaries.filter((s) => s.spikes.length > 0).length;
+  // The course whose single heaviest week is heaviest, for the Course spikes row.
+  const heaviest = spikeSummaries
+    .filter((s) => s.peakWeek !== null)
+    .reduce<(typeof spikeSummaries)[number] | null>(
+      (top, s) => (top === null || s.peakHours > top.peakHours ? s : top),
+      null
+    );
 
   // Tapping the open week's bar again closes it.
   const toggleWeek = (week: number) => setOpenWeek((open) => (open === week ? null : week));
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.headingRow}>
-        <Text style={styles.subtitle}>
-          <Text>{semester.label}</Text> · Week {semester.currentWeek} of 15
-        </Text>
-        <Pressable
-          testID="go-to-login"
-          accessibilityRole="button"
-          accessibilityLabel="Log in"
-          hitSlop={10}
-          onPress={() => router.push('/login')}
-        >
-          <Ionicons name="person-circle-outline" size={28} color={theme.accent} />
-        </Pressable>
-      </View>
-
-      <View style={styles.card}>
-        <WeekFigures
-          hoursThisWeek={hoursInWeek(loads, semester.currentWeek)}
-          capacity={semester.weeklyCapacity}
-          wallWeek={wall?.week ?? null}
+    <SafeAreaView edges={['top']} style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <ScreenHeader
+          eyebrow={
+            <>
+              <Text>{semester.label}</Text> · Week {semester.currentWeek} of 15
+            </>
+          }
+          title="Forecast"
+          right={
+            <>
+              <LoadPill hours={thisWeekHours} capacity={semester.weeklyCapacity} />
+              <Pressable
+                testID="go-to-login"
+                accessibilityRole="button"
+                accessibilityLabel="Log in"
+                hitSlop={10}
+                onPress={() => router.push('/login')}
+              >
+                <Ionicons name="person-circle-outline" size={30} color={theme.accent} />
+              </Pressable>
+            </>
+          }
         />
-        <WeekStrip
-          loads={loads}
+
+        <View style={styles.card}>
+          <WeekFigures
+            hoursThisWeek={thisWeekHours}
+            capacity={semester.weeklyCapacity}
+            wallWeek={wall?.week ?? null}
+          />
+          <WeekStrip
+            loads={loads}
+            capacity={semester.weeklyCapacity}
+            currentWeek={semester.currentWeek}
+            selectedWeek={openWeek ?? semester.currentWeek}
+            wallWeek={wall?.week ?? null}
+            onSelectWeek={toggleWeek}
+          />
+        </View>
+
+        {openWeek !== null && (
+          <WeekDetail
+            week={openWeek}
+            hours={hoursInWeek(loads, openWeek)}
+            assignments={assignmentsInWeek(semester.tasks, openWeek)}
+            courses={semester.courses}
+          />
+        )}
+
+        <WallCard
+          wall={wall}
+          period={period}
           capacity={semester.weeklyCapacity}
           currentWeek={semester.currentWeek}
-          selectedWeek={openWeek ?? semester.currentWeek}
-          wallWeek={wall?.week ?? null}
-          onSelectWeek={toggleWeek}
+          recommendation={recommendation}
+          onPlan={() => router.push('/week')}
         />
-      </View>
 
-      {openWeek !== null && (
-        <WeekDetail
-          week={openWeek}
-          hours={hoursInWeek(loads, openWeek)}
-          assignments={assignmentsInWeek(semester.tasks, openWeek)}
-          courses={semester.courses}
-        />
-      )}
-
-      <WallCard
-        wall={wall}
-        period={period}
-        capacity={semester.weeklyCapacity}
-        currentWeek={semester.currentWeek}
-        recommendation={recommendation}
-        onPlan={() => router.push('/week')}
-      />
-
-      <View style={styles.rows}>
-        <SummaryRow
-          testID="heads-up-row"
-          title="Heads up"
-          detail={
-            notices.length === 0
-              ? `Nothing in the next ${LOOKAHEAD_WEEKS} weeks`
-              : `${notices.length} ${notices.length === 1 ? 'notice' : 'notices'} in the next ${LOOKAHEAD_WEEKS} weeks`
-          }
-          onPress={() => router.push('/courses')}
-        />
-        <View style={styles.divider} />
-        <SummaryRow
-          testID="course-spikes-row"
-          title="Course spikes"
-          detail={`${spikingCourses} of ${semester.courses.length} courses have heavy weeks`}
-          onPress={() => router.push('/courses')}
-        />
-      </View>
-    </ScrollView>
+        <View style={styles.rows}>
+          <SummaryRow
+            testID="heads-up-row"
+            icon="notifications"
+            tint={theme.moderate}
+            title="Heads up"
+            detail={
+              notices.length === 0
+                ? `Nothing in the next ${LOOKAHEAD_WEEKS} weeks`
+                : `${notices.length} ${notices.length === 1 ? 'notice' : 'notices'} in the next ${LOOKAHEAD_WEEKS} weeks`
+            }
+            onPress={() => router.push('/courses')}
+          />
+          <View style={styles.divider} />
+          <SummaryRow
+            testID="course-spikes-row"
+            icon="pulse"
+            tint={theme.heavy}
+            title="Course spikes"
+            detail={
+              heaviest === null
+                ? 'No course has a heavy week'
+                : `Heaviest: ${heaviest.course.code} in week ${heaviest.peakWeek}`
+            }
+            onPress={() => router.push('/courses')}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.bg },
-  content: { padding: theme.space.md, paddingTop: 0, gap: theme.space.md, paddingBottom: theme.space.xl },
-  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  subtitle: { fontSize: 14, color: theme.muted },
+  content: { padding: theme.space.md, gap: theme.space.md, paddingBottom: theme.space.xl },
   card: {
     backgroundColor: theme.surface,
-    borderRadius: theme.radius,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: theme.rule,
     padding: theme.space.md,
@@ -134,9 +160,9 @@ const styles = StyleSheet.create({
   },
   rows: {
     backgroundColor: theme.surface,
-    borderRadius: theme.radius,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: theme.rule,
   },
-  divider: { height: 1, backgroundColor: theme.rule, marginLeft: theme.space.md },
+  divider: { height: 1, backgroundColor: theme.rule, marginLeft: 68 },
 });

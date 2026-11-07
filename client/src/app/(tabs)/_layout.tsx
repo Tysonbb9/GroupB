@@ -36,11 +36,9 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: theme.bg },
-        headerTintColor: theme.ink,
-        headerShadowVisible: false,
-        headerTitleAlign: 'left',
-        headerTitleStyle: { fontSize: 26, fontWeight: '700', color: theme.ink },
+        // Each screen draws its own header (ScreenHeader), with room for a
+        // line about the week and a label or button beside the title.
+        headerShown: false,
         sceneStyle: { backgroundColor: theme.bg },
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.faint,
