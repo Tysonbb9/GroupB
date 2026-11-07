@@ -188,6 +188,10 @@ No state library. If you know `useState` and `useContext`, you know this file.
 
 For now `toggleDone` and `setEstimate` change the semester in memory only. Saving them back to the server is a later step.
 
+### `src/state/session.tsx`
+
+Who is signed in: `email`, `signIn(email)` and `signOut()`, in a React context. Log in is the app's front door, but there are no accounts yet (US-19 needs the server and the database), so signing in only records the email while the app is open; nothing is stored or sent. `useSession()` is for screens that need a session (Log in, the root layout). `useOptionalSession()` returns null outside a `SessionProvider`, so `LogOutButton` simply draws nothing when a screen is shown on its own in tests.
+
 ### `src/components/WeekStrip.tsx`
 
 The bar chart. Fifteen bars, height proportional to projected hours, colour from `loadColor` in `theme.ts`, and a dashed line at the student's capacity so "over the line" is literal.
@@ -200,7 +204,7 @@ The two figures above the strip: hours landing this week against hours available
 
 ### `src/components/WallCard.tsx`
 
-The one place on the Semester screen that tells the student what to do: the next wall's hours against capacity, the length of the heavy stretch when it is more than one week ("Weeks 6–7 are over capacity"), and one assignment to start with the week to start it ("Start Midterm 1 in week 5", or "now" when that week has arrived). When nothing is over capacity it says so and recommends nothing.
+The one place on Forecast that tells the student what to do, and the only solid-colour card in the app, so it reads as the thing to act on. It leads with the action ("Start Midterm 1 in week 5.", or "now" when that week has arrived) and the hours it takes, then says why: the next week over capacity with both figures, and how long the heavy stretch lasts ("Weeks 6–7 are over capacity"). A **Plan this week** button opens This week. When nothing is over capacity it is a quiet white card that says so.
 
 ### `src/components/WeekDetail.tsx`
 
@@ -212,35 +216,39 @@ An **Add estimate** link for a task that has no estimate. Saving runs the text t
 
 ### `src/components/TaskRow.tsx`
 
-One assignment as a row on the This week screen: category tile, title, details (course, hours or "Add estimate", "Was week N", "start now") and a circular checkbox. The checkbox has `accessibilityRole="checkbox"` and a label naming the work it completes.
+One assignment as a row on the This week screen: category tile, title, details (course, hours or "Add estimate", "Was week N", "start now") and a circle with a faint tick, so it reads as the thing to tap. The circle has `accessibilityRole="checkbox"` and a label naming the work it completes.
 
 ### `src/components/CompletedTasks.tsx`
 
-The finished work on the This week screen (US-31). It draws one "Completed (n)" line, closed by default, and nothing at all when no task is done. Opening the line lists each finished task with a filled circle, and tapping the circle calls `onUndo` (the store's `toggleDone`), which puts the task back in the This week list and its hours back in the forecast. The circle has `accessibilityRole="checkbox"`, checked, with a label naming the task.
+The finished work on the This week screen (US-31). It draws one "Completed (n)" line, closed by default, and nothing at all when no task is done. Opening the line lists each finished task with a filled tick, and tapping it calls `onUndo` (the store's `toggleDone`), which puts the task back in the This week list and its hours back in the forecast. The circle has `accessibilityRole="checkbox"`, checked, with a label naming the task.
 
 ### `src/components/CategoryTile.tsx`
 
 The two-letter tile, coloured by category through `categoryColor` in `theme.ts`. The letters mean colour is never the only signal.
 
-### `src/components/ComingUp.tsx`
-
-The two-column grid of upcoming assignments on the Semester screen. Each card has a category badge and colour edge, the title, the week and course, and the estimated hours when there are any. There is no difficulty meter: that needs hours recorded by other students, which does not exist yet.
-
 ### `src/components/SpikeNotice.tsx`
 
-The in-app heads-up cards immediately below the wall card. Each one names the course, week, projected course hours and weekly capacity in words. The section says that difficulty is based on estimated hours, and does not use push notifications.
+The heads-up cards on the Courses tab, for course spikes in the next three weeks. Each reads like a calendar entry: the week in a block, the course, its hours out of the weekly capacity, and a bar of how much of that week the course alone takes. The accessibility label says all of it in words. No push notifications.
 
 ### `src/components/SyllabusReminder.tsx`
 
-US-26. A card under the heads-up notices that says "Keep your syllabi up to date" and why: if a class changed its schedule, the student should update its syllabus so the forecast stays accurate. The SRS has not decided when or how often reminders appear (OI-09), so it shows whenever the Semester screen opens, and a **Dismiss** button hides it until the app is opened again. Nothing is stored. The **Add a syllabus** link just below it opens the syllabus screen (US-28).
+US-26. A card at the end of the Courses tab that says "Keep your syllabi up to date" and why: if a class changed its schedule, the student should update its syllabus so the forecast stays accurate. The SRS has not decided when or how often reminders appear (OI-09), so it shows whenever the Courses screen opens, and a **Dismiss** button hides it until the app is opened again. Nothing is stored.
 
-### `src/components/DifficultySummary.tsx`
+### `src/components/CourseCards.tsx`
 
-The per-course summary after Coming up. It names every course with a spike, its peak week and hours, and all spike weeks. Text and accessibility labels carry the meaning, so colour is never the only signal.
+The courses on the Courses tab, one card each: code and name, absences left (a status dot from `attendanceStatus`), a small 15-week strip of that course's own hours with its spike weeks in the heavy colour, and the peak in words ("Peaks in week 7 at 14 hours · weeks 5, 6 and 7"). It replaces the old course chips and difficulty list. Text and accessibility labels carry the meaning, so colour is never the only signal.
 
-### `src/components/CourseChips.tsx`
+### `src/components/ScreenHeader.tsx`, `LoadPill.tsx`
 
-One chip per course in a row that scrolls sideways, with a status dot from `attendanceStatus`.
+Every tab draws its own header with `ScreenHeader`: a small line placing it in the semester ("Fall 2026 · Week 3 of 15"), a large title, and whatever belongs beside it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**, in the same load colours as the bars.
+
+### `src/components/SummaryRow.tsx`
+
+A row that opens something else: an icon in a tinted circle, a title, one short line and a chevron. Forecast uses it for **Heads up** and **Course spikes** (both open Courses), and This week for **Later this semester** (opens Forecast).
+
+### `src/components/LogOutButton.tsx`
+
+The log-out icon beside the Forecast title. It calls `signOut()`, and the root layout takes the student back to Log in. It draws nothing when there is no session around the screen.
 
 ### `src/components/Figure.tsx`, `SectionHeader.tsx`
 
@@ -252,17 +260,17 @@ One chip per course in a row that scrolls sideways, with a status dot from `atte
 
 ### `src/app/_layout.tsx`
 
-expo-router's root. Wraps everything in `SemesterProvider` and holds a stack: the tab group `(tabs)`, which has its own headers, with `/login` and `/syllabus` on top of it. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
+expo-router's root, and the front door. It holds the `SessionProvider` and a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
 
 ### `src/app/(tabs)/_layout.tsx`
 
-The tab bar from layout Option A (#96): **Forecast** (`/`) and **This week** (`/week`), one focus per screen. A folder in brackets groups screens without changing their addresses, so `router.push('/week')` lands on the This week tab. The tabs are labels only until an icon set is added.
+The tab bar from layout Option A (#96): **Forecast** (`/`), **This week** (`/week`) and **Courses** (`/courses`), one focus per screen, with icons from `@expo/vector-icons` (filled when the tab is open). A folder in brackets groups screens without changing their addresses, so `router.push('/week')` lands on the This week tab. Each screen draws its own header, so the tab bar's is hidden.
 
-### `src/app/(tabs)/index.tsx` — screen 1, Semester
+### `src/app/(tabs)/index.tsx` — screen 1, Forecast
 
 Route: `/`
 
-Semester label and week with a **Log in** link beside them, the week figures and week strip, the wall card (with a **Plan →** link to screen 2), the detail for the selected week, the Coming up grid, the course chips, and a button to screen 2.
+One focus: the header (with the load label and the log-out icon), the week figures and week strip, and the wall card with its **Plan this week** button. A week's assignments (`WeekDetail`) open when its bar is tapped and close on a second tap. Below, two rows open the Courses tab: **Heads up** (how many notices in the next three weeks) and **Course spikes** (the course with the heaviest single week).
 
 It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size and clearer than caching.
 
@@ -270,19 +278,25 @@ It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size 
 
 Route: `/week`
 
-Two figures (hours landing this week against capacity, and items left to do), then the outstanding work in `groupThisWeek`'s groups: Overdue, Due this week, Next week. Each `TaskRow` has a circular checkbox calling `toggleDone` and, when the task has no estimate, an **Add estimate** link calling `setEstimate`. Below the groups, `CompletedTasks` lists the done work behind a "Completed (n)" line, so a mistaken tap can be undone with `toggleDone`.
+Two figures (hours landing this week against capacity, and items left to do), then the outstanding work in `groupThisWeek`'s groups: Overdue, Due this week, Next week. Each `TaskRow` has a circular checkbox calling `toggleDone` and, when the task has no estimate, an **Add estimate** link calling `setEstimate`. Below the groups, `CompletedTasks` lists the done work behind a "Completed (n)" line, so a mistaken tap can be undone with `toggleDone`, and a **Later this semester** row counts the work due after next week and opens Forecast, where each week's bar lists it.
 
 Tick the checkbox and three things happen at once: the task leaves the list, this week's hours drop, and the bar on screen 1 gets shorter. All from that one `done: true`.
 
+### `src/app/(tabs)/courses.tsx`: screen 3, Courses
+
+Route: `/courses`
+
+The courses first (`CourseCards`), then **Heads up** (`SpikeNotice`) for the next three weeks, then the syllabus reminder. A **+ Syllabus** button in the header opens the syllabus screen. None of this needs acting on every day, so it lives here instead of crowding Forecast.
+
 ### `src/app/login.tsx` — Log in
 
-Route: `/login`, reached from the **Log in** link on the Semester screen (US-27).
+Route: `/login`, the first screen of the app (US-27). Log out on Forecast comes back to it.
 
-An email field and a password field, with the password hidden. It checks that both are filled in and that the email looks like an email. There is no sign-in behind it yet, so a valid form shows "Sign-in is not connected yet. This is a preview of the login screen." instead of pretending to log the student in. Real authentication is US-19 to US-21.
+An email field and a password field, with the password hidden. It checks that both are filled in and that the email looks like an email. A valid form signs in through `state/session.tsx`, and the root layout opens the app. There are no accounts behind it yet, and a note under the form says so: any email and password open the app on this device. Real authentication is US-19 to US-21.
 
 ### `src/app/syllabus.tsx` — Add a syllabus
 
-Route: `/syllabus`, reached from the **Add a syllabus** link on the Semester screen (US-28).
+Route: `/syllabus`, reached from the **+ Syllabus** button on the Courses tab (US-28).
 
 The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Nothing is added to the semester yet: reviewing and adding the assignments is US-30.
 
@@ -332,7 +346,7 @@ The Express routes use asynchronous `Store` methods rather than directly accessi
 
 ## Tests
 
-538 tests across twenty test suites.
+563 tests across twenty-four test suites.
 
 ```bash
 npm test                      # all of them
@@ -349,20 +363,22 @@ npx jest --watch              # while you work
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
-| `src/__tests__/tabs.test.tsx` | 3 | the tab bar: opens on Forecast, switches to This week, and `/week` still lands on its tab |
+| `src/__tests__/tabs.test.tsx` | 4 | the tab bar: opens on Forecast, switches to This week and to Courses, and `/week` still lands on its tab |
+| `src/__tests__/forecast-focus.test.tsx` | 12 | Option A (#96): what Forecast keeps and what moved to Courses, the Heads up and Course spikes rows, the Fits, Busy and Over label, and the Later this semester row |
+| `src/__tests__/front-door.test.tsx` | 4 | Log in is the front door: the app opens on it, keeps every screen behind it, opens Forecast with the semester loaded after signing in, and comes back to it on log out |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
 | `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the wall card and start-by recommendation |
 | `src/__tests__/estimate-hours.test.tsx` | 11 | US-12, US-13: adding an estimate, and tasks without one |
-| `src/__tests__/assignments-by-week.test.tsx` | 10 | US-25 (visual depiction): tap a week to see its assignments |
-| `src/__tests__/ui-design.test.tsx` | 27 | the UI design: grouped rows, categories, Coming up, course chips, plan link |
+| `src/__tests__/assignments-by-week.test.tsx` | 11 | US-25 (visual depiction): tap a week to see its assignments, and tap again to close them |
+| `src/__tests__/ui-design.test.tsx` | 20 | the UI design: grouped rows, categories, course chips, plan link |
 | `src/__tests__/semester-from-server.test.tsx` | 4 | the provider: loading, then the app; the error screen; Try again; `initial` skips the server |
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
-| `src/__tests__/login.test.tsx` | 6 | US-27: the Log in link, the email and password form, the checks on both fields, and that it never pretends to sign in |
+| `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the note that there are no accounts yet, and Log out on Forecast |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
-| `src/__tests__/difficulty-summary.test.tsx` | 4 | spike notices, empty state, course summary text and accessibility labels |
-| `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Semester screen in place of the old one-line text |
-| `src/__tests__/syllabus-text.test.tsx` | 7 | US-28: choosing a course, the assignments found with week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the link from the Semester screen |
+| `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (peak week, heavy weeks in words and labels, a course with none) |
+| `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Courses screen in place of the old one-line text |
+| `src/__tests__/syllabus-text.test.tsx` | 7 | US-28: choosing a course, the assignments found with week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |
 | `src/__tests__/undo-done.test.tsx` | 7 | US-31: the Completed line and its count, opening and closing it, moving a task there and back, the hours returning to this week and the forecast, the line going away after the last undo, and nothing drawn when no task is done. Queries by role and name, so the open and checked states are tested too |
 
 The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 269 of them in ten files, plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or zero hours, 404 for an unknown course) and `GET /courses/:id/reviews`. `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 

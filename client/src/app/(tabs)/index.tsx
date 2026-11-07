@@ -1,9 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoadPill } from '../../components/LoadPill';
+import { LogOutButton } from '../../components/LogOutButton';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { SummaryRow } from '../../components/SummaryRow';
 import { WallCard } from '../../components/WallCard';
@@ -68,15 +68,7 @@ export default function SemesterScreen() {
           right={
             <>
               <LoadPill hours={thisWeekHours} capacity={semester.weeklyCapacity} />
-              <Pressable
-                testID="go-to-login"
-                accessibilityRole="button"
-                accessibilityLabel="Log in"
-                hitSlop={10}
-                onPress={() => router.push('/login')}
-              >
-                <Ionicons name="person-circle-outline" size={30} color={theme.accent} />
-              </Pressable>
+              <LogOutButton />
             </>
           }
         />
