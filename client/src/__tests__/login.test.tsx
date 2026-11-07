@@ -1,31 +1,40 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
-import SemesterScreen from '../app/index';
+import { Text } from 'react-native';
+import SemesterScreen from '../app/(tabs)/index';
 import LoginScreen from '../app/login';
 import { SemesterProvider } from '../state/semester-store';
+import { SessionProvider, useSession } from '../state/session';
 import { wallSemester } from '../testing/fixtures';
 
-const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: jest.fn() }),
 }));
 
-beforeEach(() => mockPush.mockClear());
+/** Shows who is signed in, so a test can see what the screen did to the session. */
+function SignedInAs() {
+  const { email } = useSession();
+  return <Text testID="signed-in-as">{email ?? 'nobody'}</Text>;
+}
 
-describe('US-27: visit the login screen', () => {
-  it('has a Log in link on the Semester screen', () => {
-    render(
-      <SemesterProvider initial={wallSemester}>
-        <SemesterScreen />
-      </SemesterProvider>
-    );
+function renderLogin() {
+  return render(
+    <SessionProvider>
+      <LoginScreen />
+      <SignedInAs />
+    </SessionProvider>
+  );
+}
 
-    fireEvent.press(screen.getByTestId('go-to-login'));
-    expect(mockPush).toHaveBeenCalledWith('/login');
-  });
+function fillIn(email: string, password: string) {
+  fireEvent.changeText(screen.getByTestId('login-email'), email);
+  fireEvent.changeText(screen.getByTestId('login-password'), password);
+  fireEvent.press(screen.getByTestId('login-submit'));
+}
 
+describe('US-27: the login screen', () => {
   it('shows a simple email and password form', () => {
-    render(<LoginScreen />);
+    renderLogin();
 
     expect(screen.getByText('Welcome back')).toBeTruthy();
     expect(screen.getByLabelText('Email address')).toBeTruthy();
@@ -34,12 +43,12 @@ describe('US-27: visit the login screen', () => {
   });
 
   it('hides the password characters', () => {
-    render(<LoginScreen />);
+    renderLogin();
     expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
   });
 
   it('lets students show and hide the password without changing its value', () => {
-    render(<LoginScreen />);
+    renderLogin();
     fireEvent.changeText(screen.getByTestId('login-password'), 'example-password');
 
     expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
@@ -52,31 +61,58 @@ describe('US-27: visit the login screen', () => {
     expect(screen.getByTestId('login-password').props.value).toBe('example-password');
   });
 
-  it('asks for both fields before continuing', () => {
-    render(<LoginScreen />);
+  it('asks for both fields, and does not sign in without them', () => {
+    renderLogin();
     fireEvent.press(screen.getByTestId('login-submit'));
 
     expect(screen.getByText('Please enter your email and password.')).toBeTruthy();
+    expect(screen.getByTestId('signed-in-as')).toHaveTextContent('nobody');
   });
 
-  it('checks that the email looks valid', () => {
-    render(<LoginScreen />);
-    fireEvent.changeText(screen.getByTestId('login-email'), 'not-an-email');
-    fireEvent.changeText(screen.getByTestId('login-password'), 'example-password');
-    fireEvent.press(screen.getByTestId('login-submit'));
+  it('checks that the email looks valid, and does not sign in until it does', () => {
+    renderLogin();
+    fillIn('not-an-email', 'example-password');
 
     expect(screen.getByText('Please enter a valid email address.')).toBeTruthy();
+    expect(screen.getByTestId('signed-in-as')).toHaveTextContent('nobody');
   });
 
-  it('does not pretend to authenticate without a backend', () => {
-    render(<LoginScreen />);
-    fireEvent.changeText(screen.getByTestId('login-email'), 'student@example.edu');
-    fireEvent.changeText(screen.getByTestId('login-password'), 'example-password');
-    fireEvent.press(screen.getByTestId('login-submit'));
+  it('signs in with a valid email and password', () => {
+    renderLogin();
+    fillIn('  student@example.edu ', 'example-password');
 
-    expect(screen.getByTestId('login-message')).toHaveTextContent(
-  'Sign-in is not connected yet. This is a preview of the login screen.'
-);
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId('signed-in-as')).toHaveTextContent('student@example.edu');
+  });
+
+  it('says plainly that there are no accounts yet', () => {
+    renderLogin();
+    expect(screen.getByTestId('login-note')).toHaveTextContent(
+      /No accounts yet: any email and password open the app/
+    );
+  });
+});
+
+describe('Log out', () => {
+  it('signs the student out from Forecast', () => {
+    render(
+      <SessionProvider initialEmail="student@example.edu">
+        <SemesterProvider initial={wallSemester}>
+          <SemesterScreen />
+        </SemesterProvider>
+        <SignedInAs />
+      </SessionProvider>
+    );
+
+    fireEvent.press(screen.getByLabelText('Log out student@example.edu'));
+    expect(screen.getByTestId('signed-in-as')).toHaveTextContent('nobody');
+  });
+
+  it('is not drawn when the screen has no session around it', () => {
+    render(
+      <SemesterProvider initial={wallSemester}>
+        <SemesterScreen />
+      </SemesterProvider>
+    );
+    expect(screen.queryByTestId('log-out')).toBeNull();
   });
 });

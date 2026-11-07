@@ -4,7 +4,7 @@ import { Text } from 'react-native';
 import SyllabusScreen from '../app/syllabus';
 import { SemesterProvider, useSemester } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';
-import SemesterScreen from '../app/index';
+import CoursesScreen from '../app/(tabs)/courses';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -86,10 +86,10 @@ describe('US-28: paste a syllabus and see the assignments found in it', () => {
 });
 
 describe('US-28: getting to the syllabus screen', () => {
-    it('opens from the Semester screen', () => {
+    it('opens from the Courses screen', () => {
       render(
         <SemesterProvider initial={wallSemester}>
-          <SemesterScreen />
+          <CoursesScreen />
         </SemesterProvider>
       );
       fireEvent.press(screen.getByTestId('go-to-syllabus'));

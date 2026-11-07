@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import React from 'react';
-import SemesterScreen from '../app/index';
-import WeekScreen from '../app/week';
+import CoursesScreen from '../app/(tabs)/courses';
+import SemesterScreen from '../app/(tabs)/index';
+import WeekScreen from '../app/(tabs)/week';
 import { Semester } from '../lib/types';
 import { SemesterProvider } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';
@@ -43,6 +44,7 @@ function renderApp(semester: Semester = categorised) {
     <SemesterProvider initial={semester}>
       <SemesterScreen />
       <WeekScreen />
+      <CoursesScreen />
     </SemesterProvider>
   );
 }
@@ -52,8 +54,14 @@ const row = (id: string) => within(screen.getByTestId(`row-${id}`));
 describe('This week: grouped rows', () => {
   it('groups the work under Overdue, Due this week and Next week, in that order', () => {
     renderApp();
-    const headers = screen.getAllByRole('header').map((h) => h.props.children[0].props.children);
-    expect(headers).toEqual(['Overdue', 'Due this week', 'Next week']);
+    // The screen title is a header too, so find the group headers by name and
+    // check they come in this order among all the headers.
+    const all = screen.getAllByRole('header');
+    const positions = ['Overdue', 'Due this week', 'Next week'].map((name) =>
+      all.indexOf(screen.getByRole('header', { name }))
+    );
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
   it('puts each assignment under the right heading', () => {
@@ -148,64 +156,7 @@ describe('Assignment categories', () => {
   });
 });
 
-describe('Semester screen: Coming up', () => {
-  const up = (id: string) => within(screen.getByTestId(`up-${id}`));
-
-  it('shows the next assignments with their category', () => {
-    renderApp();
-    expect(up('pj').getByText('Project')).toBeTruthy();
-    expect(up('pj').getByText('Prototype demo')).toBeTruthy();
-  });
-
-  it('gives the week and course, and "Due this week" for this week’s work', () => {
-    renderApp();
-    expect(up('pj').getByText('Week 4 · CS 262')).toBeTruthy();
-    expect(up('ex').getByText('Due this week · MATH 251')).toBeTruthy();
-  });
-
-  it('gives the estimated hours', () => {
-    renderApp();
-    expect(up('pj').getByText('25 hrs')).toBeTruthy();
-  });
-
-  it('shows no hours for work nobody has estimated', () => {
-    renderApp({
-      ...categorised,
-      tasks: [{ ...categorised.tasks[3], estimatedHours: null }],
-    });
-    expect(within(screen.getByTestId('up-un')).queryByText(/hrs/)).toBeNull();
-  });
-
-  it('starts with the work that needs starting soonest', () => {
-    renderApp();
-    // The 25-hour project needs three weeks, so it starts before the quiz.
-    const order = screen.getAllByTestId(/^up-/).map((n) => n.props.testID);
-    expect(order[0]).toBe('up-pj');
-  });
-
-  it('shows at most four assignments', () => {
-    const many = {
-      ...categorised,
-      tasks: [1, 2, 3, 4, 5, 6].map((n) => ({
-        id: `t${n}`,
-        courseId: 'c1',
-        title: `Task ${n}`,
-        dueWeek: 4 + n,
-        estimatedHours: 2,
-        done: false,
-      })),
-    };
-    renderApp(many);
-    expect(screen.getAllByTestId(/^up-/)).toHaveLength(4);
-  });
-
-  it('is left out when nothing is coming up', () => {
-    renderApp({ ...categorised, tasks: [] });
-    expect(screen.queryByTestId('coming-up')).toBeNull();
-  });
-});
-
-describe('Semester screen: course chips', () => {
+describe('Courses screen: course chips', () => {
   const chips = () => within(screen.getByTestId('courses'));
 
   it('shows one chip per course', () => {

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
-import SemesterScreen from '../app/index';
+import CoursesScreen from '../app/(tabs)/courses';
 import { SyllabusReminder } from '../components/SyllabusReminder';
 import { SemesterProvider } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';
@@ -38,19 +38,19 @@ describe('US-26: be reminded to update my syllabus', () => {
     expect(screen.getByLabelText('Dismiss the syllabus reminder')).toBeTruthy();
   });
 
-  it('shows on the Semester screen', () => {
+  it('shows on the Courses screen', () => {
     render(
       <SemesterProvider initial={wallSemester}>
-        <SemesterScreen />
+        <CoursesScreen />
       </SemesterProvider>
     );
     expect(screen.getByTestId('syllabus-reminder')).toBeTruthy();
   });
 
-  it('replaces the old one-line text on the Semester screen', () => {
+  it('replaces the old one-line text on the Courses screen', () => {
     render(
       <SemesterProvider initial={wallSemester}>
-        <SemesterScreen />
+        <CoursesScreen />
       </SemesterProvider>
     );
     expect(screen.queryByText(/re-upload your syllabus at any time/)).toBeNull();

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Task } from '../lib/types';
@@ -50,15 +51,18 @@ export function TaskRow({
         </View>
       </View>
 
+      {/* A faint tick inside the circle says what tapping it does. */}
       <Pressable
         testID={`done-${task.id}`}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: false }}
         accessibilityLabel={`Mark ${task.title} done`}
+        accessibilityHint="Takes its hours off the forecast"
         hitSlop={10}
-        style={styles.check}
         onPress={onDone}
-      />
+      >
+        <Ionicons name="checkmark-circle-outline" size={30} color={theme.faint} />
+      </Pressable>
     </View>
   );
 }
@@ -80,11 +84,4 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 11, color: theme.muted },
   overdue: { color: theme.heavy, fontWeight: '700' },
   startNow: { color: theme.accent, fontWeight: '700' },
-  check: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: theme.faint,
-  },
 });

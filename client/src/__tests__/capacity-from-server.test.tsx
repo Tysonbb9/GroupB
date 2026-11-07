@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
 import React from 'react';
-import SemesterScreen from '../app/index';
+import SemesterScreen from '../app/(tabs)/index';
 import { fetchSemester } from '../lib/api';
 import { SemesterProvider } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';

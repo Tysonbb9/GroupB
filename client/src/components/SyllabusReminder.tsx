@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { theme } from '../theme';
@@ -10,7 +11,7 @@ const BODY = 'If a class changed its schedule, update its syllabus so your forec
  * does not go stale.
  *
  * The SRS has not decided when or how often reminders appear (OI-09), so this
- * one is always shown when the Semester screen opens, and the student can
+ * one is always shown when the Courses screen opens, and the student can
  * dismiss it until the app is opened again. Nothing is stored.
  */
 export function SyllabusReminder() {
@@ -23,47 +24,48 @@ export function SyllabusReminder() {
       accessibilityLabel={`Reminder: keep your syllabi up to date. ${BODY}`}
       style={styles.card}
     >
-      <Text style={styles.label}>Reminder</Text>
-      <Text style={styles.title}>{TITLE}</Text>
-      <Text style={styles.body}>{BODY}</Text>
-      <Pressable
-        testID="syllabus-reminder-dismiss"
-        accessibilityRole="button"
-        accessibilityLabel="Dismiss the syllabus reminder"
-        onPress={() => setDismissed(true)}
-        style={styles.dismiss}
-      >
-        <Text style={styles.dismissText}>Dismiss</Text>
-      </Pressable>
+      <View style={styles.bubble}>
+        <Ionicons name="refresh" size={18} color={theme.accent} />
+      </View>
+      <View style={styles.text}>
+        <Text style={styles.title}>{TITLE}</Text>
+        <Text style={styles.body}>{BODY}</Text>
+        <Pressable
+          testID="syllabus-reminder-dismiss"
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss the syllabus reminder"
+          onPress={() => setDismissed(true)}
+          style={styles.dismiss}
+        >
+          <Text style={styles.dismissText}>Dismiss</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.space.md,
     backgroundColor: theme.surface,
-    borderRadius: theme.radius,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: theme.rule,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.accent,
     padding: theme.space.md,
-    gap: theme.space.xs,
   },
-  label: {
-    fontSize: 11,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: theme.faint,
-    fontWeight: '600',
-  },
-  title: { color: theme.ink, fontSize: 13, fontWeight: '700' },
-  body: { color: theme.muted, fontSize: 12, lineHeight: 17 },
-  dismiss: {
-    alignSelf: 'flex-start',
-    minHeight: 32,
+  bubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: theme.space.xs,
+    backgroundColor: theme.accentSoft,
   },
-  dismissText: { color: theme.accent, fontSize: 12, fontWeight: '700' },
+  text: { flex: 1, gap: theme.space.xs },
+  title: { color: theme.ink, fontSize: 14, fontWeight: '700' },
+  body: { color: theme.muted, fontSize: 13, lineHeight: 18 },
+  dismiss: { alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' },
+  dismissText: { color: theme.accent, fontSize: 13, fontWeight: '700' },
 });

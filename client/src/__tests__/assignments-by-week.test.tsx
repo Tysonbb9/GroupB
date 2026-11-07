@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import React from 'react';
-import SemesterScreen from '../app/index';
+import SemesterScreen from '../app/(tabs)/index';
 import { Semester } from '../lib/types';
 import { SemesterProvider } from '../state/semester-store';
 import { theme } from '../theme';
@@ -21,9 +21,19 @@ function renderSemester(semester: Semester = wallSemester) {
 const detail = () => within(screen.getByTestId('week-detail'));
 
 describe('US-25 (visual depiction): where assignments fall on which weeks', () => {
-  it('starts on the current week', () => {
+  // Option A (#96): the week's detail is behind a tap, so Forecast starts uncluttered.
+  it('shows no week detail until a bar is tapped', () => {
     renderSemester();
+    expect(screen.queryByTestId('week-detail')).toBeNull();
+  });
+
+  it('closes the week detail when the same bar is tapped again', () => {
+    renderSemester();
+    fireEvent.press(screen.getByTestId('week-bar-3'));
     expect(screen.getByTestId('week-detail')).toHaveTextContent(/Week 3 · 0 hours/);
+
+    fireEvent.press(screen.getByTestId('week-bar-3'));
+    expect(screen.queryByTestId('week-detail')).toBeNull();
   });
 
   it('shows the assignments behind a week when its bar is tapped', () => {

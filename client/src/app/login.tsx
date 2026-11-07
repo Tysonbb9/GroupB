@@ -14,11 +14,13 @@
  * - Basic validation for empty fields and email format.
  * - A login button with clear feedback.
  * - Styling consistent with the existing app theme.
- * - Navigation to the login page from the Semester screen.
+ * - The app's front door: it opens on this screen, and signing in opens the
+ *   tabs (Option A, #96). Log out on Forecast comes back here.
  *
  * Current Scope:
  * This is a frontend-only implementation.
- * No real authentication, API calls, or password storage.
+ * No real authentication, API calls, or password storage: any valid-looking
+ * email and password sign in for as long as the app is open (state/session).
  * Authentication and authorization will be implemented later.
  *
  * Testing:
@@ -28,14 +30,16 @@
 
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSession } from '../state/session';
 import { theme } from '../theme';
 
 /**
- * US-27: A login screen the student can visit.
- * Authentication has not been implemented, so this screen never claims
- * that entering credentials signs the student in.
+ * US-27: the login screen, and the first screen of the app.
+ * There are no accounts yet, so the note under the form says that any email
+ * and password open the app, rather than pretending to check them.
  */
 export default function LoginScreen() {
+  const { signIn } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -47,7 +51,8 @@ export default function LoginScreen() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setMessage('Please enter a valid email address.');
     } else {
-      setMessage('Sign-in is not connected yet. This is a preview of the login screen.');
+      // The root layout sees the session change and opens the app.
+      signIn(email.trim());
     }
   };
 
@@ -127,8 +132,9 @@ export default function LoginScreen() {
         ) : null}
       </View>
 
-      <Text style={styles.note}>
-        Preview only. Account authentication has not been added to Crunch Week yet.
+      <Text testID="login-note" style={styles.note}>
+        No accounts yet: any email and password open the app on this device. Real sign-in comes
+        later.
       </Text>
     </ScrollView>
   );
