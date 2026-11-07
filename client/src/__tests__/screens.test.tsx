@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import React from 'react';
 import { Semester } from '../lib/types';
 import { SemesterProvider } from '../state/semester-store';
+import CoursesScreen from '../app/(tabs)/courses';
 import SemesterScreen from '../app/(tabs)/index';
 import WeekScreen from '../app/(tabs)/week';
 
@@ -51,9 +52,12 @@ describe('Semester screen', () => {
     // 30 hours in week 4 against a capacity of 10.
     expect(screen.getByText(/Week 4 needs 30 hours/)).toBeTruthy();
   });
+});
 
+// Option A (#96): the course list moved from Forecast to the Courses tab.
+describe('Courses screen', () => {
   it('lists every course', () => {
-    renderWith(<SemesterScreen />);
+    renderWith(<CoursesScreen />);
     // Course codes also appear on assignments, so look only in the course list.
     const courses = within(screen.getByTestId('courses'));
     expect(courses.getByText('CS 262')).toBeTruthy();
@@ -61,7 +65,7 @@ describe('Semester screen', () => {
   });
 
   it('says when a course has no attendance policy', () => {
-    renderWith(<SemesterScreen />);
+    renderWith(<CoursesScreen />);
     const courses = within(screen.getByTestId('courses'));
     expect(courses.getByText('no policy')).toBeTruthy();
     expect(courses.getByText('3 absences')).toBeTruthy();

@@ -28,7 +28,7 @@ export default function WeekScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Week {semester.currentWeek}</Text>
+      <Text style={styles.subtitle}>Week {semester.currentWeek} of 15</Text>
 
       <View style={styles.figures}>
         <Figure
@@ -85,8 +85,9 @@ export default function WeekScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.bg },
-  content: { padding: theme.space.md, gap: theme.space.md, paddingBottom: theme.space.xl },
-  title: { fontSize: 26, fontWeight: '700', color: theme.ink },
+  // The tab header above holds the title, so the screen starts right under it.
+  content: { padding: theme.space.md, paddingTop: 0, gap: theme.space.md, paddingBottom: theme.space.xl },
+  subtitle: { fontSize: 14, color: theme.muted },
   figures: {
     flexDirection: 'row',
     justifyContent: 'space-between',

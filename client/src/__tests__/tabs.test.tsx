@@ -17,6 +17,7 @@ function renderTabs(initialUrl = '/') {
       '(tabs)/_layout': TabsLayout,
       '(tabs)/index': () => <Text>Forecast screen</Text>,
       '(tabs)/week': () => <Text>This week screen</Text>,
+      '(tabs)/courses': () => <Text>Courses screen</Text>,
     },
     { initialUrl }
   );
@@ -41,6 +42,13 @@ describe('Option A: tabs, one focus per screen (#96)', () => {
     expect(screen.getByText('This week screen')).toBeTruthy();
     expect(app.getPathname()).toBe('/week');
     expect(tab(/This week/)).toBeSelected();
+  });
+
+  it('has a Courses tab for what used to crowd Forecast', async () => {
+    const app = await renderTabs();
+    fireEvent.press(tab(/Courses/));
+    expect(screen.getByText('Courses screen')).toBeTruthy();
+    expect(app.getPathname()).toBe('/courses');
   });
 
   it('keeps the /week address, so links to it still land on its tab', async () => {
