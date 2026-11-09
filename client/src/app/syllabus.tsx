@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { addTasks } from '../lib/api';
+import { addTasks, extractSyllabusText } from '../lib/api';
 import { scanSyllabus } from '../lib/inputs';
+import { pickPdf } from '../lib/pick-pdf';
 import { checkDraft, Draft, toDraft } from '../lib/review';
 import { useSemester } from '../state/semester-store';
 import { theme } from '../theme';
@@ -13,6 +14,9 @@ import { theme } from '../theme';
  * US-30: before anything is added, the student can fix the title, week and
  * hours of each assignment, or remove it. Add to semester checks every one,
  * saves them with POST /tasks, and only then changes the forecast.
+ *
+ * US-29: Choose PDF sends a syllabus PDF to the server, puts the text that
+ * comes back in the text box, and scans it the same way as pasted text.
  */
 export default function SyllabusScreen() {
   const { semester, addTasks: addToSemester } = useSemester();
@@ -26,14 +30,39 @@ export default function SyllabusScreen() {
   /** What happened when the student pressed Add to semester. */
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** A problem reading the PDF, in words the student can act on. */
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
   const course = semester.courses.find((c) => c.id === courseId);
 
-  const find = () => {
-    const result = scanSyllabus(text, courseId);
+  /** Scans some syllabus text and shows what was found, ready to review. */
+  const findIn = (syllabusText: string) => {
+    const result = scanSyllabus(syllabusText, courseId);
     setDrafts(result.tasks.map(toDraft));
     setSkipped(result.skipped);
     setErrors([]);
     setStatus(null);
+  };
+
+  const find = () => findIn(text);
+
+  const choosePdf = async () => {
+    setPdfError(null);
+    const pdf = await pickPdf();
+    if (pdf === null) return; // the student cancelled
+
+    setReading(true);
+    try {
+      const extracted = await extractSyllabusText(pdf);
+      setText(extracted.text); // so the student can see, and fix, what was read
+      findIn(extracted.text);
+    } catch (e) {
+      // The server's message says what to do, e.g. "...or paste the syllabus
+      // text instead" for a scanned PDF. The text box below is that option.
+      setPdfError((e as Error).message);
+    } finally {
+      setReading(false);
+    }
   };
 
   const chooseCourse = (id: string) => {
@@ -103,17 +132,37 @@ export default function SyllabusScreen() {
         ))}
       </View>
 
+      <Pressable
+        testID="syllabus-pdf"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: reading }}
+        disabled={reading}
+        onPress={choosePdf}
+        style={[styles.button, reading && styles.buttonOff]}
+      >
+        <Text style={styles.buttonText}>{reading ? 'Reading the PDF…' : 'Choose PDF'}</Text>
+      </Pressable>
+
+      {pdfError !== null && (
+        <Text testID="syllabus-pdf-error" style={styles.error}>
+          {pdfError}
+        </Text>
+      )}
+
+      <Text style={styles.label}>Or paste the syllabus text:</Text>
       <TextInput
         testID="syllabus-input"
+        accessibilityLabel="Syllabus text"
         multiline
         value={text}
         onChangeText={setText}
-        placeholder="Week 7: Midterm 1 (8 hours)"
+        placeholder={'Week 4: Lab report (3 hours)\nWeek 7: Midterm 1 (8 hours)'}
+        placeholderTextColor={theme.faint}
         style={styles.input}
       />
 
       <Pressable testID="syllabus-find" accessibilityRole="button" onPress={find} style={styles.button}>
-        <Text style={styles.text}>Find assignments</Text>
+        <Text style={styles.buttonText}>Find assignments</Text>
       </Pressable>
 
       {drafts !== null && (
@@ -165,15 +214,15 @@ export default function SyllabusScreen() {
 
           {drafts.length > 0 && (
             <Pressable
-              testID="syllabus-add"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: saving }}
-              disabled={saving}
-              onPress={add}
-              style={styles.button}
-            >
-              <Text style={styles.text}>Add to semester</Text>
-            </Pressable>
+            testID="syllabus-add"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: saving }}
+            disabled={saving}
+            onPress={add}
+            style={[styles.button, saving && styles.buttonOff]}
+          >
+            <Text style={styles.buttonText}>Add to semester</Text>
+          </Pressable>
           )}
 
           {skipped.length > 0 && (
@@ -205,8 +254,10 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: theme.rule, borderRadius: theme.radius, padding: theme.space.xs },
   chipOn: { borderColor: theme.accent },
   text: { color: theme.ink },
-  input: { minHeight: 120, borderWidth: 1, borderColor: theme.rule, color: theme.ink, padding: theme.space.sm },
-  button: { backgroundColor: theme.surface, padding: theme.space.sm, borderRadius: theme.radius },
+  input: { minHeight: 160, backgroundColor: theme.surface, borderWidth:1, borderColor: theme.rule, borderRadius: 14, color: theme.ink, fontSize: 15, lineHeight: 21, padding: theme.space.md, textAlignVertical: 'top',},
+  button: { backgroundColor: theme.accent, borderRadius: 999, paddingVertical: 14, alignItems: 'center' },
+  buttonText: { color: theme.surface, fontSize: 15, fontWeight: '700' },
+  buttonOff: { opacity: 0.6 },
   results: { gap: theme.space.sm, marginTop: theme.space.md },
   faint: { color: theme.faint, fontSize: 13 },
   draft: { gap: theme.space.xs, padding: theme.space.sm, borderWidth: 1, borderColor: theme.rule, borderRadius: theme.radius },
@@ -215,4 +266,5 @@ const styles = StyleSheet.create({
   small: { width: 56 },
   link: { color: theme.accent, fontWeight: '600' },
   error: { color: theme.heavy, fontSize: 13 },
+  label: { color: theme.ink, fontSize: 14, fontWeight: '600' },
 });
