@@ -253,7 +253,7 @@ The courses on the Courses tab, one card each: code and name, absences left (a s
 
 ### `src/components/ScreenHeader.tsx`, `LoadPill.tsx`
 
-Every tab draws its own header with `ScreenHeader`: a small line placing it in the semester ("Fall 2026 · Week 3 of 15"), a large title, and whatever belongs beside it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**, in the same load colours as the bars.
+Every tab draws its own header with `ScreenHeader`: a small line placing it in the semester ("Fall 2026 · Week 3 of 15"), a large title, and whatever belongs beside it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
 
 ### `src/components/SummaryRow.tsx`
 
@@ -261,7 +261,7 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 
 ### `src/components/LogOutButton.tsx`
 
-The log-out icon beside the Forecast title. It calls `signOut()`, and the root layout takes the student back to Log in. It draws nothing when there is no session around the screen.
+`LogOutButton` is the log-out icon beside the Forecast title, and `LogOutLink` is the same action as a line of text, for the loading and error screens. Both call `signOut()`, and the root layout takes the student back to Log in. Both draw nothing when there is no session around the screen.
 
 ### `src/components/Figure.tsx`, `SectionHeader.tsx`
 
@@ -269,7 +269,7 @@ The log-out icon beside the Forecast title. It calls `signOut()`, and the root l
 
 ### `src/components/ServerStatus.tsx`
 
-`LoadingView` (a spinner and "Loading your semester") and `ErrorView` (the error message and a **Try again** button). Only the provider uses them, while the semester is loading or has failed to load.
+`LoadingView` (a spinner and "Loading your semester") and `ErrorView` (the error message and a **Try again** button). Only the provider uses them, while the semester is loading or has failed to load. They stand in for the whole app until then, so both offer **Log out** (`LogOutLink`): a phone that cannot reach the server is never stuck.
 
 ### `src/app/_layout.tsx`
 
@@ -277,7 +277,9 @@ expo-router's root, and the front door. It holds the `SessionProvider` and a sta
 
 ### `src/app/(tabs)/_layout.tsx`
 
-The tab bar from layout Option A (#96): **Forecast** (`/`), **This week** (`/week`) and **Courses** (`/courses`), one focus per screen, with icons from `@expo/vector-icons` (filled when the tab is open). A folder in brackets groups screens without changing their addresses, so `router.push('/week')` lands on the This week tab. Each screen draws its own header, so the tab bar's is hidden.
+The tab bar from layout Option A (#96): **Forecast** (`/`), **This week** (`/week`) and **Courses** (`/courses`), one focus per screen, with Ionicons icons (filled when the tab is open). A folder in brackets groups screens without changing their addresses, so `router.push('/week')` lands on the This week tab. Each screen draws its own header, so the tab bar's is hidden. The bar is 56 points tall plus the phone's home bar inset, so the 12 point labels show whole under their icons.
+
+Every file imports Ionicons from `@expo/vector-icons/Ionicons`, not from `@expo/vector-icons`: the second pulls in every icon family, and each adds its font to the app.
 
 ### `src/app/(tabs)/index.tsx` — screen 1, Forecast
 
@@ -317,7 +319,7 @@ The student picks one of their courses, pastes or types the syllabus text, and p
 
 ### `src/theme.ts`
 
-Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's load band to its colour, and `categoryColor(category)` gives a category's colour (neutral when unknown). The three colour systems (interface, load bands, categories) are never mixed: no element takes colour from more than one.
+Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's load band to its colour, and `categoryColor(category)` gives a category's colour (neutral when unknown). The three colour systems (interface, load bands, categories) are never mixed: no element takes colour from more than one. Every text colour (`ink`, `muted`, `faint`, `accent`) reaches the WCAG AA contrast of 4.5 to 1 on both `bg` and `surface`, and `contrast.test.ts` checks it.
 
 ---
 
@@ -374,7 +376,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-605 tests across twenty-nine test suites.
+617 tests across thirty test suites.
 
 ```bash
 npm test                      # all of them
@@ -392,8 +394,9 @@ npx jest --watch              # while you work
 | `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
 | `src/__tests__/tabs.test.tsx` | 4 | the tab bar: opens on Forecast, switches to This week and to Courses, and `/week` still lands on its tab |
-| `src/__tests__/forecast-focus.test.tsx` | 12 | Option A (#96): what Forecast keeps and what moved to Courses, the Heads up and Course spikes rows, the Fits, Busy and Over label, and the Later this semester row |
-| `src/__tests__/front-door.test.tsx` | 4 | Log in is the front door: the app opens on it, keeps every screen behind it, opens Forecast with the semester loaded after signing in, and comes back to it on log out |
+| `src/__tests__/forecast-focus.test.tsx` | 12 | Option A (#96): what Forecast keeps and what moved to Courses, the Heads up and Course spikes rows, the Fits, Busy and Over label (its dot in the load colour, its word in ink), and the Later this semester row |
+| `src/__tests__/front-door.test.tsx` | 7 | Log in is the front door: the app opens on it, keeps every screen behind it, opens Forecast with the semester loaded after signing in, and comes back to it on log out. Log out also works while the semester is loading and after it fails to load, and the next sign-in loads it again |
+| `src/__tests__/contrast.test.ts` | 9 | every text colour against both backgrounds at WCAG AA (4.5 to 1), and that the measurement matches WCAG's |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
 | `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the wall card and start-by recommendation |
 | `src/__tests__/estimate-hours.test.tsx` | 11 | US-12, US-13: adding an estimate, and tasks without one |

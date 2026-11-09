@@ -460,7 +460,7 @@ Deliberately out of scope for this phase. Each maps to a roadmap phase in DESIGN
 | Course detail, reached from a course card | Phase 2 |
 | Setup: calendar link | Phase 2 to 3 |
 | Changing the hours available each week | US-32 |
-| Real sign-in, with accounts | The database (Supabase) holding students |
+| Real sign-in, with accounts | US-19 |
 | The "how long did that take?" prompt after done | Phase 4 |
 | Notification content and timing | Phase 5 |
 | "Is this still accurate?" confirmation prompts | Phase 6 |
