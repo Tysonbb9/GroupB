@@ -126,10 +126,10 @@ The server in `server/`:
 | TP-38 | POST /courses/:id/reviews | A bad body (hours 0 or over 100, missing title), or an unknown course | 400, or 404, with a JSON error | US-22, R4 | E | |
 | TP-39 | GET /courses/:id/reviews | Reviews of one course, and an unknown course | 200 and the list, or 404 | US-22 | E | |
 | TP-36 | PATCH /semester (new) | Set the weekly capacity | 200, the value sticks, bad values get a 400 | US-32 | N | |
-| TP-40 | Database layer | `GET /semester` from the database has the same shape as the in-memory store | same fields and types | R5 | N | |
-| TP-41 | Database layer | A `PATCH` persists across requests and after a restart | the change is still there | R5 | N | |
-| TP-42 | Database layer | An unknown id | 404, not 500 | R5 | N | |
-| TP-43 | Database layer | The database cannot be reached | a clear JSON error, no stack trace | R7 | N | |
+| TP-40 | Database layer | `GET /semester` from the database has the same shape as the in-memory store | same fields and types | R5 | E | |
+| TP-41 | Database layer | A `PATCH` persists across requests and after a restart | the change is still there | R5 | E  | |
+| TP-42 | Database layer | An unknown id | 404, not 500 | R5 | E | |
+| TP-43 | Database layer | The database cannot be reached | a clear JSON error, no stack trace | R7 | E | |
 | TP-44 | Database layer | Keys come from environment variables, and no key is in the repository | no secret in any tracked file | R6 | E | ColinRedder |
 
 The rows marked **E** already exist (see `server/src/__tests__/`), so the plan also shows what is already covered. The 13 placeholders are TP-08 to TP-12, TP-16, TP-17, and TP-19 to TP-24.
@@ -293,3 +293,60 @@ The five review sections are separate issues (Code review 1/5 to 5/5), and an um
 2. The chair keeps time and makes sure each finding ends in a decision: fix it, or decline it with a reason.
 3. The scribe notes who attended and the decisions.
 4. Afterwards each finding becomes a fix in a PR, or is declined with a reason, and the record states which.
+
+
+
+### Supabase persistence verification
+
+TP-41 passed against Supabase using sample task `262-2`.
+
+The test:
+- Updated the task's completion status.
+- Retrieved the saved value through a fresh SupabaseStore instance.
+- Restored the original completion status.
+- Passed an independent read-only restoration check.
+
+The write test is disabled by default and requires
+`RUN_SUPABASE_WRITE_TESTS=true` and Supabase credentials.
+
+Persistence across store instances is verified.
+A literal Express server restart has not yet been tested.
+
+### CI decision
+
+GitHub Actions runs `npm run typecheck` and `npm test`
+from the `server/` directory.
+
+- MemoryStore contract tests always run.
+- SupabaseStore integration tests run only when
+  `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are available.
+- Without those credentials, Supabase integration tests
+  are skipped rather than failed.
+- CI does not currently provide Supabase credentials.
+- No real Supabase database writes are performed in CI.
+- The fake-client database failure tests run without
+  credentials or network access.
+- The existing `no-secrets.test.ts` checks for tracked
+  Supabase credentials and verifies that `.env` is ignored.
+
+### Verification results
+
+Local verification:
+- Server test suites: 12 passed.
+- Individual tests: 275 passed, 2 skipped, 13 TODO.
+- TypeScript check: passed.
+- TP-42: unknown task returns HTTP 404 JSON.
+- TP-43: simulated database failure returns HTTP 503 JSON.
+- TP-44: all four security tests passed.
+
+### Remaining coverage
+
+TP-41 currently verifies that MemoryStore retains task
+updates across reads.
+
+
+Persistence was verified through separate SupabaseStore instances and through actual HTTP requests across an Express server restart.
+
+The API returned HTTP 200 for PATCH /tasks/262-2 with done: true. After stopping and restarting the Express server, GET /tasks/262-2 returned done: true, confirming persistence.
+
+The sample task was subsequently restored to done: false using PATCH /tasks/262-2, which returned HTTP 200.
