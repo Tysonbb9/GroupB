@@ -1,10 +1,17 @@
 # Crunch Week server
 
-Express + TypeScript REST API for the Crunch Week app. The app is moving from
-an in-memory mock to a hosted **Supabase** (Postgres) database. Until the data
-layer is wired up, the server still runs on **mocked** data: it is hardcoded in
-`src/data/semester.ts` and held in memory, so changes are lost when the server
-restarts.
+
+Express + TypeScript REST API for the Crunch Week app. The server supports
+two data stores: an in-memory MemoryStore and a hosted Supabase (Postgres)
+SupabaseStore.
+
+By default, the server uses MemoryStore with the sample data from
+`src/data/semester.ts`. No Supabase account or credentials are required.
+Changes made in memory are lost when the server restarts.
+
+When both `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are configured,
+the server uses SupabaseStore instead. Changes are saved in the hosted
+database and persist across server restarts.
 
 ## Supabase
 
@@ -89,6 +96,74 @@ npm install
 npm run dev        # http://localhost:3000, restarts on save
 ```
 
+### Run without Supabase (default)
+
+No Supabase account, database, or API keys are required.
+
+From the project root:
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+The server starts at `http://localhost:3000`.
+
+If `server/.env` does not exist, the server automatically uses
+`MemoryStore`, which loads sample data from `src/data/semester.ts`.
+
+You can verify the sample data by opening
+`http://localhost:3000/semester` in your browser.
+
+Changes made to tasks and reviews are stored in memory and will
+be lost when the server restarts.
+
+If you already have a `server/.env` file containing both Supabase
+credentials, temporarily move it out of the `server` directory
+before starting the server to use MemoryStore.
+
+
+### Run with Supabase
+
+To use the hosted Supabase database instead of in-memory data:
+
+1. Ask the project owner for access to the Supabase project.
+2. Open the Supabase dashboard and go to Project Settings > API Keys.
+3. From the `server/` directory, create your local environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Open `.env` and configure both variables:
+
+   ```dotenv
+   SUPABASE_URL=your_project_url
+   SUPABASE_SECRET_KEY=your_secret_key
+   ```
+
+5. Make sure the database tables and sample data have been created
+   using `db/schema.sql` and `db/seed.sql`, as described above.
+6. Start the server:
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+The server automatically loads `.env` and selects `SupabaseStore`
+when both variables are present.
+
+Open `http://localhost:3000/semester` to verify that the server
+can retrieve the semester from Supabase.
+
+Changes to tasks and reviews are saved in the database and
+persist across server restarts.
+
+If credentials are incorrect or the database is unavailable,
+the server does not automatically fall back to MemoryStore.
+
 ## Test it
 
 ```bash
@@ -169,7 +244,14 @@ OCR), and two columns of text side by side read across both columns.
 - `src/syllabus/read-pdf.worker.mjs`: opens the PDF with pdf.js, in a worker thread. Plain JavaScript because pdf.js is an ES module, which the CommonJS server and Jest cannot load directly
 - `src/testing/pdfs.ts`: builds real PDFs for the tests; `src/testing/fixtures/password-protected.pdf` is a locked one
 - `src/types.ts`: Task, Course, Semester (copied from the client), Review and Inputs
-- `src/data/semester.ts`: the mock data
-- `src/data/db.ts`: in-memory copy of the data, plus `resetDb()` for tests.
+
+- `src/data/semester.ts`: sample semester data used by the in-memory store
+- `src/data/db.ts`: in-memory data utilities and `resetDb()` for tests
+- `src/data/store.ts`: defines the shared Store interface
+- `src/data/create-store.ts`: selects MemoryStore or SupabaseStore based on environment variables
+- `src/data/memory-store.ts`: in-memory implementation of the Store interface
+- `src/data/supabase-store.ts`: Supabase database implementation of the Store interface
+- `src/data/database-error.ts`: shared database error handling
+- `src/data/task-ids.ts`: utilities for task identifiers
 - `db/schema.sql`, `db/seed.sql`, `db/reset.sql`: build the Supabase database (see above)
 - `.env.example`: the names of the Supabase keys, with no values
