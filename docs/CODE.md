@@ -344,6 +344,20 @@ Defines `DatabaseError` for database query failures. The Express error handler r
 
 The Express routes use asynchronous `Store` methods rather than directly accessing the in-memory database.
 
+### Supabase SQL Scripts
+
+The database setup scripts are located in `server/db/`:
+
+- `server/db/schema.sql`: creates the Supabase database tables and relationships.
+- `server/db/seed.sql`: populates the database with sample semester, course, and task data.
+- `server/db/reset.sql`: resets the database for a fresh setup.
+
+Run the SQL scripts using the Supabase SQL Editor.
+See `server/README.md` for the setup instructions.
+
+The server does not require these scripts when running with
+`MemoryStore`, which is the default without Supabase credentials.
+
 ## Tests
 
 563 tests across twenty-four test suites.

@@ -89,8 +89,8 @@ Questions addressed:
     
 *   **Is it a new product?** The requirements describe a current prototype that is still being developed.
     
-*   **Integrations?** Within the prototype's scope, no external integrations are required (no database, server, authentication, or live Moodle integration). The program-requirements draft raises integration options (e.g., Moodle calendar) as possible inputs.
-    
+
+* **Integrations?** The prototype uses an Express REST API server and supports optional Supabase (Postgres) database storage. By default, the server uses an in-memory data store, so Supabase credentials are not required. The client includes a local login screen, but real user authentication and live Moodle integration are not implemented. The program-requirements draft identifies Moodle calendar integration as a possible future input.
 
 ### 2.2 Assumptions and Dependencies
 
@@ -245,14 +245,21 @@ The remaining non-functional requirements are listed in numeric order (NFR-03 ap
     
 *   **NFR-08 — Usability:** The system shall present workload information in a form that a college student can understand without needing technical knowledge.
     
-*   **NFR-09 — Prototype Scope:** The current prototype shall operate without requiring authentication, a database, server communication, or live Moodle integration.
-    
+
+* **NFR-09 — Prototype Scope:** The current prototype shall run without requiring a Supabase database, database credentials, real user authentication, or live Moodle integration. The client normally communicates with the Express REST API server, which uses an in-memory data store by default. When Supabase credentials are configured, the server can use persistent database storage instead. The client also supports a local fixture mode for demonstrations without a server.
 
 No compliance-specific requirements are stated in the requirements, and none have been added here.
 
 ### 3.3 External Interface Requirements
 
-Not yet specified. The current prototype has no server, database, or Moodle integration (NFR-09), so no external interfaces are defined for it. This section should be filled in when interfaces such as a server API or a calendar feed are added.
+
+The current prototype uses an Express REST API server to provide semester, course, task, and review data to the client.
+
+The server uses an in-memory data store by default and can optionally connect to a hosted Supabase (Postgres) database when credentials are configured.
+
+The client also supports a local fixture mode for demonstrations without server communication.
+
+Live Moodle integration is not implemented. See `server/README.md` for the API endpoints and database setup instructions.
 
 ### 3.4 System Features
 
@@ -362,11 +369,11 @@ The following user stories each restate one non-functional requirement from the 
 *   **US-39 (NFR-07):** As a user, I can make a change on one screen and see it reflected on the other to never see two different answers.
     
 *   **US-40 (NFR-08):** As a user, I can read my workload in plain terms to understand it without technical knowledge.
-    
-*   **US-41 (NFR-09):** As a developer, I can run the prototype without login, a database, a server, or Moodle to demonstrate the core workload forecast early.
-    
 
-> **Note:** US-35 and US-39 describe the same behavior as US-10 and US-11, seen as a quality of the whole app rather than as a single feature, so each pair is traced to both an NFR and an FR. US-41 restates NFR-09 as written, but NFR-09 no longer matches the prototype (see OI-08).
+* **US-41 (NFR-09):** As a developer, I can run the prototype using the Express server's in-memory data store without Supabase credentials, real authentication, or Moodle integration, so I can demonstrate the core workload forecast without configuring a database.
+
+
+> **Note:** US-35 and US-39 describe the same behavior as US-10 and US-11, seen as a quality of the whole app rather than as a single feature, so each pair is traced to both an NFR and an FR. US-41 reflects the updated NFR-09: the prototype can run without Supabase credentials using the server's default in-memory store.
 
 #### 3.5.2 Traceability Matrix
 
@@ -418,7 +425,22 @@ The following user stories each restate one non-functional requirement from the 
 
 ### 4.1 Database Requirements
 
-The current Crunch Week prototype is specified to operate without a database. The program-requirements draft references storage of course reviews (not the syllabus) as an input-storage requirement and includes input processing of scanned syllabi, calculations, and crowd-sourcing input; however, the draft does not define a database schema, technology, or persistence design, so no database requirements are asserted beyond what is stated here.
+
+The Crunch Week server supports two data storage implementations.
+
+By default, the server uses MemoryStore, which stores sample semester,
+course, task, and review data in memory. This allows the prototype to
+run without a Supabase account or database credentials. Changes made
+in memory are lost when the server restarts.
+
+When SUPABASE_URL and SUPABASE_SECRET_KEY are configured, the server
+uses SupabaseStore to read and write data in a hosted Supabase
+(Postgres) database. Changes persist across server restarts.
+
+The database schema and setup scripts are located in server/db/:
+schema.sql, seed.sql, and reset.sql.
+
+See server/README.md for database setup instructions.
 
 ## 5. Open Issues
 
@@ -426,12 +448,13 @@ These questions are undecided in the current requirements. Each should be resolv
 
 | # | Issue | Affects | Where noted |
 | --- | --- | --- | --- |
-| OI-01 | The prototype scope (no authentication, database, server, or Moodle) conflicts with the program-requirements draft (login, authentication, Moodle input, course reviews). The team needs to decide which requirements belong to the current prototype. | NFR-09, FR-18 to FR-24 | Sections 1.4, 3.1.1 |
+
+| OI-01 | Partially resolved: The prototype now includes an Express REST API server, a local login screen, course review endpoints, and optional Supabase persistence. Real authentication and live Moodle integration remain outside the implemented prototype. The team still needs to decide when these features will be implemented. | NFR-09, FR-18 to FR-24 | Sections 1.4, 3.1.1 |
 | OI-02 | The authentication approach is undecided: simple authentication, OAuth, or an existing provider. | FR-18, FR-19, FR-20 | Sections 2.2, 3.1.1 |
 | OI-03 | It is undecided whether a Moodle calendar is used as an input. | FR-21 | Section 2.2 |
 | OI-04 | The handling of course reviews (collection, storage, and use as crowd-sourced input) is undecided. | FR-21, FR-22, FR-23 | Section 2.2 |
 | OI-05 | No security requirements are defined beyond the undecided authentication and authorization features. | Section 3.2.2 | Section 3.2.2 |
 | OI-06 | No numeric performance targets are defined. | NFR-03 | Section 3.2.1 |
-| OI-07 | No database schema, technology, or persistence design is defined for stored reviews. | FR-22 | Section 4.1 |
-| OI-08 | NFR-09 says the prototype runs without a server or login, but a server was added in PR #60 and a login screen in PR #69. NFR-09 needs updating, together with OI-01. | NFR-09, US-41 | Sections 3.2.3, 3.5.1 |
+| OI-07 | Resolved: The prototype now uses Supabase (Postgres) for optional persistent storage of semester, course, task, and review data. The database schema is defined in `server/db/schema.sql`, and the server's data access layer supports both SupabaseStore and MemoryStore. | FR-22 | Section 4.1 |
+| OI-08 | Resolved: NFR-09 and US-41 have been updated to reflect the Express server, the login screen, and optional Supabase persistence. The server uses MemoryStore by default, so database credentials are not required. | NFR-09, US-41 | Sections 3.2.3, 3.5.1 |
 | OI-09 | When and how often syllabus update reminders are sent is undecided. | FR-25, US-26 | Section 3.1.1 |

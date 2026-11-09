@@ -14,7 +14,8 @@ Calendar and task-management tools show students when work is due, but typically
 
 The prototype has two parts that run separately:
 
-- **Server** (`server/`): an Express and TypeScript REST API on port 3000. It serves one semester of sample data (5 courses, 36 tasks) from memory, so any change is lost when the server restarts. There is no real database.
+- **Server** (`server/`): an Express and TypeScript REST API on port 3000. By default, it uses an in-memory store containing sample semester data (5 courses, 36 tasks), so no database credentials are required. It also supports a hosted Supabase (Postgres) database for persistent storage when configured. See `server/README.md` for setup instructions.
+
 - **Client** (`client/`): an Expo / React Native app. When it starts it loads the semester from the server, showing a loading screen first and an error screen with a **Try again** button if the server cannot be reached.
 
 The client has three routes:
@@ -38,8 +39,18 @@ Completing a task removes it from the outstanding work and lowers the projected 
 The team's working agreements are recorded in the [team contract](TeamContract.md).
 
 ## Running the Project
+You need Node.js and npm to run Crunch Week.
 
-You need Node.js and npm. The app loads its data from the server, so start the server first and keep it running. Use two terminals, both starting in the repository root.
+Supabase is optional. By default, the server uses an in-memory
+store with sample semester data, so you do not need a Supabase
+account, API keys, or a database to run the project.
+
+The app loads its data from the server, so start the server first
+and keep it running. Use two terminals, both starting in the
+repository root.
+
+To use persistent database storage instead, follow the Supabase
+setup instructions in `server/README.md`.
 
 **Terminal 1: the server**
 
