@@ -2,9 +2,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import type { ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/**
+ * The tab bar's height above the phone's home bar: room for the icon and a
+ * 12 point label under it. The default (49) left the label 10 points and cut
+ * off the bottom of every label.
+ */
+const TAB_BAR_HEIGHT = 56;
 
 type TabIconProps = {
   focused: boolean;
@@ -33,6 +41,10 @@ function TabIcon({ focused, color, size, open, closed }: TabIconProps) {
  * brackets groups screens without adding to the path.
  */
 export default function TabsLayout() {
+  // A height set here replaces the default one, home bar included, so the
+  // home bar's inset is added back.
+  const { bottom } = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -42,7 +54,11 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: theme.bg },
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.faint,
-        tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.rule },
+        tabBarStyle: {
+          backgroundColor: theme.surface,
+          borderTopColor: theme.rule,
+          height: TAB_BAR_HEIGHT + bottom,
+        },
         tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
       }}
     >
