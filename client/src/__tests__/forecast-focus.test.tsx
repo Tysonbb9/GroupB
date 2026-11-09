@@ -5,6 +5,7 @@ import SemesterScreen from '../app/(tabs)/index';
 import WeekScreen from '../app/(tabs)/week';
 import { SemesterProvider } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';
+import { theme } from '../theme';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -96,16 +97,19 @@ describe('Headers: how this week sits, in one word', () => {
   // wallSemester: week 3 has nothing due, week 5 holds 10 of 10 hours,
   // and week 6 holds 18.
   it.each([
-    [3, 'Fits'],
-    [5, 'Busy'],
-    [6, 'Over'],
-  ])('in week %i says %s', (week, word) => {
+    [3, 'Fits', theme.calm],
+    [5, 'Busy', theme.moderate],
+    [6, 'Over', theme.heavy],
+  ])('in week %i says %s', (week, word, bandColor) => {
     render(
       <SemesterProvider initial={{ ...wallSemester, currentWeek: week }}>
         <SemesterScreen />
       </SemesterProvider>
     );
     expect(screen.getByTestId('load-pill')).toHaveTextContent(word);
+    // The dot carries the load colour; the word stays in ink so it can be read.
+    expect(screen.getByTestId('load-pill-dot')).toHaveStyle({ backgroundColor: bandColor });
+    expect(screen.getByText(word)).toHaveStyle({ color: theme.ink });
   });
 });
 
