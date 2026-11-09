@@ -174,6 +174,8 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `addTasks` posts reviewed assignments to POST /tasks and returns them with their new ids, or rejects with the server's message.
 
+`addReview` posts how long a finished assignment took to POST /courses/:id/reviews (US-23) and returns the stored review, or rejects with the server's message.
+
 ### `src/data/semester.ts`
 
 One fake student, five courses, 36 tasks. Every task has a category, and one (the discussion post) has no estimate on purpose so the "Add estimate" path can be seen. Everything the app displays comes from here.
@@ -235,6 +237,10 @@ One assignment as a row on the This week screen: category tile, title, details (
 
 The finished work on the This week screen (US-31). It draws one "Completed (n)" line, closed by default, and nothing at all when no task is done. Opening the line lists each finished task with a filled tick, and tapping it calls `onUndo` (the store's `toggleDone`), which puts the task back in the This week list and its hours back in the forecast. The circle has `accessibilityRole="checkbox"`, checked, with a label naming the task.
 
+### `src/components/HoursReview.tsx`
+
+US-23. The card This week shows when a task is ticked done: "How long did it take you?" with an hours box, Save, and Skip. The hours are checked with `parseEstimate` (more than 0, up to 100) before anything is sent, then stored with `addReview`, which the server saves in the `reviews` table. A thank-you replaces the box once saved; the server's message is shown if saving fails.
+
 ### `src/components/CategoryTile.tsx`
 
 The two-letter tile, coloured by category through `categoryColor` in `theme.ts`. The letters mean colour is never the only signal.
@@ -292,6 +298,7 @@ It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size 
 Route: `/week`
 
 Two figures (hours landing this week against capacity, and items left to do), then the outstanding work in `groupThisWeek`'s groups: Overdue, Due this week, Next week. Each `TaskRow` has a circular checkbox calling `toggleDone` and, when the task has no estimate, an **Add estimate** link calling `setEstimate`. Below the groups, `CompletedTasks` lists the done work behind a "Completed (n)" line, so a mistaken tap can be undone with `toggleDone`, and a **Later this semester** row counts the work due after next week and opens Forecast, where each week's bar lists it.
+Ticking a task done also shows the HoursReview card under the figures (US-23); undoing that task hides it.
 
 Tick the checkbox and three things happen at once: the task leaves the list, this week's hours drop, and the bar on screen 1 gets shorter. All from that one `done: true`.
 
@@ -374,7 +381,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-605 tests across twenty-nine test suites.
+615 tests across thirty-one test suites.
 
 ```bash
 npm test                      # all of them
@@ -413,6 +420,8 @@ npx jest --watch              # while you work
 | `src/__tests__/review-before-adding.test.tsx` | 8 | US-30: editing and removing found assignments, messages for a bad week, bad hours or a blank title, the forecast unchanged while reviewing, adding on confirm, and a failed save |
 | `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
 | `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
+| `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
+| `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
 
 
 
