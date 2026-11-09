@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Semester } from './types';
+import { Semester, Task } from './types';
 
 /**
  * Talking to the server. Everything the app knows about the outside world
@@ -160,4 +160,44 @@ export async function extractSyllabusText(pdf: Blob | ArrayBuffer | Uint8Array):
     throw new Error('The server sent invalid syllabus text');
   }
   return json;
+}
+/** One assignment to add with POST /tasks. The server gives it its id. */
+export type NewTask = {
+  courseId: string;
+  title: string;
+  dueWeek: number;
+  estimatedHours: number | null;
+};
+
+/**
+ * POST /tasks (US-30). Adds the reviewed assignments to the semester, all or
+ * nothing, and returns them as the server saved them, with their ids.
+ * Rejects with a message the user can read.
+ */
+export async function addTasks(tasks: NewTask[]): Promise<Task[]> {
+  const baseUrl = serverBaseUrl();
+
+  // 1. Send them. If the network itself fails, say so plainly.
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tasks }),
+    });
+  } catch {
+    throw new Error(`Could not reach the server at ${baseUrl}`);
+  }
+
+  // 2. The server said no (e.g. 400): pass its own message on.
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  // 3. Make sure we got a list back before trusting it.
+  const json: unknown = await response.json();
+  if (!Array.isArray(json)) {
+    throw new Error('The server sent something that is not a list of tasks');
+  }
+  return json as Task[];
 }

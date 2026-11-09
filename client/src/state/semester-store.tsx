@@ -16,6 +16,8 @@ type SemesterStore = {
   toggleDone: (taskId: string) => void;
   /** Sets a task's estimated hours; null clears it. */
   setEstimate: (taskId: string, hours: number | null) => void;
+  /** Adds tasks the server has already saved (US-30). */
+  addTasks: (tasks: Task[]) => void;
 };
 
 const SemesterContext = createContext<SemesterStore | null>(null);
@@ -71,7 +73,7 @@ function SemesterFromServer({ children }: { children: React.ReactNode }) {
   return <SemesterState initial={semester}>{children}</SemesterState>;
 }
 
-/** Holds the semester in state and hands it, with its two updates, to the app. */
+/** Holds the semester in state and hands it, with its updates, to the app. */
 function SemesterState({
   children,
   initial,
@@ -97,6 +99,8 @@ function SemesterState({
           updateTask(taskId, (task) => ({ done: !task.done })),
         setEstimate: (taskId: string, hours: number | null) =>
           updateTask(taskId, () => ({ estimatedHours: hours })),
+        addTasks: (tasks: Task[]) =>
+          setSemester((current) => ({ ...current, tasks: [...current.tasks, ...tasks] })),
       };
     },
     [semester]
