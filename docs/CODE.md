@@ -1,4 +1,4 @@
-# Code walkthrough
+Code walkthrough
 
 Read this once, top to bottom, and you will know the whole prototype. That is the goal — every one of us has to be able to explain any file in here.
 
@@ -129,6 +129,10 @@ A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called
 ### `src/lib/review.ts`
 
 US-30. `toDraft` turns a scanned assignment into the text in its edit boxes, and `checkDraft` checks one reviewed assignment: a title, a whole-number week from 1 to 15, and hours that `parseEstimate` accepts (blank means no estimate). It returns the first problem as a message the student can read.
+
+### `src/lib/pick-pdf.ts`
+
+US-29. `pickPdf` opens the system file picker for PDFs only (expo-document-picker) and returns the file's bytes as a Blob, or null if the student cancels. On the web the picker hands back a File; on a phone it reads the local file URI with fetch.
 
 
 ### `src/lib/tasks.ts`
@@ -309,6 +313,8 @@ Route: `/syllabus`, reached from the **+ Syllabus** button on the Courses tab (U
 
 The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Each assignment found is shown as boxes for its title, due week and hours, with a Remove link (US-30). Add to semester checks every one with checkDraft (lib/review.ts) and shows a message on each bad one. When all are valid it saves them with POST /tasks and only then adds them to the semester, so the forecast never changes while the student is still reviewing.
 
+**Choose PDF** (US-29) opens the file picker (`lib/pick-pdf.ts`), sends the PDF to `POST /syllabus/text` with `extractSyllabusText`, puts the text that comes back in the text box, and scans it like pasted text. When the server cannot read the PDF (scanned, locked, too large), its message is shown above the text box, so the student can paste the text instead.
+
 ### `src/theme.ts`
 
 Colours and spacing in one object. `loadColor(hours, capacity)` maps a week's load band to its colour, and `categoryColor(category)` gives a category's colour (neutral when unknown). The three colour systems (interface, load bands, categories) are never mixed: no element takes colour from more than one.
@@ -368,7 +374,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-594 tests across twenty-seven test suites.
+605 tests across twenty-nine test suites.
 
 ```bash
 npm test                      # all of them
@@ -405,6 +411,9 @@ npx jest --watch              # while you work
 | `src/lib/review.test.ts` | 18 | US-30: `toDraft`, and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number |
 | `src/lib/add-tasks-api.test.ts` | 5 | `addTasks`: what it posts, the saved tasks it returns, the server's message on a refusal, an unreachable server, a reply that is not a list |
 | `src/__tests__/review-before-adding.test.tsx` | 8 | US-30: editing and removing found assignments, messages for a bad week, bad hours or a blank title, the forecast unchanged while reviewing, adding on confirm, and a failed save |
+| `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
+| `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
+
 
 
 
