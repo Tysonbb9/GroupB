@@ -126,6 +126,11 @@ US-24: processing what the student hands over. Three steps, each pure, and nothi
 
 A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called through `extractSyllabusText` in `lib/api.ts`), and that text is what `scanSyllabus` reads. Reading photos and scanned PDFs, and matching reports to assignments any way other than course and title, are later work.
 
+### `src/lib/review.ts`
+
+US-30. `toDraft` turns a scanned assignment into the text in its edit boxes, and `checkDraft` checks one reviewed assignment: a title, a whole-number week from 1 to 15, and hours that `parseEstimate` accepts (blank means no estimate). It returns the first problem as a message the student can read.
+
+
 ### `src/lib/tasks.ts`
 
 | Function | Does |
@@ -163,6 +168,8 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `resolveBaseUrl` decides the address and is separate so it can be tested without Expo: `EXPO_PUBLIC_API_URL` if set, otherwise (development only) the Expo computer's address with port 3000, otherwise an error. `isObject` returns `value is Record<string, unknown>`, which tells TypeScript the value is an object whose fields we know nothing about yet, so the checks can read `value.label` and test its type.
 
+`addTasks` posts reviewed assignments to POST /tasks and returns them with their new ids, or rejects with the server's message.
+
 ### `src/data/semester.ts`
 
 One fake student, five courses, 36 tasks. Every task has a category, and one (the discussion post) has no estimate on purpose so the "Add estimate" path can be seen. Everything the app displays comes from here.
@@ -187,6 +194,8 @@ No state library. If you know `useState` and `useContext`, you know this file.
 `SemesterState` is the original provider, unchanged: the `useState`, `toggleDone` and `setEstimate`. Splitting it out means the loading logic never touches it, and none of the existing tests had to change.
 
 For now `toggleDone` and `setEstimate` change the semester in memory only. Saving them back to the server is a later step.
+
+`addTasks` appends tasks the server has already saved (US-30).
 
 ### `src/state/session.tsx`
 
@@ -298,8 +307,7 @@ An email field and a password field, with the password hidden. It checks that bo
 
 Route: `/syllabus`, reached from the **+ Syllabus** button on the Courses tab (US-28).
 
-The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Nothing is added to the semester yet: reviewing and adding the assignments is US-30.
-
+The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Each assignment found is shown as boxes for its title, due week and hours, with a Remove link (US-30). Add to semester checks every one with checkDraft (lib/review.ts) and shows a message on each bad one. When all are valid it saves them with POST /tasks and only then adds them to the semester, so the forecast never changes while the student is still reviewing.
 
 ### `src/theme.ts`
 
@@ -346,7 +354,7 @@ The Express routes use asynchronous `Store` methods rather than directly accessi
 
 ## Tests
 
-563 tests across twenty-four test suites.
+594 tests across twenty-seven test suites.
 
 ```bash
 npm test                      # all of them
@@ -378,8 +386,13 @@ npx jest --watch              # while you work
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (peak week, heavy weeks in words and labels, a course with none) |
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Courses screen in place of the old one-line text |
-| `src/__tests__/syllabus-text.test.tsx` | 7 | US-28: choosing a course, the assignments found with week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |
+| `src/__tests__/syllabus-text.test.tsx` | 7 |  US-28: choosing a course, the assignments found shown in edit boxes with their week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |
 | `src/__tests__/undo-done.test.tsx` | 7 | US-31: the Completed line and its count, opening and closing it, moving a task there and back, the hours returning to this week and the forecast, the line going away after the last undo, and nothing drawn when no task is done. Queries by role and name, so the open and checked states are tested too |
+| `src/lib/review.test.ts` | 18 | US-30: `toDraft`, and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number |
+| `src/lib/add-tasks-api.test.ts` | 5 | `addTasks`: what it posts, the saved tasks it returns, the server's message on a refusal, an unreachable server, a reply that is not a list |
+| `src/__tests__/review-before-adding.test.tsx` | 8 | US-30: editing and removing found assignments, messages for a bad week, bad hours or a blank title, the forecast unchanged while reviewing, adding on confirm, and a failed save |
+
+
 
 The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 269 of them in ten files, plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or zero hours, 404 for an unknown course) and `GET /courses/:id/reviews`. `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.

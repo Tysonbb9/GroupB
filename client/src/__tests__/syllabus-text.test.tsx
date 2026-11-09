@@ -51,10 +51,13 @@ describe('US-28: paste a syllabus and see the assignments found in it', () => {
   it('shows each assignment found, with its week and hours when stated', () => {
     renderScreen();
     pasteAndFind(SYLLABUS);
-    expect(screen.getByText('Lab report')).toBeTruthy();
-    expect(screen.getByText('Week 4 · 3 h')).toBeTruthy();
-    expect(screen.getByText('Final project')).toBeTruthy();
-    expect(screen.getByText('Week 9 · no estimate')).toBeTruthy();
+    // Since US-30 each one is shown in boxes the student can edit.
+    expect(screen.getByTestId('draft-title-0').props.value).toBe('Lab report');
+    expect(screen.getByTestId('draft-week-0').props.value).toBe('4');
+    expect(screen.getByTestId('draft-hours-0').props.value).toBe('3');
+    expect(screen.getByTestId('draft-title-1').props.value).toBe('Final project');
+    expect(screen.getByTestId('draft-week-1').props.value).toBe('9');
+    expect(screen.getByTestId('draft-hours-1').props.value).toBe('');
   });
 
   it('says which course the assignments were found for', () => {
