@@ -5,6 +5,7 @@ import { Pressable, Text } from 'react-native';
 import RootLayout from '../app/_layout';
 import TabsLayout from '../app/(tabs)/_layout';
 import LoginScreen from '../app/login';
+import { fetchSemester } from '../lib/api';
 import { useSemester } from '../state/semester-store';
 import { useSession } from '../state/session';
 
@@ -82,5 +83,47 @@ describe('Log in is the front door', () => {
     logIn();
     fireEvent.press(await screen.findByTestId('stand-in-log-out'));
     expect(await screen.findByText('Welcome back')).toBeTruthy();
+  });
+});
+
+/**
+ * Until the semester arrives, the loading or error screen stands in for the
+ * whole app, so Log out has to be offered there too (review of #129).
+ */
+describe('Log out before the semester has loaded', () => {
+  const mockFetch = fetchSemester as jest.Mock;
+
+  it('is offered while the semester is still loading', async () => {
+    // A server the phone cannot reach: the request never settles.
+    mockFetch.mockReturnValueOnce(new Promise(() => {}));
+    await renderApp();
+    logIn();
+
+    expect(await screen.findByTestId('loading')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Log out student@example.edu'));
+    expect(await screen.findByText('Welcome back')).toBeTruthy();
+  });
+
+  it('is offered when the semester could not be loaded', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network request failed'));
+    await renderApp();
+    logIn();
+
+    expect(await screen.findByText('Could not load your semester')).toBeTruthy();
+    expect(screen.getByTestId('retry')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Log out student@example.edu'));
+    expect(await screen.findByText('Welcome back')).toBeTruthy();
+  });
+
+  it('loads the semester again for the next sign-in', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network request failed'));
+    await renderApp();
+    logIn();
+    await screen.findByText('Could not load your semester');
+    fireEvent.press(screen.getByLabelText('Log out student@example.edu'));
+    await screen.findByText('Welcome back');
+
+    logIn();
+    expect(await screen.findByText('Forecast for Fall 2026')).toBeTruthy();
   });
 });
