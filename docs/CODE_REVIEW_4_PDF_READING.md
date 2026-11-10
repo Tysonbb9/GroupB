@@ -1,127 +1,165 @@
 # Code review, section 4 of 5: reading the PDF
 
 Issue: [#115](https://github.com/Tysonbb9/GroupB/issues/115). Part of the team code review (VV10), tracked in [#111](https://github.com/Tysonbb9/GroupB/issues/111).
-Reviewer: Colin Redder, 11/10, against `main` at `2ec627d`. Checklist: [CodingStandard.md](CodingStandard.md).
+Reviewed on 11/10 against `main` at `2ec627d`, using [CodingStandard.md](CodingStandard.md) as the checklist.
 
-## In plain words
+## The short version
 
-*A short, non-technical summary. The detail starts further down.*
+This section is the code that takes a syllabus PDF a student uploads and pulls the text out of it, so the app can find the assignments. It's in good shape. All the server tests pass, the tricky parts are mostly explained, and the tests are some of the most thorough in the project.
 
-**What was reviewed.** The code that reads the text out of a syllabus PDF and puts it back into lines, so the app can find the assignments in it. A PDF does not store lines of text: it stores small pieces of text and where each one sits on the page. This code works out which pieces belong on the same line and in what order.
+I found six things worth raising. Two of them a student could actually run into:
 
-**Overall.** The code is in good shape. It is careful, well tested, and explains most of its decisions. All 275 server tests pass. We found two real problems that a student could hit, and four smaller things to tidy up. None of them is urgent enough to block the sprint.
+- **Sideways text gets glued together.** If a syllabus has text turned on its side, two separate lines come out stuck together as one, so two assignments look like one.
+- **"1½ hours" turns into "11⁄2 hours".** The app then can't find the hours for that assignment.
 
-**The two real problems.**
-1. **Sideways text runs together.** If a syllabus has text turned on its side (a rotated table or label), two separate lines come out glued together with no space, so two assignments look like one.
-2. **"1½ hours" turns into "11⁄2 hours".** A cleanup step changes the ½ sign in a way that reads like eleven halves. The app then finds no hours for that assignment.
+The other four are smaller: some unexplained numbers, two layouts that aren't handled and aren't written down, and one error that could get swallowed.
 
-**The reviewer wrote this code.** The team agreed authors may review their own section. This is said up front so the team can weigh it, and a second reader is welcome.
+Fixes for all six are written and tested on the branch `fix/115-pdf-reading-review`. Per the card, that pull request waits until we've talked these through at the review session.
 
-**What happens next.** Each finding becomes a comment on #115, is presented at the team review session, and is then either fixed in a pull request or declined with a reason.
+One thing to be upfront about: whoever reviewed this section also wrote the code. The team agreed that's allowed, but a second pair of eyes is very welcome.
 
 ---
 
-## 1. What was reviewed
+## If you haven't seen this code before
 
-| File | Lines | What it does |
-| --- | --- | --- |
-| `server/src/syllabus/pdf-text.ts` | 107 to 236 | Rebuilds lines: `sizeOf`, `normalizeText`, `ASCENT` and `DESCENT`, `onSameLine`, `pageToLines`, `joinLine`, `pagesToText` |
-| `server/src/syllabus/read-pdf.worker.mjs` | all 60 | Opens the PDF on a separate thread and reports each piece of text with its position |
-| `server/src/__tests__/pdf-text.test.ts` | 362 | Tests for the line rebuilding |
-| `server/src/testing/pdfs.ts` | 85 | Builds real PDFs in code for the tests |
+You don't need to read the code to follow this review. Here's what it does.
 
-**How it was reviewed.** The code and tests were read against the coding standard and the card's questions. Each finding was then reproduced by running the real functions on small, made-up inputs, so none of them is a guess. The full server test suite was run on 11/10: 12 suites, 275 tests passing.
+**A PDF doesn't store lines of text.** You'd think a PDF holds "Week 7: Midterm (8 hours)" as one line. It doesn't. It stores small scraps of text, each with a position on the page, something like:
 
-## 2. What is going well
+```
+"Week 7:"     at 72 points from the left, 700 points up from the bottom
+"Midterm"     at 125 from the left, 700 up
+"(8 hours)"   at 185 from the left, 700 up
+```
 
-- **The worker explains itself.** Its opening comment answers the card's question in full. It runs on its own thread so a slow or hostile PDF cannot freeze the server. It is plain JavaScript because the PDF library (pdf.js) only ships in a format our test tool (Jest) cannot load directly.
-- **The result never depends on luck.** The PDF library can report pieces of text in any order. The code sorts them the same way every time and says how ties are broken.
-- **The tests prove the important properties, not just examples.** Seeded random tests check, on 30 random pages for each property, that rebuilding lines never loses or invents text, gives the same answer whatever order the pieces arrive in, and always produces tidy lines. Because they are seeded, any failure can be replayed.
-- **Hostile input is covered.** A test feeds in missing positions, infinite numbers, zero and negative font sizes, and broken characters, and checks nothing crashes. A sensible fallback font size handles a PDF that reports none.
-- **Hard typography is handled and tested.** Superscripts such as "7th", subscripts, and "fake bold" (text drawn twice, slightly offset) each have a test that explains the geometry.
-- **Tests use real PDFs.** `testing/pdfs.ts` builds each test PDF in code, so every test shows exactly what is on the page. The one stored file (a password-protected PDF) says how it was made and what its password is.
-- **Known limits are written down.** Two columns that share a baseline read across both columns. This is stated in a comment and pinned by a test named as a known limit.
-- **Checked and fine:** very large headings over small text, very small text, negative font sizes, and pages turned with the PDF's own page-rotation setting all read correctly.
+The scraps can come in any order. Our job is to put them back together into lines a person would read.
 
-## 3. What is not going well
+**Think of it like a torn-up page.** Imagine someone cut a printed page into word-sized strips and handed you the pile, with a note on each strip saying where it sat. To rebuild the page you would:
 
-Severity follows the card: **must fix**, **should fix**, or **nit**. Nothing here is a must fix.
+1. Sort the strips from the top of the page to the bottom.
+2. Group strips that sit at the same height into one line.
+3. Within each line, put the strips in order from left to right.
+4. Add a space wherever there was a visible gap between strips.
 
-### Finding 1: sideways text runs two lines together (should fix)
+That's exactly what our code does. Almost every finding below is about a situation where one of those four steps goes wrong.
 
-**Where:** `pdf-text.ts:191` (`joinLine`), together with how the worker reports positions, `read-pdf.worker.mjs:33-39`.
+**The two files:**
 
-**What happens:** Two lines of text drawn turned 90 degrees, at x 100 and x 116 on the page, came out as `Week 1: Quiz (2 hours)Week 2: Essay (4 hours)`: one line, no space. The assignment scanner would see one assignment with 4 hours instead of two.
+| File | What it does, in plain terms |
+| --- | --- |
+| `server/src/syllabus/read-pdf.worker.mjs` | Opens the PDF and makes the list of scraps and positions. It runs on its own thread, so a huge or broken PDF can't freeze the server for everyone else. |
+| `server/src/syllabus/pdf-text.ts` | Takes that list and rebuilds the lines (steps 1 to 4 above), then tidies up odd characters. |
 
-**Why:** The worker reports only where each piece starts, not which way it runs. Both sideways pieces start at the same height, so they are treated as one line. Their width runs up the page rather than across it, so the gap between them looks negative and no space is added.
+**Two words that show up below:**
 
-**Suggested improvement:** Have the worker also report each piece's angle, and treat a piece that is not horizontal as a line of its own. Add a test that builds a PDF with rotated text. Pages rotated with the PDF's page-rotation setting already work, so this is only for text drawn at an angle.
+- **Font size** is used as a ruler. Lots of decisions are "is this gap bigger than some fraction of the font size?" That way the same rules work for tiny footnotes and big headings.
+- **Baseline** is the invisible line that letters sit on. Letters like "g" and "y" hang below it.
 
-### Finding 2: "1½ hours" becomes "11⁄2 hours" (should fix)
+---
+
+## What's going well
+
+- **The worker explains why it's built the way it is.** The comment at the top answers the card's question directly. It's a separate thread so a bad PDF can't hang the server. It's plain JavaScript because the PDF library only ships in a format our test tool can't load.
+- **The results don't depend on luck.** The PDF library can hand over the scraps in any order. The code sorts them the same way every time, and says how ties are broken.
+- **The tests check rules, not just examples.** Besides normal tests, there are seeded random tests that build 30 random pages each and check that no text is ever lost or invented, that the order the scraps arrive in never changes the answer, and that every line comes out tidy. Because they're seeded, any failure can be replayed exactly.
+- **Garbage input is covered.** One test throws in missing positions, infinite numbers, zero and negative font sizes, and broken characters, and checks nothing crashes.
+- **Hard cases are tested and explained.** Superscripts like "7th", subscripts, and "fake bold" (some PDFs make text bold by drawing it twice, slightly shifted) each have a test that explains what's going on.
+- **The tests use real PDFs.** `testing/pdfs.ts` builds each test PDF in code, so you can see exactly what's on the page. The one saved PDF (a password-protected one) says how it was made and what its password is.
+- **A known weakness is written down.** Two columns at the same height get read straight across both columns. That's stated in a comment and pinned by a test.
+- **I also checked, and these work fine:** huge headings over small text, very small text, negative font sizes, and pages that are rotated as a whole.
+
+---
+
+## The findings
+
+Severity uses the card's three levels: **must fix**, **should fix**, or **nit**. Nothing here is a must fix.
+
+### 1. Sideways text gets glued together (should fix)
+
+**Where:** `pdf-text.ts:191` (`joinLine`), and the worker at `read-pdf.worker.mjs:33-39`.
+
+**In plain terms:** Picture a table whose column headings are turned on their side. Our code only knows where each scrap *starts*, not which way it *runs*. Two sideways lines both start at the same height, so the code thinks they're one line. Their length runs up the page instead of across it, so the code never sees a gap and doesn't add a space.
+
+**What actually happened:** Two sideways lines came out as `Week 1: Quiz (2 hours)Week 2: Essay (4 hours)`. The scanner would see one assignment with 4 hours instead of two.
+
+**Fix:** The worker now also reports the angle of each scrap. Scraps at the same angle are grouped, and each group is read as if you'd turned the page to read it. Upright text comes first, then the sideways groups. There's a test with a real rotated PDF.
+
+### 2. "1½ hours" becomes "11⁄2 hours" (should fix)
 
 **Where:** `pdf-text.ts:121` (`normalizeText`).
 
-**What happens:** `Week 3: Reading (1½ hours)` comes out as `Week 3: Reading (11⁄2 hours)`. The assignment scanner (`client/src/lib/inputs.ts:39`) only understands plain numbers, so it finds no hours. The student sees "11⁄2" in the title, which reads like 11 over 2.
+**In plain terms:** After rebuilding a line, we tidy it using a standard Unicode cleanup step. It does a lot of useful things, like turning the single "ﬁ" character back into "f" and "i". But it also breaks "½" into "1", a fraction slash, and "2". So "1½" becomes "11⁄2", which reads like eleven halves.
 
-**Why:** The cleanup uses a standard Unicode step (NFKC) that splits the ½ sign into "1", a fraction slash, and "2". That is right for most characters, but not for fractions that follow a number.
+**What actually happened:** `Week 3: Reading (1½ hours)` came out as `Week 3: Reading (11⁄2 hours)`. The client's scanner only understands plain numbers, so it found no hours at all.
 
-**Suggested improvement:** Before that step, turn the common fraction signs into decimals: "1½" into "1.5", "½" into "0.5", and the same for ¼ and ¾. The scanner would then read 1.5 hours. Add a test for "(1½ hours)".
+**Fix:** Before the cleanup, "½", "¼" and "¾" are turned into decimals, so "1½" becomes "1.5" and "½" on its own becomes "0.5". I checked end to end: a real PDF with "(1½ hours)" now gives an assignment with 1.5 hours.
 
-### Finding 3: the tuning numbers do not say why (should fix)
+### 3. The tuning numbers don't say why (should fix)
 
 **Where:** `pdf-text.ts:133-147` and `191-212`.
 
-**What happens:** Line rebuilding depends on five numbers:
-- `ASCENT` and `DESCENT`, how far text reaches above and below its baseline;
-- 0.5, how much two pieces must overlap to share a line;
-- 0.3, how close a repeat must be to count as fake bold;
-- 0.15, how wide a gap must be to count as a space.
+**In plain terms:** The whole line-rebuilding process depends on a few "magic numbers" (remember, font size is the ruler):
 
-Only `ASCENT` and `DESCENT` have a name, and their comment says "close enough for every common font" without saying where the values come from. The other three appear as bare numbers. The reason for 0.15 (about 1.8 points at 12-point text, wider than the spacing between letters) is written only in a test comment. The course asks for comments that explain tricky code (SC5), and these numbers are the trickiest part.
+| Number | What it decides |
+| --- | --- |
+| 0.8 and 0.2 (`ASCENT`, `DESCENT`) | How far text reaches above and below its baseline |
+| 0.5 | How much two scraps must overlap vertically to share a line |
+| 0.3 | How close a repeat must be to count as fake bold |
+| 0.15 | How wide a gap must be to count as a space |
 
-**Suggested improvement:** Give the three bare numbers names next to `ASCENT` (for example `SAME_LINE_OVERLAP`, `FAKE_BOLD_DISTANCE` and `WORD_GAP`), each with one line saying why that value. Give `ASCENT` and `DESCENT` a source: in Helvetica, text rises about 0.72 of the font size above the baseline and drops about 0.21 below.
+Only the first two had names, and their comment just said "close enough" without saying where the values came from. The other three were bare numbers in the code. The reason for 0.15 only lived in a test comment. The course asks for comments that explain tricky code (SC5), and these numbers are the trickiest part.
 
-### Finding 4: offset columns mix line by line, and this is not written down (nit)
+**Fix:** The three bare numbers now have names (`SAME_LINE_OVERLAP`, `FAKE_BOLD_DISTANCE`, `WORD_GAP`), all kept together, each with a line saying why that value works. For example, 0.15 of a 12-point font is 1.8 points: wider than the space between letters, narrower than a real space. `ASCENT` and `DESCENT` now cite real font measurements. None of the values changed, so behavior is exactly the same.
+
+### 4. Offset columns get shuffled together, and it isn't written down (nit)
 
 **Where:** the comment above `pageToLines`, `pdf-text.ts:150-161`.
 
-**What happens:** A page with two columns whose lines sit at slightly different heights (left lines at 700 and 684, right lines at 692 and 676) reads as left, right, left, right. The columns are mixed together line by line.
+**In plain terms:** Picture a page with two columns where the right column's lines sit a little lower than the left's. Because we sort strictly top to bottom, we read left, right, left, right, like zig-zagging across a newspaper.
 
-**Suggested improvement:** Mention this next to the existing note about columns that share a baseline, and add a "known limit" test the same way.
+**What actually happened:** Left lines at heights 700 and 684, right lines at 692 and 676, came out as L1, R1, L2, R2.
 
-### Finding 5: right-to-left text comes out backwards (nit)
+**Fix:** Written down next to the existing note about columns at the same height, with a "known limit" test. I didn't try to fix it properly. Telling columns apart needs real layout detection, and that could break schedule tables, which currently read correctly.
 
-**Where:** `pdf-text.ts:191` (`joinLine` puts pieces in order from left to right).
+### 5. Right-to-left text comes out backwards (nit)
 
-**What happens:** Two Hebrew words, the first drawn to the right of the second as Hebrew is written, came out in reverse order. The PDF library reports which direction each piece runs, but the worker does not pass that on.
+**Where:** `pdf-text.ts:191` (`joinLine` always reads left to right).
 
-**Suggested improvement:** Unlikely in our syllabi, so record it as a known limit with a test. If it ever matters, pass the direction through and reverse right-to-left lines.
+**In plain terms:** Hebrew and Arabic are written right to left, so the first word sits on the right. We always read left to right, so the words come out in reverse order. The PDF library already tells us each scrap's direction; we just weren't passing it along.
 
-### Finding 6: a failed cleanup can throw away a good result (nit)
+**What actually happened:** Two Hebrew words came out swapped.
+
+**Fix:** The worker now passes the direction through. A line where most scraps are right to left is read right to left. An English line with one Hebrew word in it stays as it was. Unlikely in our syllabi, but it was a small change.
+
+### 6. Tidying up can throw away a good result (nit)
 
 **Where:** `read-pdf.worker.mjs:45-49`.
 
-**What happens:** After reading the pages, the worker frees the PDF's memory inside a `finally` block and waits for that to finish. If freeing the memory fails, that error replaces the pages that were already read successfully. The student would be told the PDF could not be read when it was.
+**In plain terms:** After reading the PDF, the worker frees up memory. If that clean-up step fails, its error replaced the text we'd already read successfully. The student would be told "this PDF couldn't be read" when it actually was.
 
-**Suggested improvement:** Put the cleanup in its own `try`/`catch` that logs the error and keeps the result. The thread is stopped right after anyway, and the coding standard asks that no failure be ignored silently, so it should be logged, not dropped.
+**Fix:** The clean-up now has its own error handling. If it fails, the error is logged (the coding standard says never to ignore a failure silently) and the text is kept. There's a new test file for it, `pdf-worker.test.ts`.
 
-## 4. Summary of findings
+---
 
-| # | Severity | Where | Finding | Resolution |
+## Summary
+
+| # | Severity | Where | Finding | Status |
 | --- | --- | --- | --- | --- |
-| 1 | should fix | `pdf-text.ts:191` | Sideways text runs two lines together | to decide at the session |
-| 2 | should fix | `pdf-text.ts:121` | "1½ hours" becomes "11⁄2 hours" | to decide at the session |
-| 3 | should fix | `pdf-text.ts:133-147, 191-212` | The tuning numbers do not say why | to decide at the session |
-| 4 | nit | `pdf-text.ts:150-161` | Offset columns mix, not written down | to decide at the session |
-| 5 | nit | `pdf-text.ts:191` | Right-to-left text comes out backwards | to decide at the session |
-| 6 | nit | `read-pdf.worker.mjs:45-49` | A failed cleanup can throw away a good result | to decide at the session |
+| 1 | should fix | `pdf-text.ts:191` | Sideways text gets glued together | Fix ready on `fix/115-pdf-reading-review` |
+| 2 | should fix | `pdf-text.ts:121` | "1½ hours" becomes "11⁄2 hours" | Fix ready |
+| 3 | should fix | `pdf-text.ts:133-147, 191-212` | Tuning numbers don't say why | Fix ready |
+| 4 | nit | `pdf-text.ts:150-161` | Offset columns shuffle, not written down | Documented, with a test |
+| 5 | nit | `pdf-text.ts:191` | Right-to-left text comes out backwards | Fix ready |
+| 6 | nit | `read-pdf.worker.mjs:45-49` | Tidying up can throw away a good result | Fix ready |
 
-After the session, the Resolution column records each outcome: fixed in a pull request (with its number), or declined with the reason. The scribe copies this into the team's record, `CODE_REVIEW_SERVER_API.md`.
+**After the fixes:** 320 server tests pass (275 before), and the client's 627 tests are unaffected. The text the server sends back looks exactly as before, so nothing on the client side changes.
 
-## 5. Possible improvements beyond the findings
+**What happens next:** each finding is a comment on #115. We go through them at the review session. If the team agrees, the fix branch becomes one pull request linked from #115. Anything the team would rather not fix gets declined with a reason. The scribe copies the outcomes into `CODE_REVIEW_SERVER_API.md`.
 
-These are not problems, just ideas for later. None is needed this sprint.
+## Ideas for later
 
-- **A few real syllabi as test fixtures.** The tests build tidy PDFs in code. Two or three real, messy syllabus PDFs (with permission, and with nothing private in them) would catch layouts nobody thought to build.
-- **Report what was skipped.** When pieces of text are dropped (no usable position, or fake bold), nothing says so. A count in the result would help when a student says "it missed my assignment".
-- **One place for the "known limits".** Two-column pages, offset columns, right-to-left text and sideways text could be listed together in one comment or in `docs/CODE.md`, so the next person knows what the reader does not handle.
+Not problems, and none needed this sprint:
+
+- **A couple of real syllabi as test files.** Our test PDFs are tidy because we build them. Two or three real, messy syllabus PDFs (with permission, nothing private in them) would catch layouts nobody thought of.
+- **Say what was skipped.** When scraps get dropped (no usable position, or fake bold), nothing reports it. A count would help when a student says "it missed my assignment".
+- **One list of known limits.** Same-height columns and offset columns could be listed together in `docs/CODE.md`, so the next person knows what the reader doesn't handle.
