@@ -201,3 +201,47 @@ export async function addTasks(tasks: NewTask[]): Promise<Task[]> {
   }
   return json as Task[];
 }
+/** US-23: one student's report of how long an assignment took them, as the server stored it. */
+export type Review = {
+  id: string;
+  courseId: string;
+  title: string;
+  hours: number;
+  comment: string;
+};
+
+/**
+ * POST /courses/:id/reviews (US-23). Stores how long a finished assignment
+ * took, so the crowd's data is kept. Returns the review as the server saved it.
+ * Rejects with a message the user can read.
+ */
+export async function addReview(
+  courseId: string,
+  review: { title: string; hours: number; comment?: string }
+): Promise<Review> {
+  const baseUrl = serverBaseUrl();
+
+  // 1. Send it. If the network itself fails, say so plainly.
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/courses/${encodeURIComponent(courseId)}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(review),
+    });
+  } catch {
+    throw new Error(`Could not reach the server at ${baseUrl}`);
+  }
+
+  // 2. The server said no (400 or 404): pass its own message on.
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  // 3. Make sure we got a review back before trusting it.
+  const json = (await response.json()) as Partial<Review> | null;
+  if (json === null || typeof json.id !== 'string') {
+    throw new Error('The server sent something that is not a review');
+  }
+  return json as Review;
+}

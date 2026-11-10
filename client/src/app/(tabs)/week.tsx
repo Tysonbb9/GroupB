@@ -1,15 +1,17 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CompletedTasks } from '../../components/CompletedTasks';
 import { Figure } from '../../components/Figure';
+import { HoursReview } from '../../components/HoursReview';
 import { LoadPill } from '../../components/LoadPill';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SummaryRow } from '../../components/SummaryRow';
 import { TaskRow } from '../../components/TaskRow';
 import { groupThisWeek, startsNow } from '../../lib/tasks';
+import { Task } from '../../lib/types';
 import { hoursInWeek, weeklyLoad, wholeHours } from '../../lib/workload';
 import { useSemester } from '../../state/semester-store';
 import { theme } from '../../theme';
@@ -21,10 +23,15 @@ import { theme } from '../../theme';
  * Marking something done takes its hours out of the forecast, so the wall
  * on screen 1 gets shorter. That is the reward: not a streak, the actual
  * work getting smaller.
+ *
+ * US-23: ticking a task done asks how long it took (HoursReview), so the
+ * student's hours are stored as a review for other students' estimates.
  */
 export default function WeekScreen() {
   const router = useRouter();
   const { semester, toggleDone, setEstimate } = useSemester();
+  /** The task just ticked done, so we can ask how long it took (US-23). */
+  const [justDone, setJustDone] = useState<Task | null>(null);
 
   const groups = groupThisWeek(semester);
   const itemsLeft = groups.reduce((count, group) => count + group.tasks.length, 0);
@@ -63,6 +70,10 @@ export default function WeekScreen() {
           />
         </View>
 
+        {justDone !== null && (
+          <HoursReview key={justDone.id} task={justDone} onClose={() => setJustDone(null)} />
+        )}
+
         {groups.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>Nothing left. Genuinely nothing.</Text>
@@ -81,7 +92,10 @@ export default function WeekScreen() {
                     courseCode={courseCode(task.courseId)}
                     overdueSince={overdue ? task.dueWeek : null}
                     startNow={startsNow(task, semester.currentWeek, semester.weeklyCapacity)}
-                    onDone={() => toggleDone(task.id)}
+                    onDone={() => {
+                      toggleDone(task.id);
+                      setJustDone(task);
+                    }}
                     onEstimate={(hours) => setEstimate(task.id, hours)}
                   />
                 );
@@ -93,7 +107,10 @@ export default function WeekScreen() {
         <CompletedTasks
           tasks={semester.tasks.filter((t) => t.done)}
           courseCode={courseCode}
-          onUndo={toggleDone}
+          onUndo={(id) => {
+            toggleDone(id);
+            if (justDone?.id === id) setJustDone(null); // undone, so don't ask
+          }}
         />
 
         {later > 0 && (
