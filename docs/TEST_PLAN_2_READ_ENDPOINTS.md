@@ -1,7 +1,7 @@
 # Test plan 2 of 4: the read endpoints (TP-08 to TP-17)
 
 Issue: [#109](https://github.com/Tysonbb9/GroupB/issues/109). Part of the server API test plan, [TEST_PLAN_SERVER_API.md](TEST_PLAN_SERVER_API.md).
-Written by Colin Redder, 11/10, against `main` at `2ec627d`.
+Written 11/10 against `main` at `2ec627d`.
 
 ## In plain words
 
