@@ -7,7 +7,12 @@ export const theme = {
   surface: '#FFFFFF',
   ink: '#16202A',
   muted: '#5A6A72',
-  faint: '#93A3A8',
+  /**
+   * Labels, axis numbers, placeholders and inactive tabs. It is the lightest
+   * grey of this tone that still reads: 4.5 to 1 on bg and 4.9 on surface,
+   * the WCAG AA minimum for small text (the old #93A3A8 was only 2.4 to 1).
+   */
+  faint: '#677276',
   rule: '#DCE4E4',
   accent: '#1F5C6B',
   accentSoft: '#E2EDEF',
