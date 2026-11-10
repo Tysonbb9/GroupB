@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { ErrorView, LoadingView } from '../components/ServerStatus';
-import { fetchSemester } from '../lib/api';
+import { fetchSemester, saveWeeklyCapacity } from '../lib/api';
 import { Semester, Task } from '../lib/types';
 
 /**
@@ -18,9 +18,23 @@ type SemesterStore = {
   setEstimate: (taskId: string, hours: number | null) => void;
   /** Adds tasks the server has already saved (US-30). */
   addTasks: (tasks: Task[]) => void;
+  /**
+   * Saves the hours the student has each week (US-32), then uses them
+   * everywhere. Rejects, changing nothing, when they could not be saved.
+   */
+  setWeeklyCapacity: (hours: number) => Promise<void>;
 };
 
 const SemesterContext = createContext<SemesterStore | null>(null);
+
+/** Keeps new weekly hours somewhere, and returns the hours that were kept. */
+type SaveCapacity = (hours: number) => Promise<number>;
+
+/**
+ * With no server (the fixture switch, and tests that pass `initial`), new
+ * hours are kept only on this device, until the app is opened again.
+ */
+const keepOnDevice: SaveCapacity = async (hours) => hours;
 
 /**
  * What the app is given at the top. With no `initial`, the semester is
@@ -36,7 +50,11 @@ export function SemesterProvider({
   initial?: Semester;
 }) {
   if (initial !== undefined) {
-    return <SemesterState initial={initial}>{children}</SemesterState>;
+    return (
+      <SemesterState initial={initial} saveCapacity={keepOnDevice}>
+        {children}
+      </SemesterState>
+    );
   }
   return <SemesterFromServer>{children}</SemesterFromServer>;
 }
@@ -70,16 +88,22 @@ function SemesterFromServer({ children }: { children: React.ReactNode }) {
   if (semester === null) {
     return error === null ? <LoadingView /> : <ErrorView message={error} onRetry={retry} />;
   }
-  return <SemesterState initial={semester}>{children}</SemesterState>;
+  return (
+    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity}>
+      {children}
+    </SemesterState>
+  );
 }
 
 /** Holds the semester in state and hands it, with its updates, to the app. */
 function SemesterState({
   children,
   initial,
+  saveCapacity,
 }: {
   children: React.ReactNode;
   initial: Semester;
+  saveCapacity: SaveCapacity;
 }) {
   const [semester, setSemester] = useState<Semester>(initial);
 
@@ -101,9 +125,14 @@ function SemesterState({
           updateTask(taskId, () => ({ estimatedHours: hours })),
         addTasks: (tasks: Task[]) =>
           setSemester((current) => ({ ...current, tasks: [...current.tasks, ...tasks] })),
+        // Saved first, so the forecast only changes to hours that were kept.
+        setWeeklyCapacity: async (hours: number) => {
+          const kept = await saveCapacity(hours);
+          setSemester((current) => ({ ...current, weeklyCapacity: kept }));
+        },
       };
     },
-    [semester]
+    [semester, saveCapacity]
   );
 
   return (

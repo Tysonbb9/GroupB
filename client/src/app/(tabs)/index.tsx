@@ -32,7 +32,7 @@ import { theme } from '../../theme';
  */
 export default function SemesterScreen() {
   const router = useRouter();
-  const { semester } = useSemester();
+  const { semester, setWeeklyCapacity } = useSemester();
   // No week is open until a bar is tapped, so the screen starts uncluttered.
   const [openWeek, setOpenWeek] = useState<number | null>(null);
 
@@ -86,6 +86,7 @@ export default function SemesterScreen() {
             selectedWeek={openWeek ?? semester.currentWeek}
             wallWeek={wall?.week ?? null}
             onSelectWeek={toggleWeek}
+            onSaveCapacity={setWeeklyCapacity}
           />
         </View>
 
