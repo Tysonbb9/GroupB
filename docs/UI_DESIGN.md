@@ -146,13 +146,43 @@ heads This week.
 
 ### The week strip
 
-Bar height is projected hours relative to the tallest week, so the chart always fills
-its space. The dashed line sits at the student's weekly capacity, which makes "over
-the line" literal rather than a colour the user has to learn.
+Bar height is projected hours relative to the tallest week or the capacity, whichever
+is higher, so the chart always fills its space and the capacity line is always on it.
+The dashed line sits at the student's weekly capacity, which makes "over the line"
+literal rather than a colour the user has to learn.
 
-The current week is outlined and its axis number is in the accent colour. The next
-week over capacity is marked on the axis in the warning colour, so the two weeks that
-matter are findable without counting.
+The selected week's bar is outlined: the current week until another bar is tapped.
+The current week's axis number is always in the accent colour, and the next week over
+capacity is marked on the axis in the warning colour, so the two weeks that matter
+are findable without counting.
+
+Under the strip, one line says what the dashed line is: "Dashed line is your 15 hours
+a week", with **Change** beside it.
+
+### Changing the hours a week (US-32)
+
+The capacity is the student's own number, not a fixed threshold, so it has to be
+theirs to change. **Change** opens a box under the strip with the current hours in it,
+already selected so typing replaces them.
+
+- **Whole hours, 1 to 80.** Anything else ("0", "12.5", "abc") says "Enter whole hours
+  from 1 to 80." and keeps nothing.
+- **Nothing moves while the student types.** The forecast changes only on **Save**,
+  the same rule as reviewing a syllabus before adding it.
+- **Save keeps the hours first, then redraws.** On the server (`PATCH /semester`), so
+  they are still there after a reload. Every comparison against capacity follows: the
+  line, the bar colours, the load pill, the next wall and how long the crunch lasts,
+  the action card, the Heads up count, "/ 20 hrs" on This week, and the heavy weeks on
+  Courses (a course spikes when it needs more than 30% of the hours).
+- **A save that fails changes nothing.** The box stays open with "Could not save. Your
+  hours are still 15." **Cancel** closes it the same way.
+- **With no server** (the sample-data switch), the new hours are kept on the device
+  until the app is opened again.
+
+<img src="ui/screenshots/us-32-1-before.png" alt="Forecast at 15 hours a week: Busy, with Change under the strip" width="200">
+<img src="ui/screenshots/us-32-2-editing.png" alt="The box under the strip, with 20 typed in, Save and Cancel" width="200">
+<img src="ui/screenshots/us-32-3-after.png" alt="Forecast at 20 hours a week: Fits, the line higher, fewer red weeks, and You have 20 free that week" width="200">
+<img src="ui/screenshots/us-32-4-save-failed.png" alt="The box after a failed save: Could not save. Your hours are still 20." width="200">
 
 ### The action card
 
@@ -459,7 +489,6 @@ Deliberately out of scope for this phase. Each maps to a roadmap phase in DESIGN
 |---|---|
 | Course detail, reached from a course card | Phase 2 |
 | Setup: calendar link | Phase 2 to 3 |
-| Changing the hours available each week | US-32 |
 | Real sign-in, with accounts | US-19 |
 | The "how long did that take?" prompt after done | Phase 4 |
 | Notification content and timing | Phase 5 |
