@@ -1,10 +1,17 @@
 import { db, inputs } from './db';
-import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask } from './store';
+import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { nextTaskId } from './task-ids';
 import type { Review, Task } from '../types';
 
 export class MemoryStore implements Store {
 async getSemester() {
+  return db;
+}
+
+async updateSemester(updates: SemesterUpdates) {
+  if (updates.weeklyCapacity !== undefined) {
+    db.weeklyCapacity = updates.weeklyCapacity;
+  }
   return db;
 }
 

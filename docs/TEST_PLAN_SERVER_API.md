@@ -60,7 +60,7 @@ The server in `server/`:
 | US-06 to US-09 | List tasks (with filters), and mark a task done through `PATCH /tasks/:id` |
 | US-12, US-13 / FR-11, FR-12 | Set or clear a task's estimated hours through `PATCH` |
 | US-24, US-29 / FR-23, FR-27 | `POST /syllabus/text` turns a PDF into text, with clear errors |
-| US-32 / FR-30 | A new endpoint to change the weekly capacity (not built yet) |
+| US-32 / FR-30 | `PATCH /semester`, which changes the weekly capacity |
 | NFR-02 | The browser version can read the server (CORS) |
 
 | Risk | Why it matters |
@@ -125,7 +125,7 @@ The server in `server/`:
 | TP-37 | POST /courses/:id/reviews | A valid review (title, hours over 0 and up to 100, optional comment) | 201, and it is saved | US-22 | E | |
 | TP-38 | POST /courses/:id/reviews | A bad body (hours 0 or over 100, missing title), or an unknown course | 400, or 404, with a JSON error | US-22, R4 | E | |
 | TP-39 | GET /courses/:id/reviews | Reviews of one course, and an unknown course | 200 and the list, or 404 | US-22 | E | |
-| TP-36 | PATCH /semester (new) | Set the weekly capacity | 200, the value sticks, bad values get a 400 | US-32 | N | |
+| TP-36 | PATCH /semester | Set the weekly capacity | 200, the value sticks, bad values get a 400 | US-32 | E | nhyiramante1 |
 | TP-40 | Database layer | `GET /semester` from the database has the same shape as the in-memory store | same fields and types | R5 | E | |
 | TP-41 | Database layer | A `PATCH` persists across requests and after a restart | the change is still there | R5 | E  | |
 | TP-42 | Database layer | An unknown id | 404, not 500 | R5 | E | |

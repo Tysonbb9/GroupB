@@ -184,6 +184,7 @@ client can use it.
 | GET | `/courses/:id` | One course | 200 | 404 |
 | GET | `/tasks` | All tasks. Filters: `?courseId=`, `?week=`, `?done=true\|false` | 200 | 400 bad `week` or `done` |
 | GET | `/tasks/:id` | One task | 200 | 404 |
+| PATCH | `/semester` | Set the weekly capacity: `{ weeklyCapacity }`, a whole number of hours from 1 to 80. Returns the whole semester | 200 | 400 bad body |
 | PATCH | `/tasks/:id` | Update `done` and/or `estimatedHours` | 200 | 400 bad body, 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
 | POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |

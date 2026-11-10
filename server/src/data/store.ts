@@ -11,6 +11,11 @@ export type TaskUpdates = {
   estimatedHours?: number | null;
 };
 
+export type SemesterUpdates = {
+  /** Hours the student has each week (US-32). */
+  weeklyCapacity?: number;
+};
+
 export type NewTask = {
   courseId: string;
   title: string;
@@ -27,6 +32,8 @@ export type NewReview = {
 
 export interface Store {
   getSemester(): Promise<Semester>;
+  /** Changes the semester's settings and returns the semester with them. */
+  updateSemester(updates: SemesterUpdates): Promise<Semester>;
 
   listCourses(): Promise<Course[]>;
   getCourse(id: string): Promise<Course | null>;
