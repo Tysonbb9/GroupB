@@ -1,7 +1,7 @@
 # Test plan 3 of 4: the write endpoint (TP-19 to TP-29)
 
 Issue: [#110](https://github.com/Tysonbb9/GroupB/issues/110). Part of the server API test plan, [TEST_PLAN_SERVER_API.md](TEST_PLAN_SERVER_API.md).
-Written by Colin Redder, 11/10, against `main` at `2ec627d`.
+Written 11/10 against `main` at `2ec627d`.
 
 ## In plain words
 
