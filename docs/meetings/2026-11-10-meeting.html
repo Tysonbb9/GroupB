@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprint 4 Wrap-up Meeting</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --ink: #1c2330; --muted: #5b6577; --line: #d5dae3;
+    --accent: #2b5fd9; --accent-bg: #e8effd; --ok: #1f8a4c; --ok-bg: #e4f4ea;
+    --warn: #8a5a12; --warn-bg: #fdf3dd; --code-bg: #eef0f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161d; --surface: #1b212b; --ink: #e8ecf3; --muted: #9aa5b8; --line: #2e3745;
+      --accent: #6e9bff; --accent-bg: #1c2a47; --ok: #55c17f; --ok-bg: #173325;
+      --warn: #e0a84a; --warn-bg: #3a2f17; --code-bg: #232b37;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161d; --surface: #1b212b; --ink: #e8ecf3; --muted: #9aa5b8; --line: #2e3745;
+    --accent: #6e9bff; --accent-bg: #1c2a47; --ok: #55c17f; --ok-bg: #173325;
+    --warn: #e0a84a; --warn-bg: #3a2f17; --code-bg: #232b37;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; }
+  h2 { font-size: 21px; margin: 32px 0 8px; }
+  p { margin: 6px 0; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+  .prop { background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+  .q { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; display: block; margin-bottom: 2px; }
+  ul { margin: 6px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; background: var(--surface); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--code-bg); }
+  .wrap { overflow-x: auto; }
+  .pill { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Group B meeting, Tue 11/10</h1>
+  <p class="sub">End of Sprint 4. The sprint ends Fri 11/13, and this may be our last time together in person before then, so the aim is to leave with every item below settled.</p>
+
+  <h2>1. Where we are</h2>
+  <p><b>Merged this sprint:</b> US-22, US-23, US-28, US-29, US-30 and US-31; the Supabase data layer and its tests; the Option A layout with Log in as the front door; Expo SDK 58; CI and lint; the test plan.</p>
+  <p><b>Open pull requests:</b> #136 (US-32, change the hours a week), #137 (code review section 4), #140 and #141 (test plans 2 and 3), #142 (AI screens).</p>
+
+  <h2>2. Code review (VV10, #111)</h2>
+  <div class="wrap"><table>
+    <tr><th>Section</th><th>Reviewer</th><th>Findings posted</th></tr>
+    <tr><td>#112 Read routes</td><td>TJ</td><td><span class="pill warn">not yet</span></td></tr>
+    <tr><td>#113 Write routes, reviews</td><td>Gabby</td><td><span class="pill warn">not yet</span></td></tr>
+    <tr><td>#114 PDF endpoint</td><td>Tyson</td><td><span class="pill warn">not yet</span></td></tr>
+    <tr><td>#115 Reading the PDF</td><td>Colin</td><td><span class="pill ok">6 findings</span></td></tr>
+    <tr><td>#116 Data and database layer</td><td>Bithiah</td><td><span class="pill warn">not yet</span></td></tr>
+  </table></div>
+  <p>In the session, each reviewer presents their findings in a few minutes and the author responds. Every finding ends either fixed in a PR or declined with a reason. Nhyira organizes the session. A scribe notes who attended and what was decided, and writes the record (<code>docs/CODE_REVIEW_SERVER_API.md</code>).</p>
+  <div class="prop"><span class="label">To agree</span>
+    <ul>
+      <li>A time for the session. Proposal: a Teams call on Thursday evening.</li>
+      <li>A deadline for posting findings on each section issue. Proposal: Wednesday, 11:59 pm.</li>
+      <li>Who is scribe.</li>
+    </ul>
+  </div>
+
+  <h2>3. Tests (VV7, #109 and #110)</h2>
+  <p>The plans are in #140 and #141. Left: 13 tests and 3 small fixes in the server.</p>
+  <div class="q"><span class="label">Question</span>A date for the tests and fixes that works before Friday.</div>
+
+  <h2>4. Database (#127)</h2>
+  <div class="prop"><span class="label">Proposal</span>
+    <ul>
+      <li><code>DATABASE_DESIGN.md</code> describes the new tables, and its line about the app having no login is brought up to date.</li>
+      <li>The new tables are added in Supabase with one migration file, so saved reviews stay.</li>
+      <li>The four live tables (semester, courses, tasks, reviews) keep their text ids, because the API sends ids like <code>262-2</code>.</li>
+      <li>New tables: students, enrollments, syllabi, grade weights, course policies, per-week hour overrides, course check-ins.</li>
+      <li>Weekly difficulty is not stored, because the app works it out from the tasks.</li>
+    </ul>
+  </div>
+  <div class="q"><span class="label">Question</span>Does that list of tables look right?</div>
+
+  <h2>5. Login (US-20 and US-21)</h2>
+  <div class="prop"><span class="label">Proposal</span>Real sign-in this sprint, with Better Auth.
+    <ul>
+      <li>US-20: sign up and sign in, with sessions.</li>
+      <li>US-21: the server refuses requests from anyone who is not signed in.</li>
+      <li>Giving each student their own data comes after.</li>
+    </ul>
+  </div>
+  <div class="q"><span class="label">Question</span>Any concerns about fitting this in by Friday, alongside the review and the tests?</div>
+
+  <h2>6. AI screens (#123)</h2>
+  <p>A walkthrough of the three screens in PR #142 (<code>docs/ui/ai-screens.html</code>): the syllabus read as fields, the check-in question, and a reminder with its limits.</p>
+  <div class="q"><span class="label">Questions</span>
+    <ul>
+      <li>Do the screens look right?</li>
+      <li>Do we build a first skeleton this sprint? The smallest version is screen 1 only: the model fills the same review boxes as US-30, and without a key the app keeps today's scanner.</li>
+      <li>Where does the key for the model come from: one team key on the server, or each student's own key (for example through OpenRouter)?</li>
+    </ul>
+  </div>
+
+  <h2>7. Dates</h2>
+  <ul>
+    <li>Wed 11/11, 11:59 pm: findings posted (if agreed).</li>
+    <li>Thu 11/12, evening: code review session on Teams (if agreed).</li>
+    <li>Fri 11/13: Sprint 4 ends.</li>
+  </ul>
+</main>
+</body>
+</html>
