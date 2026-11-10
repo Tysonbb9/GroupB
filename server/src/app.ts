@@ -39,6 +39,34 @@ app.get('/semester', async (_req, res) => {
   res.json(semester);
 });
 
+/** Most hours a week a student can say they have. Same as the client's MAX_WEEKLY_HOURS. */
+const MAX_WEEKLY_CAPACITY = 80;
+
+/**
+ * PATCH /semester (US-32)
+ * Body: { weeklyCapacity: a whole number of hours from 1 to 80 }.
+ * Saves the hours the student has each week and returns the whole semester
+ * with them, or 400 if weeklyCapacity is missing or not in that range.
+ */
+app.patch('/semester', async (req, res) => {
+  const { weeklyCapacity } = req.body ?? {};
+
+  if (
+    typeof weeklyCapacity !== 'number' ||
+    !Number.isInteger(weeklyCapacity) ||
+    weeklyCapacity < 1 ||
+    weeklyCapacity > MAX_WEEKLY_CAPACITY
+  ) {
+    res.status(400).json({
+      error: `weeklyCapacity must be a whole number of hours from 1 to ${MAX_WEEKLY_CAPACITY}`,
+    });
+    return;
+  }
+
+  const semester = await store.updateSemester({ weeklyCapacity });
+  res.json(semester);
+});
+
 app.get('/courses', async (_req, res) => {
   const courses = await store.listCourses();
   res.json(courses);

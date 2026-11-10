@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { WeekLoad } from '../lib/types';
 import { wholeHours } from '../lib/workload';
 import { loadColor, theme } from '../theme';
+import { CapacityEditor } from './CapacityEditor';
 
 const STRIP_HEIGHT = 110;
 
@@ -23,6 +24,7 @@ export function WeekStrip({
   selectedWeek,
   wallWeek,
   onSelectWeek,
+  onSaveCapacity,
 }: {
   loads: WeekLoad[];
   capacity: number;
@@ -30,6 +32,8 @@ export function WeekStrip({
   selectedWeek: number;
   wallWeek: number | null;
   onSelectWeek: (week: number) => void;
+  /** When given, the line under the strip can change the capacity (US-32). */
+  onSaveCapacity?: (hours: number) => Promise<void>;
 }) {
   const peak = Math.max(capacity, ...loads.map((l) => l.hours));
 
@@ -76,9 +80,11 @@ export function WeekStrip({
         ))}
       </View>
 
-      <Text style={styles.capacityNote}>
-        Dashed line is your {capacity} hours a week
-      </Text>
+      {onSaveCapacity ? (
+        <CapacityEditor capacity={capacity} onSave={onSaveCapacity} />
+      ) : (
+        <Text style={styles.capacityNote}>Dashed line is your {capacity} hours a week</Text>
+      )}
     </View>
   );
 }

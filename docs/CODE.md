@@ -174,6 +174,8 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `addTasks` posts reviewed assignments to POST /tasks and returns them with their new ids, or rejects with the server's message.
 
+`saveWeeklyCapacity(hours)` sends new weekly hours to PATCH /semester (US-32) and returns the hours the server kept, or rejects with the server's message. Its tests are in `src/lib/save-capacity-api.test.ts`.
+
 `addReview` posts how long a finished assignment took to POST /courses/:id/reviews (US-23) and returns the stored review, or rejects with the server's message.
 
 ### `src/data/semester.ts`
@@ -203,6 +205,8 @@ For now `toggleDone` and `setEstimate` change the semester in memory only. Savin
 
 `addTasks` appends tasks the server has already saved (US-30).
 
+`setWeeklyCapacity(hours)` changes the hours the student has each week (US-32). It keeps them first and only then changes the semester, so the forecast never shows hours that were not kept; if keeping them fails, it rejects and nothing changes. Where they are kept depends on where the semester came from: from the server, `saveWeeklyCapacity` saves them there; with `initial` (tests and the fixture switch), they stay on the device.
+
 ### `src/state/session.tsx`
 
 Who is signed in: `email`, `signIn(email)` and `signOut()`, in a React context. Log in is the app's front door, but there are no accounts yet (US-19 needs the server and the database), so signing in only records the email while the app is open; nothing is stored or sent. `useSession()` is for screens that need a session (Log in, the root layout). `useOptionalSession()` returns null outside a `SessionProvider`, so `LogOutButton` simply draws nothing when a screen is shown on its own in tests.
@@ -212,6 +216,8 @@ Who is signed in: `email`, `signIn(email)` and `signOut()`, in a React context. 
 The bar chart. Fifteen bars, height proportional to projected hours, colour from `loadColor` in `theme.ts`, and a dashed line at the student's capacity so "over the line" is literal.
 
 Each bar is a button with `testID="week-bar-N"` and an accessibility label naming its week and hours. Tapping it selects that week (`onSelectWeek`). The selected week's bar is outlined, starting with the current week, and the current week's axis number is in the accent colour. The next week over capacity (`wallWeek`) is numbered in the warning colour.
+
+Under the bars, one line names the capacity ("Dashed line is your 15 hours a week"). When the screen passes `onSaveCapacity`, as Forecast does, that line is a `CapacityEditor`, so the student can change it.
 
 ### `src/components/WeekFigures.tsx`
 
@@ -228,6 +234,10 @@ The assignments behind the selected week, each with the hours it puts into that 
 ### `src/components/EstimateEditor.tsx`
 
 An **Add estimate** link for a task that has no estimate. Saving runs the text through `parseEstimate`; invalid text shows an error and saves nothing. Once a task has an estimate the link goes away. A task with no estimate stays in the list and contributes nothing to the forecast until it has one.
+
+### `src/components/CapacityEditor.tsx`, `src/lib/capacity.ts`
+
+US-32. The line under the week strip with **Change** beside it. Change opens a box with the current hours, and **Save** runs the text through `parseWeeklyHours` (`lib/capacity.ts`): whole hours from `MIN_WEEKLY_HOURS` (1) to `MAX_WEEKLY_HOURS` (80), the same range PATCH /semester accepts. Invalid text shows a message and keeps nothing; the same hours again just close the box. Otherwise it calls `onSave` (the store's `setWeeklyCapacity`) and closes when that resolves. If it rejects, the box stays open with "Could not save. Your hours are still N." Nothing on screen moves until Save.
 
 ### `src/components/TaskRow.tsx`
 
@@ -336,7 +346,7 @@ The Express server uses a Data Access Layer to separate API routes from database
 
 ### `server/src/data/store.ts`
 
-Defines the asynchronous `Store` interface for accessing semesters, courses, tasks, and reviews.
+Defines the asynchronous `Store` interface for accessing semesters, courses, tasks, and reviews. `updateSemester(updates)` changes the semester's settings (for now only `weeklyCapacity`, US-32) and returns the semester. The Supabase store reads the one semester row's id and updates that row, because Supabase refuses an update that names no row.
 
 ### `server/src/data/memory-store.ts`
 
@@ -367,6 +377,8 @@ Defines `DatabaseError` for database query failures. The Express error handler r
 
 The Express routes use asynchronous `Store` methods rather than directly accessing the in-memory database.
 
+`PATCH /semester` (US-32) takes `{ weeklyCapacity }`, a whole number of hours from 1 to 80, and returns the whole semester with it. Anything else is a 400 with a JSON error, and nothing changes. Its tests are in `server/src/__tests__/weekly-capacity.test.ts` (test plan row TP-36).
+
 ### Supabase SQL Scripts
 
 The database setup scripts are located in `server/db/`:
@@ -383,7 +395,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-627 tests across thirty-two test suites.
+662 tests across thirty-five test suites.
 
 ```bash
 npm test                      # all of them
@@ -424,6 +436,9 @@ npx jest --watch              # while you work
 | `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
 | `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
 | `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
+| `src/lib/capacity.test.ts` | 15 | US-32: `parseWeeklyHours` reading whole hours from 1 to 80, and refusing blank, 0, 81, decimals, negatives and words |
+| `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |
+| `src/__tests__/weekly-capacity.test.tsx` | 15 | US-32: Change and the box with the current hours, the forecast and This week redrawn after Save (pill, wall, crunch, "/ 20 hrs"), refused values, nothing moving while typing, Cancel, saving on the server first, a failed save keeping the old hours, and the same hours not saved again |
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
 
 

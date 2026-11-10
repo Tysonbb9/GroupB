@@ -97,6 +97,36 @@ export async function fetchSemester(): Promise<Semester> {
   return json;
 }
 
+/**
+ * PATCH /semester (US-32). Saves the hours the student has each week, and
+ * returns the hours the server now holds. Rejects with a message the user
+ * can read.
+ */
+export async function saveWeeklyCapacity(hours: number): Promise<number> {
+  const baseUrl = serverBaseUrl();
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/semester`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weeklyCapacity: hours }),
+    });
+  } catch {
+    throw new Error(`Could not reach the server at ${baseUrl}`);
+  }
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isSemester(json)) {
+    throw new Error('The server sent invalid semester data');
+  }
+  return json.weeklyCapacity;
+}
+
 /** The text the server read out of a syllabus PDF. */
 export type SyllabusText = {
   /** Every line of the PDF in reading order, separated by "\n". */

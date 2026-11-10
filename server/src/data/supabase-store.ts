@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask } from './store';
+import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { DatabaseError } from './database-error';
 import { nextTaskId } from './task-ids';
 
@@ -13,7 +13,7 @@ export class SupabaseStore implements Store {
 private async getSemesterRow() {
   const { data, error } = await this.client
     .from('semester')
-    .select('label, current_week, weekly_capacity')
+    .select('id, label, current_week, weekly_capacity')
     .single();
     if (error) {
         throw new DatabaseError(`Failed to load semester: ${error.message}`);
@@ -282,5 +282,23 @@ async getSemester() {
     courses,
     tasks,
   };
+}
+
+async updateSemester(updates: SemesterUpdates) {
+  if (updates.weeklyCapacity !== undefined) {
+    // The table holds exactly one row. Supabase refuses an update that names
+    // no row, so read that row's id and update it by id.
+    const { id } = await this.getSemesterRow();
+    const { error } = await this.client
+      .from('semester')
+      .update({ weekly_capacity: updates.weeklyCapacity })
+      .eq('id', id);
+
+    if (error) {
+      throw new DatabaseError(`Failed to update semester: ${error.message}`);
+    }
+  }
+
+  return this.getSemester();
 }
 }
