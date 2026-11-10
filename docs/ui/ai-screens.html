@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crunch Week: AI screens (issue #123)</title>
+<style>
+  :root {
+    --bg: #F3F6F6; --surface: #FFFFFF; --ink: #16202A; --muted: #5A6A72; --faint: #93A3A8;
+    --rule: #DCE4E4; --accent: #1F5C6B; --accent-soft: #E2EDEF;
+    --calm: #3F7F6E; --moderate: #B8912A; --heavy: #A93F30;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px 24px 64px; background: #E9EEEE; color: var(--ink);
+         font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .lead { max-width: 920px; color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 8px; }
+  .lead b { color: var(--ink); }
+  .option { margin-top: 40px; padding-top: 24px; border-top: 2px solid var(--rule); }
+  .option h2 { font-size: 20px; margin: 0 0 4px; }
+  .option .tag { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  .row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .notes { width: 420px; font-size: 14px; line-height: 1.5; }
+  .notes h3 { font-size: 12px; letter-spacing: .8px; text-transform: uppercase; color: var(--faint); margin: 14px 0 4px; }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .notes li { margin-bottom: 5px; }
+  .notes .who { color: var(--accent); font-weight: 700; }
+  .notes .who.code { color: var(--heavy); }
+
+  /* phone frame */
+  .phone { width: 340px; height: 700px; background: var(--bg); border: 8px solid #1B2430; border-radius: 34px;
+           overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .caption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; width: 340px; }
+  .status { height: 22px; display: flex; justify-content: space-between; align-items: center; padding: 4px 18px 0;
+            font-size: 11px; font-weight: 600; color: var(--ink); }
+  .hdr { padding: 10px 16px 8px; display: flex; justify-content: space-between; align-items: center; }
+  .hdr h4 { margin: 0; font-size: 22px; }
+  .hdr .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .back { font-size: 13px; color: var(--accent); font-weight: 700; }
+  .body { flex: 1; padding: 4px 14px 10px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .tabs { height: 58px; background: var(--surface); border-top: 1px solid var(--rule); display: flex; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+         font-size: 11px; color: var(--faint); }
+  .tab i { font-style: normal; font-size: 17px; }
+  .tab.on { color: var(--accent); font-weight: 700; }
+
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px; }
+  .label { font-size: 10px; letter-spacing: .9px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .big { font-size: 34px; font-weight: 800; line-height: 1; }
+  .unit { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px; }
+  .pill.moderate { background: #F3E9CC; color: #7B5E10; }
+  .pill.heavy { background: #F1D9D4; color: var(--heavy); }
+  .pill.calm { background: #D9EADF; color: #2A5E4C; }
+  .pill.ask { background: var(--accent-soft); color: var(--accent); }
+  .strip { display: flex; align-items: flex-end; gap: 3px; height: 70px; margin-top: 10px; border-bottom: 1px solid var(--rule); }
+  .strip div { flex: 1; border-radius: 2px 2px 0 0; }
+  .strip .now { outline: 2px solid var(--ink); }
+  .axis { display: flex; gap: 3px; font-size: 9px; color: var(--faint); margin-top: 3px; }
+  .axis span { flex: 1; text-align: center; }
+  .action { background: var(--accent); color: #fff; border-radius: 10px; padding: 14px; }
+  .action .t { font-weight: 700; font-size: 15px; }
+  .action .s { font-size: 12px; opacity: .85; margin-top: 3px; }
+  .list { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+  .item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--rule); }
+  .item:first-child { border-top: 0; }
+  .item .main { flex: 1; min-width: 0; }
+  .item .main b { display: block; font-size: 14px; }
+  .item .main span { font-size: 12px; color: var(--muted); }
+  .item .chev { color: var(--faint); font-size: 18px; }
+  .item .val { font-size: 13px; font-weight: 700; }
+  .sec { font-size: 12px; font-weight: 700; color: var(--muted); margin: 2px 2px -4px; }
+  .hint { font-size: 11px; color: var(--faint); text-align: center; padding: 2px 0 0; }
+
+  /* buttons */
+  .btnrow { display: flex; gap: 8px; }
+  .btn { flex: 1; text-align: center; font-size: 13px; font-weight: 700; padding: 11px 8px; border-radius: 8px;
+         background: var(--accent); color: #fff; }
+  .btn.ghost { background: var(--surface); color: var(--accent); border: 1px solid var(--accent); }
+  .btn.tiny { flex: none; padding: 6px 10px; font-size: 12px; }
+
+  /* structured fields (what the model renders instead of prose) */
+  .field { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid var(--rule); }
+  .field:first-child { border-top: 0; }
+  .field .fname { flex: 1; font-size: 13px; }
+  .field .fname span { display: block; font-size: 11px; color: var(--muted); }
+  .inp { border: 1px solid var(--rule); background: var(--surface); border-radius: 6px; padding: 6px 8px;
+         font-size: 13px; font-weight: 700; min-width: 54px; text-align: center; }
+  .inp.wide { min-width: 120px; text-align: left; font-weight: 500; }
+  .inp.bad { border-color: var(--heavy); color: var(--heavy); }
+  .ok { color: var(--calm); font-size: 15px; font-weight: 700; }
+  .fix { color: var(--accent); font-size: 12px; font-weight: 700; }
+  .rm { color: var(--heavy); font-size: 12px; font-weight: 700; }
+  .draft { border: 1px solid var(--rule); border-radius: 8px; padding: 10px; background: var(--surface); }
+  .draft.bad { border-color: var(--heavy); }
+  .draft .top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .draft .top .inp { flex: 1; text-align: left; font-weight: 600; }
+  .draft .row2 { display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--muted); }
+  .draft .err { font-size: 11px; color: var(--heavy); margin-top: 6px; }
+  .sum { font-size: 11px; color: var(--calm); font-weight: 700; text-align: right; }
+  .sum.bad { color: var(--heavy); }
+  .chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 99px;
+          border: 1px solid var(--rule); background: var(--surface); color: var(--muted); }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .why { font-size: 11px; color: var(--muted); background: var(--bg); border-left: 3px solid var(--accent);
+         padding: 6px 9px; border-radius: 0 6px 6px 0; }
+
+  /* notification + limits */
+  .dim { position: absolute; inset: 0; background: rgba(22,32,42,.55); }
+  .notif { position: absolute; left: 14px; right: 14px; top: 34px; background: rgba(255,255,255,.97);
+           border-radius: 14px; padding: 11px 12px; display: flex; gap: 10px; align-items: flex-start;
+           box-shadow: 0 8px 24px rgba(0,0,0,.28); }
+  .notif .glyph { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff;
+                  display: flex; align-items: center; justify-content: center; font-size: 15px; flex: none; }
+  .notif b { font-size: 13px; display: block; }
+  .notif span { font-size: 12px; color: var(--muted); }
+  .notif .when { font-size: 11px; color: var(--faint); margin-left: auto; flex: none; }
+  .lock { font-size: 13px; color: var(--heavy); }
+  .sw { width: 34px; height: 20px; border-radius: 10px; background: var(--calm); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 8px; background: #fff; }
+  .sw.off { background: var(--rule); }
+  .sw.off::after { right: auto; left: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Crunch Week: the AI screens</h1>
+<p class="lead">
+  Three screens for what the model does, before any of it is built (issue #123). The rule from
+  <b>docs/DESIGN.md</b> section 1 holds everywhere on this page: <b>the model never produces a number. It decides
+  what to ask, when to ask, and in what shape. Code decides what is true.</b> So on every screen below, the model
+  chose a question or a set of fields &mdash; and every hour, date, percentage and grade came out of a tested
+  function. Nothing here is a chat box: the model renders structured fields, and the student confirms or fixes them.
+</p>
+<p class="lead">
+  Style is Option A from issue #96 (tabs, one focus per screen), matching
+  <code>docs/ui/layout-proposals.html</code>. Sample data is the app's own (Fall 2026, week 3 of 15, 12 of 15 hours
+  this week, the wall at week 6). Mockups, not code.
+</p>
+
+<!-- ===================== SCREEN 1 ===================== -->
+<section class="option">
+  <h2>Screen 1: A syllabus read by the model</h2>
+  <p class="tag">On Add a syllabus. The syllabus becomes assignments, weights and policies as fields the student confirms or fixes &mdash; never a paragraph of text. The assignment list is the review step from US-30; the weights and policies blocks are new.</p>
+  <div class="row">
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><span class="back">&lsaquo; Courses</span><h4>Add a syllabus</h4><div class="sub">CS 262 &middot; Software Engineering</div></div></div>
+        <div class="body">
+          <div class="banner"><span><b>What we found.</b> Check it before it reaches your forecast.</span></div>
+
+          <div class="sec">ASSIGNMENTS &middot; 6 FOUND</div>
+          <div class="draft">
+            <div class="top"><span class="inp wide" style="flex:1">Prototype demo</span><span class="ok">&#10003;</span></div>
+            <div class="row2">Week <span class="inp">4</span> &nbsp; Hours <span class="inp">6</span> &nbsp; <span class="rm">Remove</span></div>
+          </div>
+          <div class="draft bad">
+            <div class="top"><span class="inp bad" style="flex:1">Weekly quiz</span></div>
+            <div class="row2">Week <span class="inp bad">&mdash;</span> &nbsp; Hours <span class="inp">&mdash;</span> &nbsp; <span class="rm">Remove</span></div>
+            <div class="err">The week must be a whole number from 1 to 15.</div>
+          </div>
+
+          <div class="sec">GRADE WEIGHTS</div>
+          <div class="card" style="padding:10px 12px">
+            <div class="field"><div class="fname">Team work<span>project, demos, contract</span></div><span class="inp">40%</span><span class="ok">&#10003;</span></div>
+            <div class="field"><div class="fname">Exams<span>two midterms</span></div><span class="inp">30%</span><span class="ok">&#10003;</span></div>
+            <div class="field"><div class="fname">Participation</div><span class="inp bad">15%</span><span class="fix">Fix</span></div>
+            <div class="field"><div class="fname">Quizzes</div><span class="inp">10%</span><span class="ok">&#10003;</span></div>
+            <div class="sum bad">Adds to 95%. Participation reads 15%; the page says 20%.</div>
+          </div>
+
+          <div class="sec">POLICIES</div>
+          <div class="card" style="padding:10px 12px">
+            <div class="field"><div class="fname">Attendance<span>absences allowed</span></div><span class="inp">4</span><span class="ok">&#10003;</span></div>
+            <div class="field"><div class="fname">Late work</div><span class="inp wide">&minus;10% / day, 2 days</span><span class="ok">&#10003;</span></div>
+          </div>
+
+          <div class="action"><div class="t">Add to semester</div><div class="s">1 line needs a week before it can be added.</div></div>
+        </div>
+        <div class="tabs"><div class="tab"><i>&#9636;</i>Forecast</div><div class="tab"><i>&#9745;</i>This week</div><div class="tab on"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">Add a syllabus &mdash; the review step, fields not prose</div>
+    </div>
+
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><span class="back">&lsaquo; Courses</span><h4>Add a syllabus</h4><div class="sub">CS 262 &middot; after one fix</div></div></div>
+        <div class="body">
+          <div class="sec">ASSIGNMENTS &middot; 6 FOUND</div>
+          <div class="draft">
+            <div class="top"><span class="inp wide" style="flex:1">Prototype demo</span><span class="ok">&#10003;</span></div>
+            <div class="row2">Week <span class="inp">4</span> &nbsp; Hours <span class="inp">6</span> &nbsp; <span class="rm">Remove</span></div>
+          </div>
+          <div class="draft">
+            <div class="top"><span class="inp wide" style="flex:1">Weekly quiz</span></div>
+            <div class="row2">Week <span class="inp">1</span>&ndash;<span class="inp">15</span> &nbsp; Hours <span class="inp">?</span> &nbsp; <span class="rm">Remove</span></div>
+            <div class="err" style="color:var(--muted)">No dates on the page. Added as a weekly item, hours left blank.</div>
+          </div>
+
+          <div class="sec">GRADE WEIGHTS</div>
+          <div class="card" style="padding:10px 12px">
+            <div class="field"><div class="fname">Participation</div><span class="inp">20%</span><span class="ok">&#10003;</span></div>
+            <div class="sum">Adds to 100%.</div>
+          </div>
+
+          <div class="sec">POLICIES</div>
+          <div class="card" style="padding:10px 12px">
+            <div class="field"><div class="fname">Attendance<span>you have used</span></div><span class="inp">4</span><span class="ok">&#10003;</span></div>
+            <div class="field"><div class="fname">Drop rule</div><span class="inp wide">lowest quiz</span><span class="fix">Fix</span></div>
+          </div>
+
+          <div class="why">The model flagged two things it was unsure about &mdash; the undated quiz and the drop rule &mdash; and asked about those. It did not ask about the other nine lines.</div>
+
+          <div class="action"><div class="t">Add to semester</div><div class="s">6 assignments, 4 weights, 2 policies.</div></div>
+          <div class="hint">Nothing is saved until you tap this.</div>
+        </div>
+        <div class="tabs"><div class="tab"><i>&#9636;</i>Forecast</div><div class="tab"><i>&#9745;</i>This week</div><div class="tab on"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">After a fix &mdash; the model asks only about what it is unsure of</div>
+    </div>
+
+    <div class="notes">
+      <h3>What you see first</h3>
+      <ul>
+        <li>Three blocks of fields &mdash; assignments, weights, policies &mdash; each with a tick or a <em>Fix</em>. No summary paragraph to read.</li>
+        <li>One line is red because code rejected it, not because the model felt unsure.</li>
+      </ul>
+      <h3>Who did what</h3>
+      <ul>
+        <li><span class="who">Model:</span> chose which fields to render, filled them from the page, and marked the two it could not read confidently.</li>
+        <li><span class="who code">Code:</span> week must be 1&ndash;15, hours 0&ndash;100 or blank, weights must sum to 100%. The <em>Add to semester</em> button is disabled while a field is red. The model cannot talk past this.</li>
+      </ul>
+      <h3>Reused from US-30</h3>
+      <ul>
+        <li>The assignment drafts are the existing review boxes (title / week / hours / Remove) and the existing error copy, unchanged.</li>
+        <li>Weights and policies are new: they exist in the data model as of Phase 3 but have never had a screen.</li>
+      </ul>
+      <h3>Undated lines</h3>
+      <ul>
+        <li>"Weekly quizzes" with no dates is the honest limit DESIGN.md section 2 names. The model renders it as a weekly item with blank hours and says so in one line &mdash; it does not invent a date.</li>
+      </ul>
+      <h3>Build effort</h3>
+      <ul>
+        <li>Medium. The review step exists; this adds two field blocks and a weights-sum check. No new screen.</li>
+      </ul>
+      <h3>Trade-offs</h3>
+      <ul>
+        <li>Weights and policies are fields the student may not know off-hand; the tick lets them accept a good read quickly.</li>
+        <li>A wrong weight silently distorts a later grade figure, which is why the sum check sits on screen rather than in a warning list.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SCREEN 2 ===================== -->
+<section class="option">
+  <h2>Screen 2: The check-in question (input 07)</h2>
+  <p class="tag">One question on the Forecast tab, chosen by the model, answered with "Yes" or "Something changed". This is how the app survives mid-semester drift: the app asking is more reliable than the student remembering to report.</p>
+  <div class="row">
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><h4>Forecast</h4><div class="sub">Fall 2026 &middot; Week 3 of 15</div></div><div class="bell" style="position:relative;width:34px;height:34px;border-radius:17px;background:var(--surface);border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;font-size:15px">&#128276;</div></div>
+        <div class="body">
+          <div class="card" style="border-color:var(--accent)">
+            <div class="label" style="color:var(--accent)">One question</div>
+            <div style="font-size:16px;font-weight:700;margin:6px 0 4px">Is CS 262 still on schedule?</div>
+            <div class="why" style="margin:8px 0 10px">Your syllabus puts the Prototype demo in week 4. The team board moved it. This is the change most likely to move your week 6 total.</div>
+            <div class="btnrow">
+              <div class="btn">Yes, still accurate</div>
+              <div class="btn ghost">Something changed</div>
+            </div>
+            <div class="hint" style="margin-top:8px">One question at a time. Not a chat.</div>
+          </div>
+
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="label">This week</div><div class="big">12 <span class="unit">/ 15 hrs</span></div></div>
+              <span class="pill moderate">Busy</span>
+            </div>
+            <div class="strip">
+              <div style="height:1%;background:#3F7F6E"></div><div style="height:4%;background:#3F7F6E"></div>
+              <div class="now" style="height:45%;background:#B8912A"></div><div style="height:23%;background:#3F7F6E"></div>
+              <div style="height:49%;background:#B8912A"></div><div style="height:100%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:13%;background:#3F7F6E"></div>
+              <div style="height:32%;background:#3F7F6E"></div><div style="height:19%;background:#3F7F6E"></div>
+              <div style="height:66%;background:#A93F30"></div><div style="height:87%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:94%;background:#A93F30"></div>
+              <div style="height:87%;background:#A93F30"></div>
+            </div>
+            <div class="axis"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span></div>
+          </div>
+          <div class="action">
+            <div class="t">Start Midterm 1 in week 5</div>
+            <div class="s">Week 6 needs 27 hours, and you have 15.</div>
+          </div>
+        </div>
+        <div class="tabs"><div class="tab on"><i>&#9636;</i>Forecast</div><div class="tab"><i>&#9745;</i>This week</div><div class="tab"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">Forecast tab &mdash; the question sits above the figures, not below them</div>
+    </div>
+
+    <div>
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>5G 100%</span></div>
+        <div class="hdr"><div><h4>Forecast</h4><div class="sub">Fall 2026 &middot; Week 3 of 15</div></div></div>
+        <div class="body">
+          <div class="card" style="border-color:var(--accent)">
+            <div class="label" style="color:var(--accent)">Something changed &mdash; which of these?</div>
+            <div class="field"><div class="fname">Prototype demo<span>syllabus says week 4</span></div><span class="inp">4</span><span class="fix">&rarr; 5</span></div>
+            <div class="field"><div class="fname">Prototype demo hours</div><span class="inp">6</span><span class="ok">&#10003;</span></div>
+            <div class="field"><div class="fname">Sprint 1 review<span>unchanged, week 6</span></div><span class="inp">6</span><span class="ok">&#10003;</span></div>
+            <div class="btnrow" style="margin-top:10px">
+              <div class="btn">Save</div>
+              <div class="btn ghost">None of these</div>
+            </div>
+          </div>
+
+          <div class="banner"><span><b>Week 5 is now 19 hours.</b> It joins week 6 as a heavy week.</span></div>
+
+          <div class="card">
+            <div class="label">This week</div>
+            <div class="big" style="font-size:26px">12 <span class="unit">/ 15 hrs</span></div>
+            <div class="strip" style="height:44px">
+              <div style="height:1%;background:#3F7F6E"></div><div style="height:4%;background:#3F7F6E"></div>
+              <div class="now" style="height:45%;background:#B8912A"></div><div style="height:0%;background:#3F7F6E"></div>
+              <div style="height:72%;background:#A93F30"></div><div style="height:100%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:13%;background:#3F7F6E"></div>
+              <div style="height:32%;background:#3F7F6E"></div><div style="height:19%;background:#3F7F6E"></div>
+              <div style="height:66%;background:#A93F30"></div><div style="height:87%;background:#A93F30"></div>
+              <div style="height:58%;background:#A93F30"></div><div style="height:94%;background:#A93F30"></div>
+              <div style="height:87%;background:#A93F30"></div>
+            </div>
+          </div>
+          <div class="hint">The 19 is recomputed by the same function that built the forecast. The model only moved a week field.</div>
+        </div>
+        <div class="tabs"><div class="tab on"><i>&#9636;</i>Forecast</div><div class="tab"><i>&#9745;</i>This week</div><div class="tab"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">After "Something changed" &mdash; the answer is fields, not a text box</div>
+    </div>
+
+    <div class="notes">
+      <h3>What you see first</h3>
+      <ul>
+        <li>One question, one line of why now, two buttons. It sits above the figures because the answer can change them.</li>
+        <li>Answering "Yes" dismisses it and the model asks nothing else about CS 262 for a while.</li>
+      </ul>
+      <h3>Who did what</h3>
+      <ul>
+        <li><span class="who">Model:</span> noticed its picture of CS 262 went stale, picked this course and this week out of five, and chose to render three candidate changes rather than a free-text box.</li>
+        <li><span class="who code">Code:</span> recomputed every hour on screen from the saved fields. The 24 in the banner is the forecast function running again, not the model estimating.</li>
+      </ul>
+      <h3>Why one question</h3>
+      <ul>
+        <li>Five courses asked at once is a form nobody finishes. One question, at most a few a week, is the version that gets answered.</li>
+        <li>"None of these" tells the model its picture is wrong somewhere it cannot see &mdash; useful, and it stops asking that question.</li>
+      </ul>
+      <h3>Build effort</h3>
+      <ul>
+        <li>Medium. A card on the Forecast tab, one answer endpoint, and a place to store when a course was last confirmed.</li>
+      </ul>
+      <h3>Trade-offs</h3>
+      <ul>
+        <li>A question above the figures costs the student attention daily. Rate-limiting it is a code rule, not a model judgement.</li>
+        <li>The candidate changes shown after "Something changed" are guesses; the student still has to correct them, which is the point &mdash; but a wrong guess list can feel like being talked at.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SCREEN 3 ===================== -->
+<section class="option">
+  <h2>Screen 3 (optional): A reminder, and the limits around it</h2>
+  <p class="tag">What a reminder looks like, and the three limits code enforces on it: at most a few a day, never during class, never twice about the same thing. The model only judges whether tonight deserves one.</p>
+  <div class="row">
+    <div>
+      <div class="phone">
+        <div class="dim"></div>
+        <div class="status"><span>19:04</span><span>5G 82%</span></div>
+        <div class="hdr"><div><h4>Forecast</h4><div class="sub">Fall 2026 &middot; Week 3 of 15</div></div></div>
+        <div class="body">
+          <div class="card">
+            <div class="label">This week</div>
+            <div class="big" style="font-size:26px">12 <span class="unit">/ 15 hrs</span></div>
+          </div>
+          <div class="action"><div class="t">Start Midterm 1 in week 5</div><div class="s">Week 6 needs 27 hours, and you have 15.</div></div>
+        </div>
+        <div class="tabs"><div class="tab on"><i>&#9636;</i>Forecast</div><div class="tab"><i>&#9745;</i>This week</div><div class="tab"><i>&#9776;</i>Courses</div></div>
+        <div class="notif">
+          <div class="glyph">&#9636;</div>
+          <div>
+            <b>CS 262 &middot; Prototype demo</b>
+            <span>Start it this week &mdash; 6 hours, due week 4.</span>
+            <div style="font-size:11px;color:var(--faint);margin-top:3px">1 of 2 today &middot; opens the app to This week</div>
+          </div>
+          <span class="when">now</span>
+        </div>
+      </div>
+      <div class="caption">The reminder itself &mdash; one course, one action, one number</div>
+    </div>
+
+    <div>
+      <div class="phone">
+        <div class="status"><span>19:04</span><span>5G 82%</span></div>
+        <div class="hdr"><div><span class="back">&lsaquo; Forecast</span><h4>Reminders</h4><div class="sub">What the app may send, and when</div></div></div>
+        <div class="body">
+          <div class="sec">LIMITS &mdash; SET BY CODE, NOT BY THE MODEL</div>
+          <div class="list">
+            <div class="item"><div class="main"><b>At most 2 a day</b><span>Today: 1 sent, 1 left</span></div><span class="lock">&#128274;</span></div>
+            <div class="item"><div class="main"><b>Never during class</b><span>CS 262 T/Th 9:30&ndash;10:45 &middot; 4 more blocks</span></div><span class="lock">&#128274;</span></div>
+            <div class="item"><div class="main"><b>Never twice about one thing</b><span>Prototype demo: reminded week 2</span></div><span class="lock">&#128274;</span></div>
+          </div>
+
+          <div class="sec">YOURS</div>
+          <div class="list">
+            <div class="item"><div class="main"><b>Reminders</b><span>The model may judge a night worth one</span></div><span class="sw"></span></div>
+            <div class="item"><div class="main"><b>Quiet hours</b><span>22:00 &ndash; 08:00</span></div><span class="sw"></span></div>
+            <div class="item"><div class="main"><b>Check-in questions</b><span>On the Forecast tab, not as a push</span></div><span class="sw off"></span></div>
+          </div>
+
+          <div class="why">A padlock means the model cannot raise it. A switch means you can. Those are the only two kinds of control on this screen.</div>
+        </div>
+        <div class="tabs"><div class="tab"><i>&#9636;</i>Forecast</div><div class="tab"><i>&#9745;</i>This week</div><div class="tab on"><i>&#9776;</i>Courses</div></div>
+      </div>
+      <div class="caption">Reminders settings &mdash; limits locked, preferences open</div>
+    </div>
+
+    <div class="notes">
+      <h3>What you see first</h3>
+      <ul>
+        <li>A normal notification: one course, one action, one number, and a count of how many today.</li>
+        <li>The settings screen splits into two kinds of rule: padlocked (code) and switchable (yours).</li>
+      </ul>
+      <h3>Who did what</h3>
+      <ul>
+        <li><span class="who">Model:</span> decided tonight deserves a reminder about the demo, and phrased it in one line.</li>
+        <li><span class="who code">Code:</span> the daily count, the class-time check against the timetable, and the dedup against anything already reminded. If any of the three fail, the notification is dropped and the model never learns it was suppressed &mdash; it has no authority to retry.</li>
+      </ul>
+      <h3>Why the count is on the notification</h3>
+      <ul>
+        <li>"1 of 2 today" makes the limit visible instead of trusting it. It is a code figure, so it can be tested.</li>
+      </ul>
+      <h3>Build effort</h3>
+      <ul>
+        <li>Large. Push infrastructure, a timetable to be silent against, and a record of what has already been reminded. This is why it is the optional screen.</li>
+      </ul>
+      <h3>Trade-offs</h3>
+      <ul>
+        <li>Showing "1 of 2" invites the student to ask for the second one; there is no button for that, on purpose.</li>
+        <li>Class-time silence needs a timetable the app does not have yet &mdash; it would come in with the schedule feed, not with this card.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<p class="lead" style="margin-top:40px;border-top:2px solid var(--rule);padding-top:20px">
+  <b>Not shown, on purpose:</b> a chat box. DESIGN.md section 3 leans against one, and none of these screens needs it &mdash;
+  every interaction above is a field, a tick, or a two-button answer. Running grades are out of scope (input 08 is deferred),
+  so no screen here shows a percentage score for the student, only the weights a syllabus states.
+</p>
+
+</body>
+</html>
