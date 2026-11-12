@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
-import { createCrunchWeekAuthClient, SessionStorage } from './auth-client';
+import { createAppAuth, createCrunchWeekAuthClient, serverAuth, SessionStorage } from './auth-client';
 import { createServerAuth } from './auth';
 
 /**
@@ -251,5 +251,42 @@ describe('Log out', () => {
   it('does nothing harmful when nobody is signed in', async () => {
     const { auth } = setUp();
     await expect(auth.signOut()).resolves.toBeUndefined();
+  });
+});
+
+describe('the auth the app uses', () => {
+  it('opens on Log in, saying what is wrong, when the server address is not set', async () => {
+    const auth = createAppAuth(
+      () => {
+        throw new Error('The server address is not set (EXPO_PUBLIC_API_URL)');
+      },
+      memoryStorage(),
+      false
+    );
+
+    await expect(auth.restore?.()).resolves.toBeNull();
+    await expect(auth.signIn('sam@example.edu', 'password-123')).resolves.toEqual({
+      ok: false,
+      message: 'The server address is not set (EXPO_PUBLIC_API_URL)',
+    });
+  });
+
+  it('names the server in the no-connection message', async () => {
+    const auth = createAppAuth(() => 'http://192.0.2.1:3000', memoryStorage(), false);
+    // 192.0.2.1 is reserved for documentation, so nothing answers there.
+    const offline = jest.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Network request failed'));
+    try {
+      await expect(auth.signIn('sam@example.edu', 'password-123')).resolves.toEqual({
+        ok: false,
+        message: 'Could not reach the server at http://192.0.2.1:3000. Check your connection and try again.',
+      });
+    } finally {
+      offline.mockRestore();
+    }
+  });
+
+  it('makes one for the whole app and keeps it, so every screen shares the session', () => {
+    expect(serverAuth()).toBe(serverAuth());
+    expect(serverAuth().checksPasswords).toBe(true);
   });
 });

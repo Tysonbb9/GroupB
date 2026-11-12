@@ -1,4 +1,4 @@
-import { AuthClientLike, createServerAuth, localAuth } from './auth';
+import { AuthClientLike, createServerAuth, localAuth, unavailableAuth } from './auth';
 
 const SERVER = 'http://192.168.1.5:3000';
 const NO_CONNECTION = `Could not reach the server at ${SERVER}. Check your connection and try again.`;
@@ -100,6 +100,18 @@ describe('signing in with the server', () => {
   it('treats a status of 0 (the request never got an answer) as no connection', async () => {
     const { client, auth } = setUp();
     client.signIn.email.mockReturnValue(refused(0));
+
+    await expect(auth.signIn('a@b.edu', 'example-password')).resolves.toEqual({
+      ok: false,
+      message: NO_CONNECTION,
+    });
+  });
+
+  it('treats a refusal with no status at all as no connection, never "answered undefined"', async () => {
+    const { client, auth } = setUp();
+    client.signIn.email.mockReturnValue(
+      Promise.resolve({ data: null, error: {} as { status: number } })
+    );
 
     await expect(auth.signIn('a@b.edu', 'example-password')).resolves.toEqual({
       ok: false,
@@ -342,5 +354,36 @@ describe('local sign-in, for sample-data mode', () => {
 
   it('says it does not check passwords', () => {
     expect(localAuth.checksPasswords).toBe(false);
+  });
+});
+
+describe('signing in when the server address is not set (a release build missing EXPO_PUBLIC_API_URL)', () => {
+  const auth = unavailableAuth('The server address is not set (EXPO_PUBLIC_API_URL)');
+
+  it('refuses to sign in, saying why', async () => {
+    await expect(auth.signIn('a@b.edu', 'password-123')).resolves.toEqual({
+      ok: false,
+      message: 'The server address is not set (EXPO_PUBLIC_API_URL)',
+    });
+  });
+
+  it('refuses to sign up, saying why', async () => {
+    await expect(auth.signUp('Sam', 'a@b.edu', 'password-123')).resolves.toEqual({
+      ok: false,
+      message: 'The server address is not set (EXPO_PUBLIC_API_URL)',
+    });
+  });
+
+  it('opens on Log in, with no session to find', async () => {
+    await expect(auth.restore?.()).resolves.toBeNull();
+  });
+
+  it('still checks passwords, so it never lets anyone in', () => {
+    expect(auth.checksPasswords).toBe(true);
+  });
+
+  it('adds nothing to requests, and logs out quietly', async () => {
+    await expect(auth.requestOptions()).resolves.toEqual({});
+    await expect(auth.signOut()).resolves.toBeUndefined();
   });
 });

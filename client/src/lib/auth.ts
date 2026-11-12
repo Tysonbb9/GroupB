@@ -67,6 +67,22 @@ export const localAuth: Auth = {
   requestOptions: async () => ({}),
 };
 
+/**
+ * When the app cannot work out where the server is (a release build with no
+ * EXPO_PUBLIC_API_URL), it still opens on Log in, and every attempt to sign
+ * in or up says why, instead of the app failing to start.
+ */
+export function unavailableAuth(reason: string): Auth {
+  return {
+    checksPasswords: true,
+    restore: async () => null,
+    signIn: async () => ({ ok: false, message: reason }),
+    signUp: async () => ({ ok: false, message: reason }),
+    signOut: async () => {},
+    requestOptions: async () => ({}),
+  };
+}
+
 /** Used when a refusal comes without the server's own message. */
 const MESSAGE_FOR_STATUS: Record<number, string> = {
   401: 'Wrong email or password.',
@@ -75,8 +91,8 @@ const MESSAGE_FOR_STATUS: Record<number, string> = {
 
 /** The message a student sees for a refused sign-in or sign-up. */
 function refusalMessage(error: { status: number; message?: string }, noConnection: string): string {
-  // Status 0 means the request never got an answer: the same as no connection.
-  if (error.status === 0) return noConnection;
+  // No status (0 or missing) means the request never got an answer: no connection.
+  if (!error.status) return noConnection;
   // The design says to show the server's message, which already reads well.
   if (error.message) return error.message;
   return MESSAGE_FOR_STATUS[error.status] ?? `The server answered ${error.status}. Please try again.`;

@@ -3,7 +3,7 @@ import { createAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { serverBaseUrl } from './api';
-import { Auth, createServerAuth } from './auth';
+import { Auth, createServerAuth, unavailableAuth } from './auth';
 
 /**
  * The real Better Auth client, set up as docs/LOGIN_DESIGN.md says. This is
@@ -39,20 +39,29 @@ export function createCrunchWeekAuthClient(
   });
 }
 
+/**
+ * Signing in with the server at `serverAddress()`. Working out that address
+ * can fail (a release build with no EXPO_PUBLIC_API_URL); the app then still
+ * opens, and Log in says what is wrong.
+ */
+export function createAppAuth(
+  serverAddress: () => string,
+  storage: SessionStorage,
+  isWeb: boolean
+): Auth {
+  let address: string;
+  try {
+    address = serverAddress();
+  } catch (error) {
+    return unavailableAuth(error instanceof Error ? error.message : String(error));
+  }
+  return createServerAuth(createCrunchWeekAuthClient(address, storage), { serverAddress: address, isWeb });
+}
+
 let serverAuthForApp: Auth | null = null;
 
-/**
- * Signing in with our server, for the app. Made on first use, not when this
- * file loads, because working out the server address can fail (a release
- * build with no EXPO_PUBLIC_API_URL), and that should not stop the app opening.
- */
+/** Signing in with our server, for the app: made once, so every screen shares one session. */
 export function serverAuth(): Auth {
-  if (serverAuthForApp === null) {
-    const serverAddress = serverBaseUrl();
-    serverAuthForApp = createServerAuth(createCrunchWeekAuthClient(serverAddress, SecureStore), {
-      serverAddress,
-      isWeb: Platform.OS === 'web',
-    });
-  }
+  serverAuthForApp ??= createAppAuth(serverBaseUrl, SecureStore, Platform.OS === 'web');
   return serverAuthForApp;
 }
