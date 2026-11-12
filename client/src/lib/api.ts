@@ -65,7 +65,7 @@ function isSemester(value: unknown): value is Semester {
 }
 
 /** Where the server is, for this run of the app. */
-function serverBaseUrl(): string {
+export function serverBaseUrl(): string {
   return resolveBaseUrl({
     configured: process.env.EXPO_PUBLIC_API_URL,
     hostUri: Constants.expoConfig?.hostUri,

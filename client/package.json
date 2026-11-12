@@ -16,16 +16,29 @@
   "jest": {
     "preset": "jest-expo",
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|standard-navigation))"
-    ]
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|standard-navigation|better-auth|@better-auth/.*|better-call|nanostores|@better-fetch/.*|jose|kysely|defu|uncrypto|rou3|zod|@noble/.*))"
+    ],
+    "transform": {
+      "\\.mjs$": [
+        "babel-jest",
+        {
+          "presets": [
+            "babel-preset-expo"
+          ]
+        }
+      ]
+    }
   },
   "dependencies": {
+    "@better-auth/expo": "^1.7.21",
     "@expo/vector-icons": "^15.0.2",
+    "better-auth": "^1.7.21",
     "expo": "~58.0.23",
     "expo-constants": "~58.0.15",
     "expo-document-picker": "~58.0.4",
     "expo-linking": "~58.0.16",
     "expo-router": "~58.0.30",
+    "expo-secure-store": "~58.0.3",
     "expo-splash-screen": "~58.0.13",
     "expo-status-bar": "~58.0.4",
     "expo-system-ui": "~58.0.7",
