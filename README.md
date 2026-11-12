@@ -97,6 +97,7 @@ More detail on each file and on the tests is in [`docs/CODE.md`](docs/CODE.md), 
 - [`docs/SRS.md`](docs/SRS.md) - requirements and user stories
 - [`docs/DESIGN.md`](docs/DESIGN.md) - product thesis, scope, data model, and roadmap
 - [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) - screens and interaction design
+- [`docs/LOGIN_DESIGN.md`](docs/LOGIN_DESIGN.md) - how the phone and the server agree on signing in (US-20, US-21)
 - [`docs/CODE.md`](docs/CODE.md) - code walkthrough, testing approach, and extension guide
 - [`client/`](client/) - Expo / React Native client
 - [`server/`](server/) - Express REST API with mocked data
