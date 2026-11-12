@@ -114,6 +114,49 @@ describe('normalizeText', () => {
   });
 });
 
+describe('normalizeText: fractions (review #115, finding 2)', () => {
+  it('turns a number and a fraction sign into a decimal the scanner can read', () => {
+    expect(normalizeText('Week 3: Reading (1½ hours)')).toBe('Week 3: Reading (1.5 hours)');
+    expect(normalizeText('(2¼ hours)')).toBe('(2.25 hours)');
+    expect(normalizeText('(3¾ hrs)')).toBe('(3.75 hrs)');
+    expect(normalizeText('(12½ hours)')).toBe('(12.5 hours)');
+  });
+
+  it('turns a fraction sign on its own into a decimal', () => {
+    expect(normalizeText('(½ hour)')).toBe('(0.5 hour)');
+    expect(normalizeText('¾ done')).toBe('0.75 done');
+  });
+
+  it('handles several fractions in one line', () => {
+    expect(normalizeText('Week 2: Lab (1½ hours) and quiz (¾ hour)')).toBe('Week 2: Lab (1.5 hours) and quiz (0.75 hour)');
+  });
+
+  it('turns a fraction after a full-width digit into a decimal too', () => {
+    expect(normalizeText('（１½ hours）')).toBe('(1.5 hours)');
+  });
+
+  it('gives hours the client scanner reads as a number', () => {
+    // The same pattern as TRAILING_HOURS in client/src/lib/inputs.ts.
+    const trailingHours = /\(\s*(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*\)\s*$/i;
+    for (const [input, hours] of [
+      ['Week 3: Reading (1½ hours)', '1.5'],
+      ['Week 4: Lab (2¼ hrs)', '2.25'],
+      ['Week 5: Quiz (¾ h)', '0.75'],
+    ]) {
+      expect(trailingHours.exec(normalizeText(input))?.[1]).toBe(hours);
+    }
+  });
+
+  it('leaves text with no fraction signs exactly as before', () => {
+    expect(normalizeText('Week 7: Midterm 1 (8 hours)')).toBe('Week 7: Midterm 1 (8 hours)');
+    expect(normalizeText('Week 7: 1/2 of the essay (2.5 hours)')).toBe('Week 7: 1/2 of the essay (2.5 hours)');
+  });
+
+  it('leaves other fraction signs to the usual cleanup', () => {
+    expect(normalizeText('⅓')).toBe('1\u20443');
+  });
+});
+
 // --- pageToLines ----------------------------------------------------------------
 
 describe('pageToLines', () => {
@@ -188,6 +231,172 @@ describe('pageToLines', () => {
     expect(pageToLines(row)).toEqual(['Week 7 Oct 14 Midterm 1 (8 hours)']);
   });
 
+  it('mixes two columns line by line when their baselines are offset (a known limit)', () => {
+    // Review #115, finding 4. Left column at 700 and 684, right column at 692
+    // and 676: sorted top down, the lines alternate between the columns.
+    const items = [run('L1', 72, 700), run('L2', 72, 684), run('R1', 330, 692), run('R2', 330, 676)];
+    expect(pageToLines(items)).toEqual(['L1', 'R1', 'L2', 'R2']);
+  });
+
+  it('keeps two lines of sideways text apart (review #115, finding 1)', () => {
+    // Drawn turned 90 degrees, both lines start at y 300 and run up the page.
+    const items = [
+      { ...run('Week 1: Quiz (2 hours)', 100, 300), angle: 90 },
+      { ...run('Week 2: Essay (4 hours)', 116, 300), angle: 90 },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 1: Quiz (2 hours)', 'Week 2: Essay (4 hours)']);
+  });
+
+  it('joins the pieces of one sideways line in reading order, with spaces', () => {
+    const items = [
+      { ...run('Quiz', 100, 350, 12, 24), angle: 90 },
+      { ...run('Week 1:', 100, 300, 12, 40), angle: 90 },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 1: Quiz']);
+  });
+
+  it('reads upright text first, then sideways text, each group in its own reading order', () => {
+    const items = [
+      { ...run('Up the page', 40, 300), angle: 90 },
+      run('Week 1: Intro', 72, 700),
+      { ...run('Down the page', 580, 500), angle: -90 },
+      run('Week 2: Quiz', 72, 680),
+    ];
+    expect(pageToLines(items)).toEqual(['Week 1: Intro', 'Week 2: Quiz', 'Down the page', 'Up the page']);
+  });
+
+  it('keeps two lines of text running down the page apart, in reading order', () => {
+    // Turned -90 degrees, text reads top to bottom and the next line sits to its left.
+    const items = [
+      { ...run('Week 2: Essay', 484, 500), angle: -90 },
+      { ...run('Week 1: Quiz', 500, 500), angle: -90 },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 1: Quiz', 'Week 2: Essay']);
+  });
+
+  it('keeps two lines of upside-down text apart, in reading order', () => {
+    // Turned 180 degrees, text reads right to left and the next line sits above it.
+    const items = [
+      { ...run('Week 2: Essay', 500, 516), angle: 180 },
+      { ...run('Week 1: Quiz', 500, 500), angle: 180 },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 1: Quiz', 'Week 2: Essay']);
+  });
+
+  it.each([
+    [360, 'a full turn'],
+    [-360, 'a full turn backwards'],
+    [0.4, 'less than half a degree'],
+  ])('treats an angle of %p (%s) as upright', (angle) => {
+    const items = [{ ...run('Week', 72, 700, 12, 30), angle }, run('7', 105, 700, 12, 6)];
+    expect(pageToLines(items)).toEqual(['Week 7']);
+  });
+
+  it.each([
+    [450, 90],
+    [-270, 90],
+    [270, -90],
+    [-180, 180],
+  ])('reads an angle of %p the same as %p', (angle, same) => {
+    const lines = (a: number) =>
+      pageToLines([
+        { ...run('Week 1: Quiz', 100, 300), angle: a },
+        { ...run('Week 2: Essay', 116, 300), angle: a },
+      ]);
+    expect(lines(angle)).toEqual(lines(same));
+  });
+
+  it('keeps a superscript on its line in sideways text', () => {
+    // Running up the page, "raised" means further left.
+    const items = [
+      { ...run('Due Oct 7', 100, 300, 12, 54), angle: 90 },
+      { ...run('th', 96, 355, 7, 6), angle: 90 },
+    ];
+    expect(pageToLines(items)).toEqual(['Due Oct 7th']);
+  });
+
+  it('drops fake bold in sideways text, as it does upright', () => {
+    const items = [
+      { ...run('Week 7', 100, 300), angle: 90 },
+      { ...run('Week 7', 100.3, 300.4), angle: 90 },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 7']);
+  });
+
+  it('treats a missing or unusable angle as upright', () => {
+    const items = [{ ...run('Week', 72, 700, 12, 30), angle: NaN }, run('7', 105, 700, 12, 6)];
+    expect(pageToLines(items)).toEqual(['Week 7']);
+  });
+
+  it('reads a right-to-left line from right to left (review #115, finding 5)', () => {
+    // Hebrew is written right to left, so the first word is drawn on the right.
+    const items: PdfTextItem[] = [
+      { ...run('\u05E2\u05D5\u05DC\u05DD', 150, 700, 12, 30), dir: 'rtl' },
+      { ...run('\u05E9\u05DC\u05D5\u05DD', 200, 700, 12, 30), dir: 'rtl' },
+    ];
+    expect(pageToLines(items)).toEqual(['\u05E9\u05DC\u05D5\u05DD \u05E2\u05D5\u05DC\u05DD']);
+  });
+
+  it('adds no space between right-to-left pieces that touch', () => {
+    // One word split in two: the first half is on the right, the second ends where it starts.
+    const items: PdfTextItem[] = [
+      { ...run('\u05E9\u05DC', 200, 700, 12, 15), dir: 'rtl' },
+      { ...run('\u05D5\u05DD', 185, 700, 12, 15), dir: 'rtl' },
+    ];
+    expect(pageToLines(items)).toEqual(['\u05E9\u05DC\u05D5\u05DD']);
+  });
+
+  it('reads three right-to-left words in order', () => {
+    const items: PdfTextItem[] = [
+      { ...run('\u05D2', 100, 700, 12, 10), dir: 'rtl' },
+      { ...run('\u05D0', 200, 700, 12, 10), dir: 'rtl' },
+      { ...run('\u05D1', 150, 700, 12, 10), dir: 'rtl' },
+    ];
+    expect(pageToLines(items)).toEqual(['\u05D0 \u05D1 \u05D2']);
+  });
+
+  it('drops fake bold in right-to-left text', () => {
+    const items: PdfTextItem[] = [
+      { ...run('\u05E9\u05DC\u05D5\u05DD', 200, 700, 12, 30), dir: 'rtl' },
+      { ...run('\u05E9\u05DC\u05D5\u05DD', 200.4, 700.2, 12, 30), dir: 'rtl' },
+    ];
+    expect(pageToLines(items)).toEqual(['\u05E9\u05DC\u05D5\u05DD']);
+  });
+
+  it('copes with a right-to-left piece that reports no width', () => {
+    const items: PdfTextItem[] = [
+      { ...run('\u05E2\u05D5\u05DC\u05DD', 150, 700, 12, NaN), dir: 'rtl' },
+      { ...run('\u05E9\u05DC\u05D5\u05DD', 200, 700, 12, 30), dir: 'rtl' },
+    ];
+    expect(pageToLines(items)).toEqual(['\u05E9\u05DC\u05D5\u05DD \u05E2\u05D5\u05DC\u05DD']);
+  });
+
+  it('reads each line in its own direction on a page with both', () => {
+    const items: PdfTextItem[] = [
+      { ...run('Week 1: Quiz', 72, 700), dir: 'ltr' },
+      { ...run('\u05E2\u05D5\u05DC\u05DD', 150, 680, 12, 30), dir: 'rtl' },
+      { ...run('\u05E9\u05DC\u05D5\u05DD', 200, 680, 12, 30), dir: 'rtl' },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 1: Quiz', '\u05E9\u05DC\u05D5\u05DD \u05E2\u05D5\u05DC\u05DD']);
+  });
+
+  it('treats top-to-bottom text (dir "ttb") as left to right', () => {
+    const items: PdfTextItem[] = [
+      { ...run('Week', 72, 700, 12, 30), dir: 'ttb' },
+      { ...run('7', 105, 700, 12, 6), dir: 'ttb' },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 7']);
+  });
+
+  it('keeps a mostly left-to-right line left to right, even with a right-to-left word in it', () => {
+    const items: PdfTextItem[] = [
+      { ...run('Week 3:', 72, 700, 12, 40), dir: 'ltr' },
+      { ...run('\u05E9\u05DC\u05D5\u05DD', 120, 700, 12, 30), dir: 'rtl' },
+      { ...run('(2 hours)', 160, 700, 12, 50), dir: 'ltr' },
+    ];
+    expect(pageToLines(items)).toEqual(['Week 3: \u05E9\u05DC\u05D5\u05DD (2 hours)']);
+  });
+
   it('joins two columns that share a baseline (a known limit)', () => {
     expect(pageToLines([run('Week 3: Quiz', 72, 700), run('Office hours', 330, 700)])).toEqual([
       'Week 3: Quiz Office hours',
@@ -240,6 +449,11 @@ describe('pagesToText', () => {
 
   it('reports a document with no text at all', () => {
     expect(pagesToText([[], []])).toEqual({ text: '', pageCount: 2, lineCount: 0, pagesWithoutText: [1, 2] });
+  });
+
+  it('counts a page with only sideways text as a page with text', () => {
+    const result = pagesToText([[{ ...run('Week 1: Quiz', 100, 300), angle: 90 }]]);
+    expect(result).toEqual({ text: 'Week 1: Quiz', pageCount: 1, lineCount: 1, pagesWithoutText: [] });
   });
 
   it('handles no pages', () => {
@@ -346,6 +560,26 @@ describe('randomised checks (seeded, so any failure can be replayed)', () => {
     }
   });
 
+  /** A random page where runs may be turned sideways or written right to left. */
+  function randomMixedPage(random: () => number): PdfTextItem[] {
+    const angles = [0, 0, 0, 90, -90, 180, 45];
+    return randomPage(random).map((item) => ({
+      ...item,
+      angle: angles[Math.floor(random() * angles.length)],
+      dir: random() < 0.2 ? 'rtl' : 'ltr',
+    }));
+  }
+
+  it.each(SEEDS)('loses no text and ignores arrival order with sideways and right-to-left runs (seed %i)', (seed) => {
+    const random = seeded(seed * 4093);
+    const items = randomMixedPage(random);
+    const expected = pageToLines(items);
+    expect(letters(expected)).toBe(letters(items.map((i) => i.str)));
+    for (let round = 0; round < 3; round++) {
+      expect(pageToLines(shuffle(items, random))).toEqual(expected);
+    }
+  });
+
   it.each(SEEDS)('never throws on hostile runs (seed %i)', (seed) => {
     const random = seeded(seed * 7919);
     const weird = [NaN, Infinity, -Infinity, 0, -5, 1e308, -1e308, 0.0001];
@@ -356,6 +590,8 @@ describe('randomised checks (seeded, so any failure can be replayed)', () => {
       y: random() < 0.3 ? weird[Math.floor(random() * weird.length)] : random() * 800,
       width: random() < 0.3 ? weird[Math.floor(random() * weird.length)] : random() * 100,
       size: random() < 0.3 ? weird[Math.floor(random() * weird.length)] : random() * 20,
+      angle: random() < 0.3 ? weird[Math.floor(random() * weird.length)] : random() * 360 - 180,
+      dir: (['ltr', 'rtl', 'ttb', undefined] as const)[Math.floor(random() * 4)],
     }));
     expect(() => pagesToText([items, items.slice(0, 10), []])).not.toThrow();
   });
