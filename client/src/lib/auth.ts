@@ -154,6 +154,9 @@ export function createServerAuth(
         return email ? { email } : null;
       }
       if (answer?.error?.status === 401) return null;
+      // A browser keeps the cookie where the page cannot read it, so with no
+      // answer there is nothing to go on: open on Log in.
+      if (isWeb) return null;
       // No connection or a failing server: the session may still be good, so
       // keep a student who has one signed in. If it has ended, the first
       // request answers 401, and that sends them back to Log in.

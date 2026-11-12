@@ -409,7 +409,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-836 tests across forty test suites.
+838 tests across forty test suites.
 
 ```bash
 npm test                      # all of them
@@ -440,7 +440,7 @@ npx jest --watch              # while you work
 | `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the sample-data note, and Log out on Forecast |
 | `src/__tests__/login-accounts.test.tsx` | 27 | US-20 on the Log in screen: the right and wrong password, an unknown email, no connection, messages clearing, the busy button that cannot send twice, Create account (its name field, the 8-character check, an email already used, signing up then logging back in), and the notice when a session has ended |
 | `src/__tests__/session.test.tsx` | 22 | US-20: the session in sample-data mode and with the server, restoring a saved session (found, none, offline, failing), signing in and up, the cookie on requests from the very first one, a 401 sending the student back to Log in, and Log out |
-| `src/lib/auth.test.ts` | 41 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session, Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
+| `src/lib/auth.test.ts` | 43 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session (on a phone and on the web), Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
 | `src/lib/auth-client.test.ts` | 22 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection |
 | `src/lib/api-session.test.ts` | 55 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, and nothing added in sample-data mode |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |

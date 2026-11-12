@@ -246,6 +246,24 @@ describe('restoring the session when the app opens', () => {
     expect(consoleError).toHaveBeenCalled();
   });
 
+  it('on the web, opens on Log in with no connection, without reading phone storage', async () => {
+    // A browser keeps its own cookie where the page cannot read it, and the
+    // web has no SecureStore, so there is nothing saved to look at.
+    const { client, auth } = setUp({ isWeb: true });
+    client.getSession.mockImplementation(offline);
+
+    await expect(auth.restore?.()).resolves.toBeNull();
+    expect(client.getCookie).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it('on the web, signs the student back in when the server still knows their session', async () => {
+    const { client, auth } = setUp({ isWeb: true });
+    client.getSession.mockReturnValue(ok(student));
+
+    await expect(auth.restore?.()).resolves.toEqual({ email: 'student@example.edu' });
+  });
+
   it('opens on Log in when the server answers 401', async () => {
     const { client, auth } = setUp();
     client.getSession.mockReturnValue(refused(401));
