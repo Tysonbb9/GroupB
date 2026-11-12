@@ -73,17 +73,59 @@ export function serverBaseUrl(): string {
   });
 }
 
-/** GET /semester. Rejects with a message the user can read. */
-export async function fetchSemester(): Promise<Semester> {
+/** What a student sees when the server says their session has ended (401). */
+export const SESSION_ENDED_MESSAGE = 'Your session has ended. Please log in again.';
+
+/**
+ * How requests prove who is asking (US-20), set by the session while a
+ * student is signed in with the server. Null in sample-data mode and in
+ * tests, and then requests go out exactly as they did before accounts.
+ */
+export type RequestAuth = {
+  /** Read again for every request, so a new sign-in is used straight away. */
+  options: () => Promise<RequestInit>;
+  /** Called when the server answers 401: the student has to log in again. */
+  onSessionEnded: () => void;
+};
+
+let requestAuth: RequestAuth | null = null;
+
+export function setRequestAuth(auth: RequestAuth | null): void {
+  requestAuth = auth;
+}
+
+/**
+ * Sends one request to our server, with the session added. Rejects with a
+ * message the user can read when the server cannot be reached, or when it
+ * says the session has ended. Every other answer is the caller's to check.
+ */
+async function send(path: string, init: RequestInit & { headers?: Record<string, string> } = {}) {
   const baseUrl = serverBaseUrl();
+  const auth = requestAuth;
+  const extra = auth === null ? {} : await auth.options();
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/semester`);
+    response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      ...extra,
+      headers: { ...init.headers, ...(extra.headers as Record<string, string> | undefined) },
+    });
   } catch {
     // fetch only rejects when it could not talk to the server at all.
     throw new Error(`Could not reach the server at ${baseUrl}`);
   }
+
+  if (response.status === 401 && auth !== null) {
+    auth.onSessionEnded();
+    throw new Error(SESSION_ENDED_MESSAGE);
+  }
+  return response;
+}
+
+/** GET /semester. Rejects with a message the user can read. */
+export async function fetchSemester(): Promise<Semester> {
+  const response = await send('/semester');
 
   // fetch does not reject on an HTTP error status, so check it ourselves.
   if (!response.ok) {
@@ -103,18 +145,11 @@ export async function fetchSemester(): Promise<Semester> {
  * can read.
  */
 export async function saveWeeklyCapacity(hours: number): Promise<number> {
-  const baseUrl = serverBaseUrl();
-
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}/semester`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ weeklyCapacity: hours }),
-    });
-  } catch {
-    throw new Error(`Could not reach the server at ${baseUrl}`);
-  }
+  const response = await send(`/semester`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weeklyCapacity: hours }),
+  });
 
   if (!response.ok) {
     throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
@@ -168,18 +203,11 @@ async function serverErrorMessage(response: Response): Promise<string | null> {
  * text, or paste the syllabus text instead".
  */
 export async function extractSyllabusText(pdf: Blob | ArrayBuffer | Uint8Array): Promise<SyllabusText> {
-  const baseUrl = serverBaseUrl();
-
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}/syllabus/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/pdf' },
-      body: pdf as BodyInit,
-    });
-  } catch {
-    throw new Error(`Could not reach the server at ${baseUrl}`);
-  }
+  const response = await send(`/syllabus/text`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/pdf' },
+    body: pdf as BodyInit,
+  });
 
   if (!response.ok) {
     throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
@@ -205,19 +233,12 @@ export type NewTask = {
  * Rejects with a message the user can read.
  */
 export async function addTasks(tasks: NewTask[]): Promise<Task[]> {
-  const baseUrl = serverBaseUrl();
-
-  // 1. Send them. If the network itself fails, say so plainly.
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tasks }),
-    });
-  } catch {
-    throw new Error(`Could not reach the server at ${baseUrl}`);
-  }
+  // 1. Send them. If the network itself fails, send says so plainly.
+  const response = await send('/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tasks }),
+  });
 
   // 2. The server said no (e.g. 400): pass its own message on.
   if (!response.ok) {
@@ -249,19 +270,12 @@ export async function addReview(
   courseId: string,
   review: { title: string; hours: number; comment?: string }
 ): Promise<Review> {
-  const baseUrl = serverBaseUrl();
-
-  // 1. Send it. If the network itself fails, say so plainly.
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}/courses/${encodeURIComponent(courseId)}/reviews`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(review),
-    });
-  } catch {
-    throw new Error(`Could not reach the server at ${baseUrl}`);
-  }
+  // 1. Send it. If the network itself fails, send says so plainly.
+  const response = await send(`/courses/${encodeURIComponent(courseId)}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(review),
+  });
 
   // 2. The server said no (400 or 404): pass its own message on.
   if (!response.ok) {

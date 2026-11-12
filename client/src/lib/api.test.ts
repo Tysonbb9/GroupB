@@ -26,7 +26,7 @@ describe('fetchSemester', () => {
   it('asks the server for /semester', async () => {
     fetchMock.mockResolvedValue(reply(wallSemester));
     await fetchSemester();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/semester$/));
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/semester$/);
   });
 
   it('fails with the status when the server answers with an error', async () => {
