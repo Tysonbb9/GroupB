@@ -322,6 +322,13 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
     return;
   }
 
+  // express.json() could not read the body. That's the client's mistake,
+  // so answer 400 and don't log it as a server failure.
+  if (error.type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'Body must be valid JSON' });
+    return;
+  }
+
   console.error('API request failed:', err);
 
   if (err instanceof DatabaseError) {
