@@ -109,9 +109,10 @@ describe('CORS for the PDF upload', () => {
     expect(res.headers['access-control-allow-headers']).toMatch(/content-type/i);
   });
 
-  it('lets a web page read the answer', async () => {
+  it('lets Expo Web read the answer', async () => {
     const res = await postPdf(await makeTextPdf(['Week 1: A'])).set('Origin', 'http://localhost:8081');
-    expect(res.headers['access-control-allow-origin']).toBe('*');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:8081');
+    expect(res.headers['access-control-allow-credentials']).toBe('true');
   });
 });
 

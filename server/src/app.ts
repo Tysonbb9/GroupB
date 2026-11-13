@@ -1,6 +1,6 @@
 import express from 'express';
 import { toNodeHandler, fromNodeHeaders } from 'better-auth/node';
-import { auth } from './auth';
+import { auth, CLIENT_ORIGIN } from './auth';
 import { createStore } from './data/create-store';
 import { syllabusRouter } from './syllabus/routes';
 import { DatabaseError } from './data/database-error';
@@ -11,12 +11,15 @@ const store = createStore();
 /**
  * CORS. A browser (the Expo Web version of the client) refuses to let a page
  * read a response from a different address unless the server allows it. A
- * phone does not check. "*" is fine for a prototype with no login or cookies.
+ * phone does not check. With login the browser sends the session cookie, and
+ * then "*" is not allowed: the server has to name Expo Web's address and say
+ * that cookies are fine (Allow-Credentials).
  * The browser also sends an OPTIONS "preflight" before a PATCH, or before a
- * POST of a PDF, so answer that.
+ * POST of a PDF or JSON, so answer that. It needs no session.
  */
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', CLIENT_ORIGIN);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') {
