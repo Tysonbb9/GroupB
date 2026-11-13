@@ -63,6 +63,17 @@ never sent in chat or email, and never go in the client, in an `EXPO_PUBLIC_`
 variable (those are visible inside the app), in a test, a screenshot or an
 issue. If a key leaks, the owner rotates it in the dashboard.
 
+Login (US-21) adds four more names to `server/.env`. All four can stay empty
+while developing: accounts are then kept in memory and lost on restart, and
+Better Auth signs sessions with a built-in development secret.
+
+| Variable | What it is | Secret? |
+|---|---|---|
+| `DATABASE_URL` | Supabase's Postgres connection string (Dashboard > Connect), where accounts are saved. Separate from the secret key above | **Yes**, it holds the database password |
+| `BETTER_AUTH_SECRET` | A long random string that signs the sessions. Required in production. Make one with `npx auth secret` | **Yes** |
+| `BETTER_AUTH_URL` | The server's own address. Default `http://localhost:3000` | No |
+| `CLIENT_ORIGIN` | Expo Web's address, the only web page allowed to call the server with cookies. Default `http://localhost:8081` | No |
+
 `src/__tests__/no-secrets.test.ts` (TP-44) fails if a key-shaped string is in
 any file git would commit, and checks that `server/.env` is ignored.
 
@@ -174,8 +185,41 @@ npm run typecheck
 ## API
 
 All responses are JSON. Errors look like `{ "error": "message" }`. The server
-allows requests from any web address (CORS), so the browser version of the
-client can use it.
+allows Expo Web's address (`CLIENT_ORIGIN`) to call it with cookies (CORS), so
+the browser version of the client can use it. A phone does not check CORS.
+
+### Login (US-21)
+
+[Better Auth](https://better-auth.com) answers these routes itself (see
+`src/auth.ts` and `docs/LOGIN_DESIGN.md`, the contract with the phone). Signing
+up or in hands back a session cookie that lasts 30 days, pushed back each day
+the app is used. Email and password only: no email check and no
+forgot-password yet, since both need email.
+
+| Method | Path | Body | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/auth/sign-up/email` | `{ name, email, password }` | 200 `{ token, user }` and the cookie | 400 password under 8 characters, 422 email already used |
+| POST | `/api/auth/sign-in/email` | `{ email, password }` | 200 and the cookie | 401 wrong email or password |
+| POST | `/api/auth/sign-out` | `{}` | 200 `{ "success": true }`; the session ends | |
+| GET | `/api/auth/get-session` | | 200 `{ session, user }`, or `null` when signed out | |
+
+These routes' errors look like `{ "message", "code" }`; show `message` to the
+student. A request that carries a cookie, or comes from a web page, must come
+from a trusted address (the app, Expo Go or Expo Web), or the answer is 403.
+
+**Every other route below needs a session.** Without a valid session cookie it
+answers `401 { "error": "Sign in first" }`. Only `/api/auth/*` and the
+browser's OPTIONS preflight are open. To try routes with curl, sign up once and
+keep the cookie:
+
+```bash
+curl -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"name":"Ada","email":"ada@example.com","password":"long-enough-1"}' \
+  http://localhost:3000/api/auth/sign-up/email
+curl -b cookies.txt http://localhost:3000/semester
+```
+
+### Routes
 
 | Method | Path | Description | Success | Errors |
 |---|---|---|---|---|
@@ -210,7 +254,7 @@ Response `200`:
 ### Example: read a syllabus PDF
 
 ```bash
-curl -X POST -H 'Content-Type: application/pdf' --data-binary @syllabus.pdf http://localhost:3000/syllabus/text
+curl -b cookies.txt -X POST -H 'Content-Type: application/pdf' --data-binary @syllabus.pdf http://localhost:3000/syllabus/text
 ```
 
 Response `200`, one line of the PDF per line of `text`, in reading order:
@@ -239,7 +283,9 @@ OCR), and two columns of text side by side read across both columns.
 ## Files
 
 - `src/index.ts`: starts the server
-- `src/app.ts`: all routes, apart from the syllabus router it mounts
+- `src/app.ts`: all routes, apart from the syllabus router it mounts, and the session check in front of them
+- `src/auth.ts`: login with Better Auth (US-21): where accounts are kept, how long sessions last, which addresses may sign in
+- `src/testing/session.ts`: `signedIn()`, which signs up a test student so the route tests can call routes that need a session
 - `src/syllabus/routes.ts`: `POST /syllabus/text`
 - `src/syllabus/pdf-text.ts`: checks the upload and rebuilds lines from the PDF's text
 - `src/syllabus/read-pdf.worker.mjs`: opens the PDF with pdf.js, in a worker thread. Plain JavaScript because pdf.js is an ES module, which the CommonJS server and Jest cannot load directly

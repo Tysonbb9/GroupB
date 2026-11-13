@@ -377,7 +377,23 @@ Defines `DatabaseError` for database query failures. The Express error handler r
 
 The Express routes use asynchronous `Store` methods rather than directly accessing the in-memory database.
 
+The order of what runs on each request matters (US-21, #44):
+
+1. **CORS.** Names Expo Web's address (`CLIENT_ORIGIN`, default `http://localhost:8081`) and allows cookies, in place of `*`, which browsers refuse once a cookie is sent. Answers the browser's OPTIONS preflight, which needs no session.
+2. **`/api/auth/*`**, Better Auth's own routes (see `auth.ts` below). They come before `express.json()`, because Better Auth reads the request body itself.
+3. **`express.json()`.**
+4. **The session check.** Asks Better Auth whose session the cookie belongs to. With no valid session it answers `401 { "error": "Sign in first" }`, so the phone shows the login screen. Otherwise it puts the session on `res.locals.session`, for routes that will later keep each student's own data.
+5. **Every other route**, `/syllabus` included.
+
 `PATCH /semester` (US-32) takes `{ weeklyCapacity }`, a whole number of hours from 1 to 80, and returns the whole semester with it. Anything else is a 400 with a JSON error, and nothing changes. Its tests are in `server/src/__tests__/weekly-capacity.test.ts` (test plan row TP-36).
+
+### `server/src/auth.ts`
+
+Login on the server (US-21), with [Better Auth](https://better-auth.com). `docs/LOGIN_DESIGN.md` is the contract with the phone half (#43). Students sign up and sign in with an email and a password, and get a session cookie that lasts 30 days, pushed back each day the app is used.
+
+- **Where accounts are kept.** With `DATABASE_URL` (Supabase's Postgres) they are saved in Better Auth's four tables (#127). Without it they live in memory, so the server and the tests run with no setup; they disappear on restart. Same idea as `create-store.ts`.
+- **Who may sign in.** `trustedOrigins` lists the app (`crunchweek://`), Expo Go while developing (`exp://`), and Expo Web. A request that carries a cookie, or comes from a web page, must come from one of these, or Better Auth answers 403. The phone's `expoClient` says where it comes from with an `expo-origin` header.
+- **Not here this sprint:** checking that an email belongs to the student, and forgot-password. Both need the server to send email.
 
 ### Supabase SQL Scripts
 
@@ -444,8 +460,9 @@ npx jest --watch              # while you work
 
 
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 269 of them in ten files, plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or zero hours, 404 for an unknown course) and `GET /courses/:id/reviews`. `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 310 of them in fourteen files (4 run only against Supabase), plus 13 still marked to-do. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or zero hours, 404 for an unknown course) and `GET /courses/:id/reviews`. `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
+`auth.test.ts` covers US-21: signing up and in, a wrong password, an email already used, a short password, a sign-in from a web page that is not trusted, the 30-day session, 401 from every other route without a session or after signing out, and 200 with one. Since every route needs a session, the other route tests sign in first with `signedIn()` from `src/testing/session.ts`, which signs up a test student and returns a supertest agent that sends the cookie.
 
 
 Shared test data for the story tests is in `src/testing/fixtures.ts`, outside `src/__tests__/` so Jest does not treat it as a test file.
@@ -482,6 +499,6 @@ cross-screen behaviour the whole product rests on, so it gets its own test.
 
 The server now supports Supabase as its persistent database through the Data Access Layer. When `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are configured, the server uses Supabase; otherwise, it uses the existing in-memory store. The client still manages task completion and estimate changes locally, so those client-side changes are not yet automatically saved back to the server.
 
-No real sign-in and no accounts: the login screen is a preview with nothing behind it. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
+The server has accounts and sessions (US-21, `server/src/auth.ts`), but the login screen does not use them yet; that is the phone half (#43). Until then the screen is a preview with nothing behind it. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
