@@ -1,6 +1,12 @@
 import request from 'supertest';
 import { app } from '../app';
 import { resetDb } from '../data/db';
+import { signedIn, type Api } from '../testing/session';
+
+let api: Api;
+beforeAll(async () => {
+  api = await signedIn(); // every route outside /api/auth needs a session
+});
 
 beforeEach(() => resetDb());
 
@@ -8,7 +14,7 @@ beforeEach(() => resetDb());
 // server says so with these headers. A phone does not check them.
 describe('CORS', () => {
   it('lets a web page on another address read a response', async () => {
-    const res = await request(app).get('/semester').set('Origin', 'http://localhost:8081');
+    const res = await api.get('/semester').set('Origin', 'http://localhost:8081');
     expect(res.status).toBe(200);
     expect(res.headers['access-control-allow-origin']).toBe('*');
   });

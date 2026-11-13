@@ -101,3 +101,51 @@ describe('the session', () => {
     expect(res.body).toBeNull();
   });
 });
+
+describe('routes outside /api/auth', () => {
+  it('answer 401 in our usual error shape without a session', async () => {
+    for (const path of ['/semester', '/courses', '/tasks', '/courses/cs262/reviews']) {
+      const res = await request(app).get(path);
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'Sign in first' });
+    }
+  });
+
+  it('answer 401 to a write without a session, and change nothing', async () => {
+    const res = await request(app).patch('/tasks/262-2').send({ done: true });
+    expect(res.status).toBe(401);
+  });
+
+  it('answer 401 to a cookie that is not a real session', async () => {
+    const res = await request(app)
+      .get('/semester')
+      .set('Cookie', 'better-auth.session_token=made-up');
+    expect(res.status).toBe(401);
+  });
+
+  it('answer 200 with the cookie from signing in', async () => {
+    const { email } = await signUp();
+    const signIn = await request(app).post('/api/auth/sign-in/email').send({ email, password: PASSWORD });
+    const res = await request(app).get('/semester').set('Cookie', signIn.headers['set-cookie']);
+    expect(res.status).toBe(200);
+    expect(res.body.label).toBe('Fall 2026');
+  });
+
+  it('answer 401 to the old cookie after signing out', async () => {
+    const { res: up } = await signUp();
+    const cookie = up.headers['set-cookie'];
+    expect((await request(app).get('/semester').set('Cookie', cookie)).status).toBe(200);
+
+    // Sent the way the phone's expoClient sends it: a request that carries
+    // a cookie must say where it comes from, or Better Auth answers 403.
+    const out = await request(app)
+      .post('/api/auth/sign-out')
+      .set('Cookie', cookie)
+      .set('expo-origin', 'crunchweek://')
+      .send({});
+    expect(out.status).toBe(200);
+    expect(out.body).toEqual({ success: true });
+    // The session itself ended, so even a copy of the cookie no longer works.
+    expect((await request(app).get('/semester').set('Cookie', cookie)).status).toBe(401);
+  });
+});

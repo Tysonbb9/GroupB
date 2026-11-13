@@ -1,5 +1,5 @@
 import express from 'express';
-import { toNodeHandler } from 'better-auth/node';
+import { toNodeHandler, fromNodeHeaders } from 'better-auth/node';
 import { auth } from './auth';
 import { createStore } from './data/create-store';
 import { syllabusRouter } from './syllabus/routes';
@@ -31,6 +31,21 @@ app.use((req, res, next) => {
 app.all('/api/auth/*splat', toNodeHandler(auth));
 
 app.use(express.json()); // Lets PATCH read a JSON body
+
+/**
+ * Every route below needs a signed-in student. Without a valid session
+ * cookie the answer is 401, and the phone shows the login screen. The session
+ * goes on res.locals for routes that later keep each student's own data.
+ */
+app.use(async (req, res, next) => {
+  const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+  if (!session) {
+    res.status(401).json({ error: 'Sign in first' });
+    return;
+  }
+  res.locals.session = session;
+  next();
+});
 
 // POST /syllabus/text: a syllabus PDF in, its text out. See syllabus/routes.ts.
 app.use('/syllabus', syllabusRouter);
