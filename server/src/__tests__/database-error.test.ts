@@ -46,10 +46,11 @@ describe('TP-43: API database error response', () => {
       }),
     }));
 
-    const request = require('supertest');
-    const { app } = require('../app');
+    // Loads the reloaded app, with the failing store, and signs in to it.
+    const { signedIn } = require('../testing/session');
+    const api = await signedIn();
 
-    const response = await request(app).get('/tasks/test-task');
+    const response = await api.get('/tasks/test-task');
 
     // Check the HTTP status.
     expect(response.status).toBe(503);
