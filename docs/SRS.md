@@ -90,13 +90,13 @@ Questions addressed:
 *   **Is it a new product?** The requirements describe a current prototype that is still being developed.
     
 
-* **Integrations?** The prototype uses an Express REST API server and supports optional Supabase (Postgres) database storage. By default, the server uses an in-memory data store, so Supabase credentials are not required. The client includes a local login screen, but real user authentication and live Moodle integration are not implemented. The program-requirements draft identifies Moodle calendar integration as a possible future input.
+* **Integrations?** The prototype uses an Express REST API server and supports optional Supabase (Postgres) database storage. By default, the server uses an in-memory data store, so Supabase credentials are not required. Students sign up and sign in with an email and a password, through Better Auth on the server (US-20, US-21); the session is a cookie that lasts 30 days and is renewed each day the app is used (see `docs/LOGIN_DESIGN.md`). Live Moodle integration is not implemented. The program-requirements draft identifies Moodle calendar integration as a possible future input.
 
 ### 2.2 Assumptions and Dependencies
 
 Assumptions and dependencies drawn directly from the requirements:
 
-*   The current prototype operates without authentication, a database, server communication, or live Moodle integration; it therefore does not depend on these external systems.
+*   The current prototype depends on its Express server for data and for sign-in (Better Auth). It can use Supabase's Postgres for storage; without the Supabase settings, the server keeps its data and accounts in memory. It does not use live Moodle integration.
     
 *   React Native/Expo and Expo Web are relied upon as the development and web-run platforms.
     
