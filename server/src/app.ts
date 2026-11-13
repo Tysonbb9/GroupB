@@ -1,4 +1,6 @@
 import express from 'express';
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from './auth';
 import { createStore } from './data/create-store';
 import { syllabusRouter } from './syllabus/routes';
 import { DatabaseError } from './data/database-error';
@@ -23,6 +25,10 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Sign up, sign in, sign out, get-session: Better Auth's own routes (see
+// auth.ts). Above express.json(), because Better Auth reads the body itself.
+app.all('/api/auth/*splat', toNodeHandler(auth));
 
 app.use(express.json()); // Lets PATCH read a JSON body
 
