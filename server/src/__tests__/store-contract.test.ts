@@ -3,8 +3,12 @@ import { MemoryStore } from '../data/memory-store';
 import { SupabaseStore } from '../data/supabase-store';
 import { resetDb } from '../data/db';
 import type { Store } from '../data/store';
-import request from 'supertest';
-import { app } from '../app';
+import { signedIn, type Api } from '../testing/session';
+
+let api: Api;
+beforeAll(async () => {
+  api = await signedIn(); // every route outside /api/auth needs a session
+});
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY;
@@ -127,7 +131,7 @@ describeSupabase('Store Contract — SupabaseStore', () => {
 
 describe('TP-42: API unknown task handling', () => {
   it('returns 404 JSON instead of 500 for an unknown task', async () => {
-    const response = await request(app).get('/tasks/does-not-exist');
+    const response = await api.get('/tasks/does-not-exist');
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({

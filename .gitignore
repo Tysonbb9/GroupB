@@ -11,3 +11,5 @@ web-build/
 .env
 .env.*
 !.env.example
+# A session cookie saved by curl (server/README.md), which signs in as that student.
+cookies.txt

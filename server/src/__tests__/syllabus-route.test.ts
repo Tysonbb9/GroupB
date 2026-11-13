@@ -1,10 +1,14 @@
-import request from 'supertest';
-import { app } from '../app';
 import { resetDb } from '../data/db';
 import * as pdfText from '../syllabus/pdf-text';
 import { MAX_PDF_BYTES, PDF_ERROR_MESSAGES, PdfErrorCode, PdfReadError } from '../syllabus/pdf-text';
 import { MAX_CONCURRENT_PDF_READS } from '../syllabus/routes';
 import { makeScannedPdf, makeTextPdf, passwordProtectedPdf } from '../testing/pdfs';
+import { signedIn, type Api } from '../testing/session';
+
+let api: Api;
+beforeAll(async () => {
+  api = await signedIn(); // every route outside /api/auth needs a session
+});
 
 /** POST /syllabus/text over HTTP, through the real app, worker and pdf.js. */
 
@@ -14,7 +18,7 @@ beforeEach(() => resetDb());
 afterEach(() => jest.restoreAllMocks());
 
 const postPdf = (bytes: Uint8Array | Buffer, type = 'application/pdf') =>
-  request(app).post('/syllabus/text').set('Content-Type', type).send(Buffer.from(bytes));
+  api.post('/syllabus/text').set('Content-Type', type).send(Buffer.from(bytes));
 
 describe('POST /syllabus/text', () => {
   it('answers with the text of the PDF', async () => {
@@ -35,13 +39,13 @@ describe('POST /syllabus/text', () => {
   });
 
   it('refuses JSON with 415', async () => {
-    const res = await request(app).post('/syllabus/text').send({ text: 'Week 1: A' });
+    const res = await api.post('/syllabus/text').send({ text: 'Week 1: A' });
     expect(res.status).toBe(415);
     expect(res.body).toEqual({ error: PDF_ERROR_MESSAGES.not_pdf, code: 'not_pdf' });
   });
 
   it('refuses a request with no content type with 415', async () => {
-    const res = await request(app).post('/syllabus/text');
+    const res = await api.post('/syllabus/text');
     expect(res.status).toBe(415);
   });
 
@@ -188,13 +192,13 @@ describe('POST /syllabus/text', () => {
   });
 
   it('does not exist for GET', async () => {
-    expect((await request(app).get('/syllabus/text')).status).toBe(404);
+    expect((await api.get('/syllabus/text')).status).toBe(404);
   });
 });
 
 describe('CORS for the PDF upload', () => {
   it('answers the preflight a browser sends before posting a PDF', async () => {
-    const res = await request(app)
+    const res = await api
       .options('/syllabus/text')
       .set('Origin', 'http://localhost:8081')
       .set('Access-Control-Request-Method', 'POST')
@@ -204,21 +208,22 @@ describe('CORS for the PDF upload', () => {
     expect(res.headers['access-control-allow-headers']).toMatch(/content-type/i);
   });
 
-  it('lets a web page read the answer', async () => {
+  it('lets Expo Web read the answer', async () => {
     const res = await postPdf(await makeTextPdf(['Week 1: A'])).set('Origin', 'http://localhost:8081');
-    expect(res.headers['access-control-allow-origin']).toBe('*');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:8081');
+    expect(res.headers['access-control-allow-credentials']).toBe('true');
   });
 });
 
 describe('the rest of the server is unaffected', () => {
   it('still reads JSON for PATCH /tasks', async () => {
-    const res = await request(app).patch('/tasks/262-2').send({ done: true });
+    const res = await api.patch('/tasks/262-2').send({ done: true });
     expect(res.status).toBe(200);
     expect(res.body.done).toBe(true);
   });
 
   it('does not answer an oversized JSON request with the PDF message', async () => {
-    const res = await request(app)
+    const res = await api
       .patch('/tasks/262-2')
       .set('Content-Type', 'application/json')
       .send(JSON.stringify({ done: true, padding: 'x'.repeat(200_000) }));
