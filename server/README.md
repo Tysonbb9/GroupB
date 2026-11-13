@@ -67,6 +67,11 @@ Login (US-21) adds four more names to `server/.env`. All four can stay empty
 while developing: accounts are then kept in memory and lost on restart, and
 Better Auth signs sessions with a built-in development secret.
 
+**In production, set `NODE_ENV=production` and all four.** The server then
+refuses to start if any of them is missing or empty, instead of quietly
+keeping accounts in memory or thinking it lives at `localhost`. Nothing sets
+`NODE_ENV` today; whoever deploys the server sets it.
+
 | Variable | What it is | Secret? |
 |---|---|---|
 | `DATABASE_URL` | Supabase's Postgres connection string (Dashboard > Connect), where accounts are saved. Separate from the secret key above | **Yes**, it holds the database password |

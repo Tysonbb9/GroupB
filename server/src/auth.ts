@@ -9,19 +9,33 @@ import { Pool } from 'pg';
  * hands the phone a session cookie, which it sends with every request.
  */
 
-// `||` rather than `??` from here on: a name left empty in server/.env
-// arrives as "", which should mean the default too.
+const isProduction = process.env.NODE_ENV === 'production';
+
+/**
+ * A setting from server/.env. Outside production, a missing one uses the
+ * development default, so the server runs with no setup. In production a
+ * default would be wrong without anyone noticing, so the server stops at
+ * startup instead. A setting left empty in .env arrives as "" and counts as
+ * missing.
+ */
+function setting(name: string, devDefault: string): string {
+  const value = process.env[name];
+  if (value) return value;
+  if (isProduction) throw new Error(`${name} must be set in production (see server/.env.example)`);
+  return devDefault;
+}
 
 /** Expo Web's address, the only web page allowed to call the server with cookies. */
-export const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:8081';
+export const CLIENT_ORIGIN = setting('CLIENT_ORIGIN', 'http://localhost:8081');
 
 /**
  * Where accounts are saved. With DATABASE_URL (Supabase's Postgres) they are
- * saved for good. Without it they live in memory, so the server runs with no
- * setup; they disappear on restart. Same idea as createStore().
+ * saved for good. Without it, while developing, they live in memory, so the
+ * server runs with no setup; they disappear on restart. Same idea as
+ * createStore().
  */
 function authDatabase() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = setting('DATABASE_URL', '');
   if (connectionString) {
     return new Pool({ connectionString });
   }
@@ -35,7 +49,7 @@ export const auth = betterAuth({
   // Without BETTER_AUTH_SECRET, Better Auth uses a built-in secret in
   // development and tests, and refuses to start in production.
   secret: process.env.BETTER_AUTH_SECRET || undefined,
-  baseURL: process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || 3000}`,
+  baseURL: setting('BETTER_AUTH_URL', `http://localhost:${process.env.PORT || 3000}`),
   // Email and password only. No email check and no forgot-password this
   // sprint, since both need to send email.
   emailAndPassword: { enabled: true },
@@ -47,7 +61,7 @@ export const auth = betterAuth({
   // client/app.json), Expo Go while developing, and Expo Web.
   trustedOrigins: [
     'crunchweek://',
-    ...(process.env.NODE_ENV === 'production' ? [] : ['exp://*/*']),
+    ...(isProduction ? [] : ['exp://*/*']),
     CLIENT_ORIGIN,
   ],
   // Better Auth skips its origin check under Jest unless told otherwise.
