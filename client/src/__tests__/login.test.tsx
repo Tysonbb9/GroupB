@@ -77,17 +77,17 @@ describe('US-27: the login screen', () => {
     expect(screen.getByTestId('signed-in-as')).toHaveTextContent('nobody');
   });
 
-  it('signs in with a valid email and password', () => {
+  it('signs in with a valid email and password', async () => {
     renderLogin();
     fillIn('  student@example.edu ', 'example-password');
 
-    expect(screen.getByTestId('signed-in-as')).toHaveTextContent('student@example.edu');
+    expect(await screen.findByText('student@example.edu')).toBeTruthy();
   });
 
-  it('says plainly that there are no accounts yet', () => {
+  it('says plainly, in sample-data mode, that any email and password work', () => {
     renderLogin();
     expect(screen.getByTestId('login-note')).toHaveTextContent(
-      /No accounts yet: any email and password open the app/
+      /Sample data: any email and password open the app/
     );
   });
 });

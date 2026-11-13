@@ -45,9 +45,11 @@ Restart with `npx expo start -c` after changing it, because Expo copies `EXPO_PU
 
 If the server cannot be reached, the app shows an error screen with the address it tried and a **Try again** button.
 
+Signing in needs an account on that server (US-20). Tap **New here? Create an account** on Log in to make one. How the phone and the server agree on signing in is in [LOGIN_DESIGN.md](LOGIN_DESIGN.md).
+
 ### Without the server
 
-Set `EXPO_PUBLIC_USE_FIXTURE=1` (also in `client/.env.local`) to run on the hard-coded semester in `data/semester.ts` instead. This is a manual switch. The app never falls back to the fixture by itself, so a server that is down always shows.
+Set `EXPO_PUBLIC_USE_FIXTURE=1` (also in `client/.env.local`) to run on the hard-coded semester in `data/semester.ts` instead. This is a manual switch. The app never falls back to the fixture by itself, so a server that is down always shows. With no server there are no accounts either, so in this mode any email and password open the app, and a note under the Log in form says so.
 
 ---
 
@@ -178,6 +180,18 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `addReview` posts how long a finished assignment took to POST /courses/:id/reviews (US-23) and returns the stored review, or rejects with the server's message.
 
+Every request goes through one helper, `send`, which adds the session (US-20) and turns an unreachable server into `Could not reach the server at <address>`. The session registers itself with `setRequestAuth` while the app is signed in with the server: on a phone that adds the saved cookie by hand with `credentials: 'omit'`, and on the web it lets the browser send its own cookie with `credentials: 'include'`. When the server answers `401`, `send` tells the session, which goes back to Log in, and rejects with `SESSION_ENDED_MESSAGE`. With nothing registered (sample-data mode and most tests), requests go out as they did before accounts.
+
+### `src/lib/auth.ts`, `src/lib/auth-client.ts`
+
+Signing in (US-20), as [LOGIN_DESIGN.md](LOGIN_DESIGN.md) sets out. `auth.ts` holds the rules and does not import Better Auth, so they are tested without a phone or a server. An `Auth` can sign in, sign up, log out, say what each request should carry, and (optionally) `restore` a session kept from last time. There are three:
+
+- `createServerAuth(client, ...)` uses Better Auth's client. A refusal shows the server's own `message` ("Invalid email or password", "User already exists. Use another email.", "Password too short"), with a fallback for each status when there is none, and no connection says `Could not reach the server at <address>. Check your connection and try again.` When the app opens with no connection but a saved session, the student stays signed in; if that session has ended, the first request answers 401 and sends them back to Log in. Log out never fails on the phone: Better Auth's Expo plugin wipes the saved session before it even sends the request.
+- `localAuth` is sample-data mode: any email and password, nothing kept.
+- `unavailableAuth(reason)` is for a release build with no server address: the app still opens, and every attempt to sign in says why.
+
+`auth-client.ts` is the only file that imports Better Auth. `createCrunchWeekAuthClient` sets up `createAuthClient` with the Expo plugin (`scheme` and `storagePrefix` both `crunchweek`, SecureStore for storage), and `serverAuth()` makes the one the app uses, once, so every screen shares the session. One thing differs from the design's example: in Better Auth 1.7.21 `getCookie()` returns a promise, so it is awaited.
+
 ### `src/data/semester.ts`
 
 One fake student, five courses, 36 tasks. Every task has a category, and one (the discussion post) has no estimate on purpose so the "Add estimate" path can be seen. Everything the app displays comes from here.
@@ -209,7 +223,7 @@ For now `toggleDone` and `setEstimate` change the semester in memory only. Savin
 
 ### `src/state/session.tsx`
 
-Who is signed in: `email`, `signIn(email)` and `signOut()`, in a React context. Log in is the app's front door, but there are no accounts yet (US-19 needs the server and the database), so signing in only records the email while the app is open; nothing is stored or sent. `useSession()` is for screens that need a session (Log in, the root layout). `useOptionalSession()` returns null outside a `SessionProvider`, so `LogOutButton` simply draws nothing when a screen is shown on its own in tests.
+Who is signed in (US-20), in a React context: `checking` (still looking for a saved session), `signedIn`, `email`, `notice` (why the student was sent back to Log in, such as a session that ended), `signIn(email, password)`, `signUp(name, email, password)` and `signOut()`. `signIn` and `signUp` resolve to the message to show, or to null once signed in. The `auth` prop says how: the root layout passes `serverAuth()`, or `localAuth` in sample-data mode, which is also the default, so tests need nothing. While signed in with the server, the provider registers the session with `api.ts`, in a layout effect so it is in place before the semester's first request. `useSession()` is for screens that need a session (Log in, the root layout). `useOptionalSession()` returns null outside a `SessionProvider`, so `LogOutButton` simply draws nothing when a screen is shown on its own in tests.
 
 ### `src/components/WeekStrip.tsx`
 
@@ -289,7 +303,7 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 
 ### `src/app/_layout.tsx`
 
-expo-router's root, and the front door. It holds the `SessionProvider` and a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
+expo-router's root, and the front door. It holds the `SessionProvider` (with `serverAuth()`, or `localAuth` in sample-data mode) and keeps the splash screen up until the check for a saved session is done, so a student who is still signed in never sees Log in flash past. Below that is a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
 
 ### `src/app/(tabs)/_layout.tsx`
 
@@ -324,7 +338,7 @@ The courses first (`CourseCards`), then **Heads up** (`SpikeNotice`) for the nex
 
 Route: `/login`, the first screen of the app (US-27). Log out on Forecast comes back to it.
 
-An email field and a password field, with the password hidden. It checks that both are filled in and that the email looks like an email. A valid form signs in through `state/session.tsx`, and the root layout opens the app. There are no accounts behind it yet, and a note under the form says so: any email and password open the app on this device. Real authentication is US-19 to US-21.
+Two forms on one screen: **Log in** (email and password) and **Create account** (also a name), switched with the link under the button (US-20). Before asking the server it checks that every field is filled in, that the email looks like an email, and, for a new account, that the password has the 8 characters the server asks for. While waiting the button says "Logging in…" or "Creating account…" and cannot be pressed twice. Anything the server refuses shows the server's own message, and a session that ended shows a notice at the top until the student starts typing. On success the root layout opens the app. In sample-data mode a note under the form says any email and password open the app.
 
 ### `src/app/syllabus.tsx` — Add a syllabus
 
@@ -412,7 +426,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-662 tests across thirty-five test suites.
+838 tests across forty test suites.
 
 ```bash
 npm test                      # all of them
@@ -431,7 +445,7 @@ npx jest --watch              # while you work
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
 | `src/__tests__/tabs.test.tsx` | 4 | the tab bar: opens on Forecast, switches to This week and to Courses, and `/week` still lands on its tab |
 | `src/__tests__/forecast-focus.test.tsx` | 12 | Option A (#96): what Forecast keeps and what moved to Courses, the Heads up and Course spikes rows, the Fits, Busy and Over label (its dot in the load colour, its word in ink), and the Later this semester row |
-| `src/__tests__/front-door.test.tsx` | 7 | Log in is the front door: the app opens on it, keeps every screen behind it, opens Forecast with the semester loaded after signing in, and comes back to it on log out. Log out also works while the semester is loading and after it fails to load, and the next sign-in loads it again |
+| `src/__tests__/front-door.test.tsx` | 14 | Log in is the front door: the app opens on it, keeps every screen behind it, opens Forecast with the semester loaded after signing in, and comes back to it on log out. Log out also works while the semester is loading and after it fails to load, and the next sign-in loads it again. US-20: a saved session opens the app straight away, the splash screen stays up until the check is done, a wrong password stays on Log in, a new account opens the app, Log out ends the session on the server, and a 401 comes back to Log in with a notice |
 | `src/__tests__/contrast.test.ts` | 9 | every text colour against both backgrounds at WCAG AA (4.5 to 1), and that the measurement matches WCAG's |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
 | `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the wall card and start-by recommendation |
@@ -440,7 +454,12 @@ npx jest --watch              # while you work
 | `src/__tests__/ui-design.test.tsx` | 20 | the UI design: grouped rows, categories, course chips, plan link |
 | `src/__tests__/semester-from-server.test.tsx` | 4 | the provider: loading, then the app; the error screen; Try again; `initial` skips the server |
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
-| `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the note that there are no accounts yet, and Log out on Forecast |
+| `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the sample-data note, and Log out on Forecast |
+| `src/__tests__/login-accounts.test.tsx` | 27 | US-20 on the Log in screen: the right and wrong password, an unknown email, no connection, messages clearing, the busy button that cannot send twice, Create account (its name field, the 8-character check, an email already used, signing up then logging back in), and the notice when a session has ended |
+| `src/__tests__/session.test.tsx` | 22 | US-20: the session in sample-data mode and with the server, restoring a saved session (found, none, offline, failing), signing in and up, the cookie on requests from the very first one, a 401 sending the student back to Log in, and Log out |
+| `src/lib/auth.test.ts` | 43 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session (on a phone and on the web), Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
+| `src/lib/auth-client.test.ts` | 22 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection |
+| `src/lib/api-session.test.ts` | 55 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, and nothing added in sample-data mode |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (peak week, heavy weeks in words and labels, a course with none) |
@@ -500,6 +519,6 @@ cross-screen behaviour the whole product rests on, so it gets its own test.
 
 The server now supports Supabase as its persistent database through the Data Access Layer. When `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are configured, the server uses Supabase; otherwise, it uses the existing in-memory store. The client still manages task completion and estimate changes locally, so those client-side changes are not yet automatically saved back to the server.
 
-The server has accounts and sessions (US-21, `server/src/auth.ts`), but the login screen does not use them yet; that is the phone half (#43). Until then the screen is a preview with nothing behind it. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
+Email and password are the only way to sign in: no email check and no forgotten-password link this sprint, as LOGIN_DESIGN.md decides. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
