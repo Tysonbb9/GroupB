@@ -131,7 +131,7 @@ async getSyllabus(courseId: string) {
 
 async saveSyllabus(courseId: string, text: string) {
   requireCourse(courseId, 'save syllabus');
-  details.syllabi[courseId] = { courseId, text, readAt: new Date().toISOString() };
+  details.syllabi[courseId] = { courseId, text };
   return { ...details.syllabi[courseId] };
 }
 

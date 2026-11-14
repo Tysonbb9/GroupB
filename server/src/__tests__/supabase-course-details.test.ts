@@ -53,16 +53,12 @@ const ISO = /^\d{4}-\d{2}-\d{2}T/;
 
 describe('syllabi', () => {
   it('reads one course syllabus from the syllabi table', async () => {
-    const { store, calls } = fakeDatabase(ok({ course_id: 'cs262', text: 'Week 4', read_at: '2026-11-14T10:00:00+00:00' }));
+    const { store, calls } = fakeDatabase(ok({ course_id: 'cs262', text: 'Week 4' }));
 
-    await expect(store.getSyllabus('cs262')).resolves.toEqual({
-      courseId: 'cs262',
-      text: 'Week 4',
-      readAt: '2026-11-14T10:00:00.000Z',
-    });
+    await expect(store.getSyllabus('cs262')).resolves.toEqual({ courseId: 'cs262', text: 'Week 4' });
     expect(calls).toEqual([
       ['from', 'syllabi'],
-      ['select', 'course_id, text, read_at'],
+      ['select', 'course_id, text'],
       ['eq', 'course_id', 'cs262'],
       ['maybeSingle'],
     ]);
@@ -73,12 +69,12 @@ describe('syllabi', () => {
     await expect(store.getSyllabus('cs262')).resolves.toBeNull();
   });
 
-  it('saves by replacing the course row (upsert on course_id), timed now', async () => {
-    const { store, calls } = fakeDatabase(ok({ course_id: 'cs262', text: 'new', read_at: '2026-11-14T10:00:00Z' }));
+  it('saves by replacing the course row (upsert on course_id)', async () => {
+    const { store, calls } = fakeDatabase(ok({ course_id: 'cs262', text: 'new' }));
 
-    await store.saveSyllabus('cs262', 'new');
+    await expect(store.saveSyllabus('cs262', 'new')).resolves.toEqual({ courseId: 'cs262', text: 'new' });
     const [, row, options] = calls.find(([method]) => method === 'upsert')!;
-    expect(row).toEqual({ course_id: 'cs262', text: 'new', read_at: expect.stringMatching(ISO) });
+    expect(row).toEqual({ course_id: 'cs262', text: 'new' });
     expect(options).toEqual({ onConflict: 'course_id' });
   });
 

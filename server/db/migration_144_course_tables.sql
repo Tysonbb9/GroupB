@@ -24,8 +24,7 @@ begin;
 -- ---------------------------------------------------------------------------
 create table if not exists syllabi (
   course_id text primary key references courses (id) on delete cascade,
-  text      text not null check (length(btrim(text)) > 0),
-  read_at   timestamptz not null default now()
+  text      text not null check (length(btrim(text)) > 0)
 );
 
 -- ---------------------------------------------------------------------------
@@ -41,9 +40,6 @@ create table if not exists grade_weights (
   percent   numeric not null check (percent > 0 and percent <= 100),
   primary key (course_id, position)
 );
-
--- A part is named once per course, ignoring case and spaces.
-create unique index if not exists grade_weights_name_once on grade_weights (course_id, lower(btrim(name)));
 
 -- ---------------------------------------------------------------------------
 -- course_policies: the late rule and the drop rule (screen 1). Absences

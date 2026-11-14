@@ -95,8 +95,6 @@ export type Inputs = {
 export type Syllabus = {
   courseId: string;
   text: string;
-  /** When it was read, as an ISO date and time. */
-  readAt: string;
 };
 
 /** One graded part of a course, e.g. Exams, 30%. A course's parts add up to 100%. */

@@ -332,7 +332,7 @@ async updateSemester(updates: SemesterUpdates) {
 async getSyllabus(courseId: string) {
   const { data, error } = await this.client
     .from('syllabi')
-    .select('course_id, text, read_at')
+    .select('course_id, text')
     .eq('course_id', courseId)
     .maybeSingle();
 
@@ -340,22 +340,22 @@ async getSyllabus(courseId: string) {
     throw new DatabaseError(`Failed to load syllabus: ${error.message}`);
   }
 
-  return data ? { courseId: data.course_id, text: data.text, readAt: toIso(data.read_at) } : null;
+  return data ? { courseId: data.course_id, text: data.text } : null;
 }
 
 async saveSyllabus(courseId: string, text: string) {
   // One syllabus per course: a second save replaces the first.
   const { data, error } = await this.client
     .from('syllabi')
-    .upsert({ course_id: courseId, text, read_at: new Date().toISOString() }, { onConflict: 'course_id' })
-    .select('course_id, text, read_at')
+    .upsert({ course_id: courseId, text }, { onConflict: 'course_id' })
+    .select('course_id, text')
     .single();
 
   if (error) {
     throw new DatabaseError(`Failed to save syllabus: ${error.message}`);
   }
 
-  return { courseId: data.course_id, text: data.text, readAt: toIso(data.read_at) };
+  return { courseId: data.course_id, text: data.text };
 }
 
 async listGradeWeights(courseId: string) {

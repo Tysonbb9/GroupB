@@ -163,7 +163,6 @@ erDiagram
     SYLLABI {
         text course_id PK,FK
         text text
-        timestamptz read_at
     }
     GRADE_WEIGHTS {
         text course_id PK,FK
@@ -369,7 +368,6 @@ other id (section 4).
 |--------|------|------|---------|-------|
 | `course_id` | `TEXT` | no | — | Primary key. Foreign key → `courses.id`. One syllabus per course; a new one replaces it. |
 | `text` | `TEXT` | no | — | Every line of the syllabus. Not empty. |
-| `read_at` | `TIMESTAMPTZ` | no | `now()` | When it was read. |
 
 **`grade_weights`**: a course's graded parts, in the syllabus's order.
 
@@ -377,7 +375,7 @@ other id (section 4).
 |--------|------|------|---------|-------|
 | `course_id` | `TEXT` | no | — | Foreign key → `courses.id`. Part of the primary key. |
 | `position` | `INT` | no | — | 1 for the first part. Part of the primary key. |
-| `name` | `TEXT` | no | — | e.g. `"Exams"`. Not empty; named once per course, ignoring case and spaces. |
+| `name` | `TEXT` | no | — | e.g. `"Exams"`. Not empty. |
 | `detail` | `TEXT` | yes | — | e.g. `"two midterms"`. Null when there is none. |
 | `percent` | `NUMERIC` | no | — | More than 0 and at most 100. |
 
@@ -432,7 +430,6 @@ PRIMARY KEY (course_id)                    -- syllabi, course_policies
 PRIMARY KEY (course_id, position)          -- grade_weights
 PRIMARY KEY (user_id, course_id)           -- course_checkins
 PRIMARY KEY (user_id, week)                -- week_hours
-CREATE UNIQUE INDEX grade_weights_name_once ON grade_weights (course_id, lower(btrim(name)))
 CONSTRAINT late_both_or_neither
   CHECK ((late_percent_per_day IS NULL) = (late_max_days IS NULL))
 ```
@@ -484,11 +481,11 @@ Text ids keep the API contract byte-for-byte identical.
 | `review.hours` 0 < h ≤ 100 | `CHECK` on `reviews` | POST rejects `!(hours > 0) \|\| hours > 100` | — |
 | `category` closed set | `CHECK` on `tasks` | — | `categories.ts` closed union |
 | attendance both-null-or-both-set | `CHECK` on `courses` | — | `attendance: {...} \| null` |
-| grade weight 0 < p ≤ 100, named once | `CHECK` and unique index on `grade_weights` | `gradeWeightsProblem` (`rules.ts`) | — (#145) |
+| grade weight named, 0 < p ≤ 100 | `CHECK` on `grade_weights` | `gradeWeightsProblem` (`rules.ts`) | — (#145) |
 | grade weights add up to 100% | — (spans rows) | `gradeWeightsProblem` (`rules.ts`) | — (#145) |
-| late rule both-null-or-both-set, 0 < p ≤ 100, days ≥ 1 | `CHECK` on `course_policies` | `coursePoliciesProblem` (`rules.ts`) | — (#145) |
-| check-in answer closed set | `CHECK` on `course_checkins` | `CHECKIN_ANSWERS` (`rules.ts`) | — (#145) |
-| week hours: week 1–15, hours whole 1–80 | `CHECK` on `week_hours` | `weekHoursProblem` (`rules.ts`), same limit as PATCH /semester | — (#148) |
+| late rule both-null-or-both-set, 0 < p ≤ 100, days ≥ 1 | `CHECK` on `course_policies` | — (#145 adds its route) | — (#145) |
+| check-in answer closed set | `CHECK` on `course_checkins` | `CheckinAnswer` type (`types.ts`) | — (#145) |
+| week hours: week 1–15, hours whole 1–80 | `CHECK` on `week_hours` | — (#148 adds its route; same 80 as `MAX_WEEKLY_CAPACITY`) | — (#148) |
 
 ---
 

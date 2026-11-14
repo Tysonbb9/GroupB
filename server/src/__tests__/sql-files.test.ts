@@ -114,7 +114,7 @@ describe('the Supabase store and the SQL agree', () => {
   });
 
   it.each([
-    ['syllabi', ['course_id', 'text', 'read_at']],
+    ['syllabi', ['course_id', 'text']],
     ['grade_weights', ['course_id', 'position', 'name', 'detail', 'percent']],
     ['course_policies', ['course_id', 'late_percent_per_day', 'late_max_days', 'drop_rule']],
     ['course_checkins', ['user_id', 'course_id', 'answer', 'answered_at']],
@@ -131,6 +131,13 @@ describe('the Supabase store and the SQL agree', () => {
     expect(tableBody(schema, 'course_policies')).toMatch(/course_id\s+text primary key/);
     expect(tableBody(schema, 'course_checkins')).toMatch(/primary key \(user_id, course_id\)/);
     expect(tableBody(schema, 'week_hours')).toMatch(/primary key \(user_id, week\)/);
+  });
+
+  it('has no column or rule the card and the AI screens did not ask for', () => {
+    // types.ts: a field that no function uses and no screen draws does not belong yet.
+    expect(tableBody(schema, 'syllabi')).not.toMatch(/read_at/);
+    expect(schema).not.toMatch(/grade_weights_name_once/);
+    expect(migration144).not.toMatch(/grade_weights_name_once|read_at/);
   });
 
   it('the check-in answers match the code', () => {

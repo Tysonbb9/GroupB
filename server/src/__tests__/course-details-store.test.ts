@@ -31,9 +31,9 @@ describe('syllabi', () => {
     await expect(store.getSyllabus('cs262')).resolves.toBeNull();
   });
 
-  it('saves the text, with when it was read, and reads it back', async () => {
+  it('saves the text and reads it back', async () => {
     const saved = await store.saveSyllabus('cs262', 'Week 4: Prototype demo (6 hours)');
-    expect(saved).toEqual({ courseId: 'cs262', text: 'Week 4: Prototype demo (6 hours)', readAt: expect.stringMatching(ISO) });
+    expect(saved).toEqual({ courseId: 'cs262', text: 'Week 4: Prototype demo (6 hours)' });
     await expect(store.getSyllabus('cs262')).resolves.toEqual(saved);
   });
 
