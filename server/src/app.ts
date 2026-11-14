@@ -9,6 +9,18 @@ export const app = express();
 const store = createStore();
 
 /**
+ * The most hours a task estimate or a review can have. Same limit as the
+ * client's MAX_ESTIMATE_HOURS and the database's CHECK, so a value the API
+ * accepts can always be saved.
+ */
+const MAX_HOURS = 100;
+
+/** True when value is a number more than 0 and up to MAX_HOURS. */
+function isValidHours(value: unknown): value is number {
+  return typeof value === 'number' && value > 0 && value <= MAX_HOURS;
+}
+
+/**
  * CORS. A browser (the Expo Web version of the client) refuses to let a page
  * read a response from a different address unless the server allows it. A
  * phone does not check. With login the browser sends the session cookie, and
@@ -181,13 +193,10 @@ app.patch('/tasks/:id', async (req, res) => {
     res.status(400).json({ error: 'done must be true or false' });
     return;
   }
-
-  // Same limits as the client's MAX_ESTIMATE_HOURS and the database's CHECK,
-  // so a value the API accepts can always be saved.
   if (
     estimatedHours !== undefined &&
     estimatedHours !== null &&
-    (typeof estimatedHours !== 'number' || !(estimatedHours > 0) || estimatedHours > 100)
+    !isValidHours(estimatedHours)
   ) {
     res.status(400).json({ error: 'estimatedHours must be a number more than 0 and up to 100, or null' });
     return;
@@ -222,7 +231,7 @@ app.post('/courses/:id/reviews', async (req, res) => {
     return;
   }
 
-  if (typeof hours !== 'number' || !(hours > 0) || hours > 100) {
+  if (!isValidHours(hours)) {
     res.status(400).json({ error: 'hours must be a number more than 0 and up to 100' });
     return;
   }
@@ -293,7 +302,7 @@ app.post('/tasks', async (req, res) => {
 
     if (
       t.estimatedHours !== null &&
-      (typeof t.estimatedHours !== 'number' || !(t.estimatedHours > 0) || t.estimatedHours > 100)
+      !isValidHours(t.estimatedHours)
     ) {
       res.status(400).json({ error: `Task ${n}: estimatedHours must be more than 0 and up to 100, or null` });
       return;
@@ -319,6 +328,13 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
     res.status(413).json({
       error: 'Request entity too large',
     });
+    return;
+  }
+
+  // express.json() could not read the body. That's the client's mistake,
+  // so answer 400 and don't log it as a server failure.
+  if (error.type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'Body must be valid JSON' });
     return;
   }
 
