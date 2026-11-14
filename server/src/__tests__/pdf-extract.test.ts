@@ -101,6 +101,77 @@ describe('reading a syllabus PDF', () => {
     expect((await extractPdfText(pdf)).text).toBe('• Week 9 – Café quiz\nWeek 10 — Résumé (2 hours)');
   });
 
+  it('keeps two lines of sideways text apart (review #115, finding 1)', async () => {
+    const pdf = await makePdf([
+      [
+        { text: 'Week 1: Quiz (2 hours)', x: 100, y: 300, rotate: 90 },
+        { text: 'Week 2: Essay (4 hours)', x: 116, y: 300, rotate: 90 },
+      ],
+    ]);
+    expect((await extractPdfText(pdf)).text).toBe('Week 1: Quiz (2 hours)\nWeek 2: Essay (4 hours)');
+  });
+
+  it('reads "1½ hours" as 1.5 hours (review #115, finding 2)', async () => {
+    const pdf = await makeTextPdf(['Week 3: Reading (1½ hours)']);
+    expect((await extractPdfText(pdf)).text).toBe('Week 3: Reading (1.5 hours)');
+  });
+
+  it('reads text running down the page, one line per line', async () => {
+    const pdf = await makePdf([
+      [
+        { text: 'Week 1: Quiz (2 hours)', x: 500, y: 600, rotate: -90 },
+        { text: 'Week 2: Essay (4 hours)', x: 484, y: 600, rotate: -90 },
+      ],
+    ]);
+    expect((await extractPdfText(pdf)).text).toBe('Week 1: Quiz (2 hours)\nWeek 2: Essay (4 hours)');
+  });
+
+  it('reads upside-down text, one line per line', async () => {
+    const pdf = await makePdf([
+      [
+        { text: 'Week 1: Quiz (2 hours)', x: 500, y: 500, rotate: 180 },
+        { text: 'Week 2: Essay (4 hours)', x: 500, y: 516, rotate: 180 },
+      ],
+    ]);
+    expect((await extractPdfText(pdf)).text).toBe('Week 1: Quiz (2 hours)\nWeek 2: Essay (4 hours)');
+  });
+
+  it('reads the upright text first, then a sideways label in the margin', async () => {
+    const pdf = await makePdf([
+      [
+        { text: 'Draft schedule', x: 30, y: 300, rotate: 90 },
+        { text: 'Week 1: Intro', y: 700 },
+        { text: 'Week 2: Quiz (1 hour)', y: 684 },
+      ],
+    ]);
+    expect((await extractPdfText(pdf)).text.split('\n')).toEqual([
+      'Week 1: Intro',
+      'Week 2: Quiz (1 hour)',
+      'Draft schedule',
+    ]);
+  });
+
+  it('reads a schedule table with sideways column headings', async () => {
+    const pdf = await makePdf([
+      [
+        { text: 'Week', x: 80, y: 640, rotate: 90 },
+        { text: 'Due', x: 180, y: 640, rotate: 90 },
+        { text: 'Week 3', x: 72, y: 620 },
+        { text: 'Problem set 1 (3 hours)', x: 160, y: 620 },
+      ],
+    ]);
+    expect((await extractPdfText(pdf)).text.split('\n')).toEqual([
+      'Week 3 Problem set 1 (3 hours)',
+      'Week',
+      'Due',
+    ]);
+  });
+
+  it('reads ¼ and ¾ as decimals too', async () => {
+    const pdf = await makeTextPdf(['Week 4: Lab (2¼ hours)', 'Week 5: Quiz (¾ hour)']);
+    expect((await extractPdfText(pdf)).text).toBe('Week 4: Lab (2.25 hours)\nWeek 5: Quiz (0.75 hour)');
+  });
+
   it('reads bold text', async () => {
     const pdf = await makePdf([[{ text: 'Week 5: Exam (6 hours)', y: 700, bold: true }]]);
     expect((await extractPdfText(pdf)).text).toBe('Week 5: Exam (6 hours)');

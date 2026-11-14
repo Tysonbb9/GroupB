@@ -4,15 +4,19 @@ This is the database design deliverable for the Project Implementation grade.
 It describes the tables, columns, keys and rules for the Crunch Week database,
 which runs on **Postgres via Supabase**.
 
-The design is deliberately scoped to what the app and API already send today.
-Every table and column below can be traced to a field in `server/src/types.ts`
-(`Semester`, `Course`, `Task`, `Review`) or to the validation in the server
-(`server/src/app.ts`) and the client (`client/src/lib/`). Anything the app does
-not use yet is listed in [Not in this design yet](#not-in-this-design-yet) and
-left out of the tables.
+The design is deliberately scoped to what the app and API send today. The four
+live tables (`semester`, `courses`, `tasks`, `reviews`) can be traced to a field
+in `server/src/types.ts` (`Semester`, `Course`, `Task`, `Review`) or to the
+validation in the server (`server/src/app.ts`) and the client
+(`client/src/lib/`). The login tables come from Better Auth (see
+[3.5](#35-login-tables-better-auth)), and `enrollments` says which student takes
+which course. Anything the app does not use yet is listed in
+[Not in this design yet](#not-in-this-design-yet) and left out of the tables.
 
 The SQL that builds this design is in `server/db/` (`schema.sql`, `seed.sql`,
-`reset.sql`); `server/README.md` says how to run it.
+`reset.sql`); `server/README.md` says how to run it. To add tables to a database
+that already holds data, use a migration file such as
+`migration_127_users_enrollments.sql`, which leaves existing rows alone.
 
 ---
 
@@ -66,6 +70,10 @@ erDiagram
     SEMESTER ||--o{ COURSES : "contains"
     COURSES ||--o{ TASKS : "has"
     COURSES ||--o{ REVIEWS : "receives"
+    USER ||--o{ ENROLLMENTS : "takes"
+    COURSES ||--o{ ENROLLMENTS : "taken by"
+    USER ||--o{ SESSION : "signs in with"
+    USER ||--o{ ACCOUNT : "has"
 
     SEMESTER {
         text id PK
@@ -98,7 +106,57 @@ erDiagram
         text comment
         timestamptz created_at
     }
+    USER {
+        text id PK
+        text name
+        text email UK
+        boolean emailVerified
+        text image
+        timestamptz createdAt
+        timestamptz updatedAt
+    }
+    SESSION {
+        text id PK
+        text userId FK
+        text token UK
+        timestamptz expiresAt
+        text ipAddress
+        text userAgent
+        timestamptz createdAt
+        timestamptz updatedAt
+    }
+    ACCOUNT {
+        text id PK
+        text userId FK
+        text accountId
+        text providerId
+        text password
+        text accessToken
+        text refreshToken
+        text idToken
+        timestamptz accessTokenExpiresAt
+        timestamptz refreshTokenExpiresAt
+        text scope
+        timestamptz createdAt
+        timestamptz updatedAt
+    }
+    VERIFICATION {
+        text id PK
+        text identifier
+        text value
+        timestamptz expiresAt
+        timestamptz createdAt
+        timestamptz updatedAt
+    }
+    ENROLLMENTS {
+        text user_id PK,FK
+        text course_id PK,FK
+    }
 ```
+
+`VERIFICATION` has no link to the other tables: Better Auth looks its rows up by
+`identifier`. It is created now but not used this sprint (no email check, no
+forgot-password).
 
 ---
 
@@ -208,18 +266,71 @@ id TEXT PRIMARY KEY DEFAULT 'review-' || nextval('review_id_seq')
 FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE RESTRICT
 ```
 
-### 3.5 Access: Row Level Security
+### 3.5 Login tables (Better Auth)
+
+Login (US-20, US-21) uses [Better Auth](https://www.better-auth.com), which
+keeps its accounts and sessions in four tables. The design of login is in
+`docs/LOGIN_DESIGN.md`. Their columns are Better Auth's own, in its camelCase
+names (so they are quoted in SQL), exactly as its command line tool writes
+them. Better Auth's `user` table **is** our table of students: there is only one
+table of users, and every other table points at `"user"."id"`. Ids are `TEXT`,
+like the other ids in the database.
+
+| Table | What it holds | Key columns |
+|-------|---------------|-------------|
+| `"user"` | One row per student | `id` PK, `email` unique, `name`, `emailVerified`, `image` |
+| `"session"` | One row per signed-in phone or browser | `id` PK, `token` unique, `userId` → `"user"`, `expiresAt`, `ipAddress`, `userAgent` |
+| `"account"` | How a student signs in. For email and password, `providerId` is `credential` and `password` holds the hash. | `id` PK, `userId` → `"user"`, `accountId`, `providerId`, `password`, plus token columns for other sign-in methods |
+| `"verification"` | Short-lived codes for email checks and password resets | `id` PK, `identifier`, `value`, `expiresAt` |
+
+All four have `createdAt` and `updatedAt`. Deleting a student deletes their
+sessions and accounts (`ON DELETE CASCADE`). `"verification"` is unused this
+sprint, since there is no email check and no forgot-password, but Better Auth
+expects the table to exist.
+
+**Do not change these columns by hand.** If Better Auth is upgraded or given a
+plugin that needs new columns, regenerate the SQL with `npx auth@latest generate`
+and add a new migration file.
+
+### 3.6 `enrollments`
+
+Which student takes which course.
+
+| Column | Type | Null | Default | Notes |
+|--------|------|------|---------|-------|
+| `user_id` | `TEXT` | no | — | Foreign key → `"user".id`. Part of the primary key. |
+| `course_id` | `TEXT` | no | — | Foreign key → `courses.id`. Part of the primary key. |
+
+**Rules**
+
+- A student and a course can be paired once (composite primary key).
+- Deleting a student deletes their enrollments (`ON DELETE CASCADE`).
+- A course that students take cannot be deleted (`ON DELETE RESTRICT`), like a
+  course with tasks or reviews.
+
+```sql
+PRIMARY KEY (user_id, course_id)
+FOREIGN KEY (user_id)   REFERENCES "user" (id)   ON DELETE CASCADE
+FOREIGN KEY (course_id) REFERENCES courses (id)  ON DELETE RESTRICT
+CREATE INDEX enrollments_course_id_idx ON enrollments (course_id)
+```
+
+### 3.7 Access: Row Level Security
 
 Supabase serves every table to anyone holding the project's **public**
 (publishable) key, which is not a secret. Tables made with SQL start with Row
 Level Security (RLS) **off**, which would let anyone with that key read and
-change the data. All four tables turn RLS **on** with **no policies**, which
+change the data. All tables turn RLS **on** with **no policies**, which
 refuses every request made with the public key. The server uses the **secret**
-key, which bypasses RLS, so the app is unaffected. Per-user policies arrive
-with login (US-20, US-21).
+key, which bypasses RLS, so the app is unaffected. Better Auth connects with
+`DATABASE_URL`, Supabase's Postgres connection string, as the `postgres` role,
+which bypasses RLS too. There are no per-user policies: the server checks the
+session and decides what each student may see (US-21).
 
 ```sql
-ALTER TABLE semester ENABLE ROW LEVEL SECURITY;  -- and courses, tasks, reviews
+ALTER TABLE semester ENABLE ROW LEVEL SECURITY;
+-- and courses, tasks, reviews, "user", "session", "account", "verification",
+-- enrollments
 ```
 
 ---
@@ -235,9 +346,9 @@ sends `id` as a string. To keep the client unchanged, the database keeps
 - `reviews.id` = a generated slug, e.g. `'review-1'`.
 
 Integer `SERIAL` ids (as in the earlier `DB Schema.md` sketch) are deferred.
-They become attractive once users and login arrive (US-19 to US-21), when
-surrogate keys and per-user rows make integer ids worth the mapping layer. Until
-then, text ids keep the API contract byte-for-byte identical.
+Login has now arrived (US-20, US-21) and did not need them: Better Auth makes
+its own text ids, so `"user".id` is `TEXT` and `enrollments.user_id` matches it.
+Text ids keep the API contract byte-for-byte identical.
 
 ---
 
@@ -259,8 +370,11 @@ These are deliberately out of scope for this design, because the app and API do
 not send them yet. They are listed so the team knows they are deferred, not
 forgotten.
 
-- **Users and login** (US-19 to US-21, FR-18 to FR-20): no `students` table, no
-  authentication or authorization. The app has no login today.
+- **Per-student data**: tasks, reviews and the semester are still shared by
+  everyone who signs in. Only `enrollments` ties a student to anything; tasks do
+  not have an owner yet.
+- **Email check and forgot-password**: not this sprint (see
+  `docs/LOGIN_DESIGN.md`). The `"verification"` table is ready for them.
 - **Syllabus storage** (US-22 to US-24, FR-21 to FR-23): the server parses a
   syllabus PDF but does not store it. No `syllabi` table yet.
 - **Weekly difficulty prediction** (US-25, FR-24): the `weekly_difficulty`
@@ -270,5 +384,7 @@ forgotten.
 - **Semester history**: a single `semester` row; no multi-semester history.
 
 These belong to later phases and later issues in the Supabase series. When they
-land, the `DB Schema.md` sketch (students, semesters, classes, enrollments,
-syllabi, weekly_difficulty) is the starting point to extend this design.
+land, the `DB Schema.md` sketch (semesters, classes, syllabi, weekly_difficulty)
+is the starting point to extend this design. Its `students` and `enrollments`
+tables are replaced by `"user"` and `enrollments` above. The course tables for
+the AI screens are added by part 2 (#144), which also updates the ER diagram.

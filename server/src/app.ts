@@ -1,4 +1,6 @@
 import express from 'express';
+import { toNodeHandler, fromNodeHeaders } from 'better-auth/node';
+import { auth, CLIENT_ORIGIN } from './auth';
 import { createStore } from './data/create-store';
 import { syllabusRouter } from './syllabus/routes';
 import { DatabaseError } from './data/database-error';
@@ -7,14 +9,29 @@ export const app = express();
 const store = createStore();
 
 /**
+ * The most hours a task estimate or a review can have. Same limit as the
+ * client's MAX_ESTIMATE_HOURS and the database's CHECK, so a value the API
+ * accepts can always be saved.
+ */
+const MAX_HOURS = 100;
+
+/** True when value is a number more than 0 and up to MAX_HOURS. */
+function isValidHours(value: unknown): value is number {
+  return typeof value === 'number' && value > 0 && value <= MAX_HOURS;
+}
+
+/**
  * CORS. A browser (the Expo Web version of the client) refuses to let a page
  * read a response from a different address unless the server allows it. A
- * phone does not check. "*" is fine for a prototype with no login or cookies.
+ * phone does not check. With login the browser sends the session cookie, and
+ * then "*" is not allowed: the server has to name Expo Web's address and say
+ * that cookies are fine (Allow-Credentials).
  * The browser also sends an OPTIONS "preflight" before a PATCH, or before a
- * POST of a PDF, so answer that.
+ * POST of a PDF or JSON, so answer that. It needs no session.
  */
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', CLIENT_ORIGIN);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') {
@@ -24,7 +41,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// Sign up, sign in, sign out, get-session: Better Auth's own routes (see
+// auth.ts). Above express.json(), because Better Auth reads the body itself.
+app.all('/api/auth/*splat', toNodeHandler(auth));
+
 app.use(express.json()); // Lets PATCH read a JSON body
+
+/**
+ * Every route below needs a signed-in student. Without a valid session
+ * cookie the answer is 401, and the phone shows the login screen. The session
+ * goes on res.locals for routes that later keep each student's own data.
+ */
+app.use(async (req, res, next) => {
+  const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+  if (!session) {
+    res.status(401).json({ error: 'Sign in first' });
+    return;
+  }
+  res.locals.session = session;
+  next();
+});
 
 // POST /syllabus/text: a syllabus PDF in, its text out. See syllabus/routes.ts.
 app.use('/syllabus', syllabusRouter);
@@ -157,13 +193,10 @@ app.patch('/tasks/:id', async (req, res) => {
     res.status(400).json({ error: 'done must be true or false' });
     return;
   }
-
-  // Same limits as the client's MAX_ESTIMATE_HOURS and the database's CHECK,
-  // so a value the API accepts can always be saved.
   if (
     estimatedHours !== undefined &&
     estimatedHours !== null &&
-    (typeof estimatedHours !== 'number' || !(estimatedHours > 0) || estimatedHours > 100)
+    !isValidHours(estimatedHours)
   ) {
     res.status(400).json({ error: 'estimatedHours must be a number more than 0 and up to 100, or null' });
     return;
@@ -198,7 +231,7 @@ app.post('/courses/:id/reviews', async (req, res) => {
     return;
   }
 
-  if (typeof hours !== 'number' || !(hours > 0) || hours > 100) {
+  if (!isValidHours(hours)) {
     res.status(400).json({ error: 'hours must be a number more than 0 and up to 100' });
     return;
   }
@@ -269,7 +302,7 @@ app.post('/tasks', async (req, res) => {
 
     if (
       t.estimatedHours !== null &&
-      (typeof t.estimatedHours !== 'number' || !(t.estimatedHours > 0) || t.estimatedHours > 100)
+      !isValidHours(t.estimatedHours)
     ) {
       res.status(400).json({ error: `Task ${n}: estimatedHours must be more than 0 and up to 100, or null` });
       return;
@@ -295,6 +328,13 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
     res.status(413).json({
       error: 'Request entity too large',
     });
+    return;
+  }
+
+  // express.json() could not read the body. That's the client's mistake,
+  // so answer 400 and don't log it as a server failure.
+  if (error.type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'Body must be valid JSON' });
     return;
   }
 

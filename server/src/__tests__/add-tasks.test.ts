@@ -1,6 +1,10 @@
-import request from 'supertest';
-import { app } from '../app';
 import { db, resetDb } from '../data/db';
+import { signedIn, type Api } from '../testing/session';
+
+let api: Api;
+beforeAll(async () => {
+  api = await signedIn(); // every route outside /api/auth needs a session
+});
 
 // Every test starts from the same sample semester.
 beforeEach(() => resetDb());
@@ -10,7 +14,7 @@ const finalProject = { courseId: 'cs262', title: 'Final project', dueWeek: 9, es
 
 describe('POST /tasks (US-30: add the reviewed assignments)', () => {
   it('adds every task and returns them with ids and 201', async () => {
-    const res = await request(app).post('/tasks').send({ tasks: [labReport, finalProject] });
+    const res = await api.post('/tasks').send({ tasks: [labReport, finalProject] });
 
     expect(res.status).toBe(201);
     expect(res.body).toHaveLength(2);
@@ -22,16 +26,16 @@ describe('POST /tasks (US-30: add the reviewed assignments)', () => {
 
   it('saves them, so GET /tasks shows them afterwards', async () => {
     const before = db.tasks.length;
-    await request(app).post('/tasks').send({ tasks: [labReport] });
+    await api.post('/tasks').send({ tasks: [labReport] });
 
-    const res = await request(app).get('/tasks?courseId=cs262');
+    const res = await api.get('/tasks?courseId=cs262');
     expect(db.tasks).toHaveLength(before + 1);
     expect(res.body.map((t: { title: string }) => t.title)).toContain('Lab report');
   });
 
   it('gives ids that no other task is using', async () => {
-    const first = await request(app).post('/tasks').send({ tasks: [labReport] });
-    const second = await request(app).post('/tasks').send({ tasks: [labReport] });
+    const first = await api.post('/tasks').send({ tasks: [labReport] });
+    const second = await api.post('/tasks').send({ tasks: [labReport] });
 
     const ids = db.tasks.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -39,7 +43,7 @@ describe('POST /tasks (US-30: add the reviewed assignments)', () => {
   });
 
   it('trims the title', async () => {
-    const res = await request(app)
+    const res = await api
       .post('/tasks')
       .send({ tasks: [{ ...labReport, title: '  Lab report  ' }] });
     expect(res.body[0].title).toBe('Lab report');
@@ -57,14 +61,14 @@ describe('POST /tasks (US-30: add the reviewed assignments)', () => {
     ['101 hours', { tasks: [{ ...labReport, estimatedHours: 101 }] }],
     ['hours as text', { tasks: [{ ...labReport, estimatedHours: '3' }] }],
   ])('rejects %s with 400 and a message', async (_name, body) => {
-    const res = await request(app).post('/tasks').send(body);
+    const res = await api.post('/tasks').send(body);
     expect(res.status).toBe(400);
     expect(typeof res.body.error).toBe('string');
   });
 
   it('adds nothing when any one task is invalid', async () => {
     const before = db.tasks.length;
-    const res = await request(app)
+    const res = await api
       .post('/tasks')
       .send({ tasks: [labReport, { ...finalProject, dueWeek: 20 }] });
 

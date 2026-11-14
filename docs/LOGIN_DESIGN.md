@@ -56,10 +56,10 @@ export const authClient = createAuthClient({
 ```
 
 - Sign in with `authClient.signIn.email({ email, password })` and sign up with `authClient.signUp.email({ name, email, password })`.
-- Our own requests send the cookie by hand, with `credentials: 'omit'` so the phone does not add one of its own:
+- Our own requests send the cookie by hand, with `credentials: 'omit'` so the phone does not add one of its own. `getCookie()` returns a promise (checked against Better Auth 1.7.21), so await it:
 
 ```ts
-fetch(url, { headers: { Cookie: authClient.getCookie() }, credentials: 'omit' });
+fetch(url, { headers: { Cookie: await authClient.getCookie() }, credentials: 'omit' });
 ```
 
 - A `401` from any of our routes sends the student to the login screen.

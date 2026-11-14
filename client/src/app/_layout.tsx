@@ -1,6 +1,8 @@
-import { Stack } from 'expo-router';
-import React from 'react';
+import { SplashScreen, Stack } from 'expo-router';
+import React, { useEffect } from 'react';
 import { semester as fixture } from '../data/semester';
+import { localAuth } from '../lib/auth';
+import { serverAuth } from '../lib/auth-client';
 import { SemesterProvider } from '../state/semester-store';
 import { SessionProvider, useSession } from '../state/session';
 import { theme } from '../theme';
@@ -12,6 +14,20 @@ import { theme } from '../theme';
  */
 const USE_FIXTURE = process.env.EXPO_PUBLIC_USE_FIXTURE === '1';
 
+// Keep the splash screen up while the app looks for a saved session, so a
+// student who is still signed in never sees Log in flash past (Expo Router's
+// authentication guide).
+SplashScreen.preventAutoHideAsync();
+
+/** Hides the splash screen once the app knows whether anyone is signed in. */
+function SplashScreenController() {
+  const { checking } = useSession();
+  useEffect(() => {
+    if (!checking) SplashScreen.hide();
+  }, [checking]);
+  return null;
+}
+
 /**
  * Log in is the front door. Until the student signs in, only the Log in
  * screen exists; after, only the app does, and Stack.Protected sends them to
@@ -19,8 +35,7 @@ const USE_FIXTURE = process.env.EXPO_PUBLIC_USE_FIXTURE === '1';
  * server that is down never hides the Log in screen.
  */
 function RootNavigator() {
-  const { email } = useSession();
-  const signedIn = email !== null;
+  const { signedIn } = useSession();
 
   const stack = (
     <Stack
@@ -48,7 +63,8 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <SessionProvider>
+    <SessionProvider auth={USE_FIXTURE ? localAuth : serverAuth()}>
+      <SplashScreenController />
       <RootNavigator />
     </SessionProvider>
   );

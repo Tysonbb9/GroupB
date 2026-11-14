@@ -1,9 +1,13 @@
-import request from 'supertest';
-import { app } from '../app';
 import { resetDb } from '../data/db';
 import { DatabaseError } from '../data/database-error';
 import { MemoryStore } from '../data/memory-store';
 import { SupabaseStore } from '../data/supabase-store';
+import { signedIn, type Api } from '../testing/session';
+
+let api: Api;
+beforeAll(async () => {
+  api = await signedIn(); // every route outside /api/auth needs a session
+});
 
 /**
  * US-32: the student changes how many hours they have each week, and the
@@ -14,13 +18,13 @@ beforeEach(() => resetDb());
 
 /** The capacity a fresh GET /semester reports, so a test sees what was kept. */
 async function capacityNow(): Promise<number> {
-  const res = await request(app).get('/semester');
+  const res = await api.get('/semester');
   return res.body.weeklyCapacity;
 }
 
 describe('TP-36: PATCH /semester sets the weekly capacity', () => {
   it('saves new hours and returns the whole semester with them', async () => {
-    const res = await request(app).patch('/semester').send({ weeklyCapacity: 20 });
+    const res = await api.patch('/semester').send({ weeklyCapacity: 20 });
 
     expect(res.status).toBe(200);
     expect(res.body.weeklyCapacity).toBe(20);
@@ -29,12 +33,12 @@ describe('TP-36: PATCH /semester sets the weekly capacity', () => {
   });
 
   it('keeps the new hours for the next request', async () => {
-    await request(app).patch('/semester').send({ weeklyCapacity: 20 });
+    await api.patch('/semester').send({ weeklyCapacity: 20 });
     expect(await capacityNow()).toBe(20);
   });
 
   it.each([1, 80])('accepts %i hours, the edge of the range', async (hours) => {
-    const res = await request(app).patch('/semester').send({ weeklyCapacity: hours });
+    const res = await api.patch('/semester').send({ weeklyCapacity: hours });
 
     expect(res.status).toBe(200);
     expect(res.body.weeklyCapacity).toBe(hours);
@@ -49,7 +53,7 @@ describe('TP-36: PATCH /semester sets the weekly capacity', () => {
     ['text', { weeklyCapacity: '20' }],
     ['null', { weeklyCapacity: null }],
   ])('refuses hours that are %s, and changes nothing', async (_case, body) => {
-    const res = await request(app).patch('/semester').send(body);
+    const res = await api.patch('/semester').send(body);
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({

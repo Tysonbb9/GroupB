@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { degrees, PDFDocument, StandardFonts } from 'pdf-lib';
 
 /**
  * Real PDFs for the tests, built in code so every test shows exactly what is
@@ -14,6 +14,8 @@ export type Run = {
   y: number;
   size?: number;
   bold?: boolean;
+  /** Turn the text this many degrees counter-clockwise about its start. */
+  rotate?: number;
 };
 
 const LETTER: [number, number] = [612, 792];
@@ -32,6 +34,7 @@ export async function makePdf(pages: Run[][]): Promise<Uint8Array> {
         y: run.y,
         size: run.size ?? 12,
         font: run.bold ? bold : regular,
+        rotate: degrees(run.rotate ?? 0),
       });
     }
   }
