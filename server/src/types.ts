@@ -84,3 +84,50 @@ export type Review = {
 export type Inputs = {
   reviews: Review[];
 };
+/*
+ * Course details for the AI screens (#123, #144). The syllabus screen reads
+ * these from a syllabus and the student confirms them; the check-in question
+ * and per-week hours are each student's own. docs/DATABASE_DESIGN.md has the
+ * tables, and src/rules.ts has the rules code checks.
+ */
+
+/** The text read from one course's syllabus, kept so it isn't read again. */
+export type Syllabus = {
+  courseId: string;
+  text: string;
+  /** When it was read, as an ISO date and time. */
+  readAt: string;
+};
+
+/** One graded part of a course, e.g. Exams, 30%. A course's parts add up to 100%. */
+export type GradeWeight = {
+  name: string;
+  /** A short note from the syllabus, e.g. "two midterms". null when there is none. */
+  detail: string | null;
+  percent: number;
+};
+
+/** How a course treats late work and dropped grades. Attendance stays on Course. */
+export type CoursePolicies = {
+  /** null when the syllabus has no late rule. */
+  late: { percentPerDay: number; maxDays: number } | null;
+  /** e.g. "lowest quiz". null when nothing is dropped. */
+  dropRule: string | null;
+};
+
+/** The answers to "Is this course still on schedule?" (the check-in screen). */
+export type CheckinAnswer = 'on-schedule' | 'changed' | 'none-of-these';
+
+/** A student's latest answer about one course. */
+export type CourseCheckin = {
+  courseId: string;
+  answer: CheckinAnswer;
+  /** When they answered, as an ISO date and time. */
+  answeredAt: string;
+};
+
+/** A student's hours for one week, replacing their weekly number that week (#148). */
+export type WeekHours = {
+  week: number;
+  hours: number;
+};
