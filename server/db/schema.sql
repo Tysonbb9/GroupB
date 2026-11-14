@@ -1,7 +1,7 @@
 -- Crunch Week database schema (Supabase 3/7).
 --
--- Creates the four tables from docs/DATABASE_DESIGN.md, with their keys and
--- rules. Run it once on an empty project in the Supabase SQL editor, then run
+-- Creates the tables from docs/DATABASE_DESIGN.md (the four live tables, Better
+-- Auth's four login tables, and enrollments), with their keys and rules. Run it once on an empty project in the Supabase SQL editor, then run
 -- seed.sql. To start over, run reset.sql first. See server/README.md.
 --
 -- The rules (CHECK constraints) match the validation in server/src/app.ts and
@@ -80,15 +80,90 @@ alter sequence review_id_seq owned by reviews.id;  -- dropped with the table
 create index reviews_course_id_idx on reviews (course_id);  -- GET /courses/:id/reviews
 
 -- ---------------------------------------------------------------------------
+-- Better Auth's tables (US-20, US-21; docs/LOGIN_DESIGN.md). Better Auth keeps
+-- accounts and sessions here, with its own column names (camelCase, so they
+-- are quoted). Its "user" table is our table of students: there is only one
+-- table of users. Ids are text, like our other ids.
+-- ---------------------------------------------------------------------------
+create table "user" (
+  "id"            text primary key,
+  "name"          text not null,
+  "email"         text not null unique,
+  "emailVerified" boolean not null default false,
+  "image"         text,
+  "createdAt"     timestamptz not null default now(),
+  "updatedAt"     timestamptz not null default now()
+);
+
+create table "session" (
+  "id"        text primary key,
+  "expiresAt" timestamptz not null,
+  "token"     text not null unique,
+  "createdAt" timestamptz not null default now(),
+  "updatedAt" timestamptz not null default now(),
+  "ipAddress" text,
+  "userAgent" text,
+  "userId"    text not null references "user" ("id") on delete cascade
+);
+
+create table "account" (
+  "id"                    text primary key,
+  "accountId"             text not null,
+  "providerId"            text not null,  -- 'credential' for email and password
+  "userId"                text not null references "user" ("id") on delete cascade,
+  "accessToken"           text,
+  "refreshToken"          text,
+  "idToken"               text,
+  "accessTokenExpiresAt"  timestamptz,
+  "refreshTokenExpiresAt" timestamptz,
+  "scope"                 text,
+  "password"              text,           -- the hashed password, never the password
+  "createdAt"             timestamptz not null default now(),
+  "updatedAt"             timestamptz not null default now()
+);
+
+create table "verification" (
+  "id"         text primary key,
+  "identifier" text not null,
+  "value"      text not null,
+  "expiresAt"  timestamptz not null,
+  "createdAt"  timestamptz not null default now(),
+  "updatedAt"  timestamptz not null default now()
+);
+
+create index "session_userId_idx"         on "session" ("userId");
+create index "account_userId_idx"         on "account" ("userId");
+create index "verification_identifier_idx" on "verification" ("identifier");
+
+-- ---------------------------------------------------------------------------
+-- enrollments: which student takes which course. A student and a course can
+-- be paired once. Deleting a student removes their enrollments; a course that
+-- students take cannot be deleted, like a course with tasks or reviews.
+-- ---------------------------------------------------------------------------
+create table enrollments (
+  user_id   text not null references "user" ("id") on delete cascade,
+  course_id text not null references courses (id) on delete restrict,
+  primary key (user_id, course_id)
+);
+
+create index enrollments_course_id_idx on enrollments (course_id);  -- who takes a course
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security. Supabase serves every table in this schema to anyone
 -- with the project's public (publishable) key, which is not a secret. Turning
 -- RLS on with no policies refuses all of those requests. The server uses the
--- secret key, which bypasses RLS, so the app is not affected. Login and
--- per-user policies arrive with US-20 and US-21.
+-- secret key, which bypasses RLS, so the app is not affected. Better Auth
+-- connects with DATABASE_URL (the postgres role), which bypasses it too.
+-- Per-user policies are not needed yet: the server decides what a student sees.
 -- ---------------------------------------------------------------------------
 alter table semester enable row level security;
 alter table courses  enable row level security;
 alter table tasks    enable row level security;
 alter table reviews  enable row level security;
+alter table "user"         enable row level security;
+alter table "session"      enable row level security;
+alter table "account"      enable row level security;
+alter table "verification" enable row level security;
+alter table enrollments    enable row level security;
 
 commit;

@@ -88,9 +88,10 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 
 | File | What it does |
 |---|---|
-| `db/schema.sql` | Creates the four tables, their rules, and turns on Row Level Security |
+| `db/schema.sql` | Creates the tables (the four live tables, Better Auth's four login tables, and `enrollments`), their rules, and turns on Row Level Security |
+| `db/migration_127_users_enrollments.sql` | Adds the login tables and `enrollments` to a database that already has data. Leaves existing rows alone. |
 | `db/seed.sql` | Loads the sample data from `src/data/semester.ts`: 1 semester, 5 courses, 36 tasks |
-| `db/reset.sql` | **Deletes every table and all data**, including saved reviews |
+| `db/reset.sql` | **Deletes every table and all data**, including saved reviews and accounts |
 
 On an empty project:
 
