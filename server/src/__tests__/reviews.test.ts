@@ -50,6 +50,18 @@ describe('POST /courses/:id/reviews', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/hours/);
   });
+
+  it('accepts exactly 100 hours', async () => {
+    const res = await api.post('/courses/cs262/reviews').send({ title: 'Project', hours: 100 });
+    expect(res.status).toBe(201);
+    expect(res.body.hours).toBe(100);
+  });
+
+  it.each([[101], [-1], ['5']])('rejects hours of %p', async (hours) => {
+    const res = await api.post('/courses/cs262/reviews').send({ title: 'Quiz', hours });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/hours/);
+  });
 });
 
 describe('GET /courses/:id/reviews', () => {
