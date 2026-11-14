@@ -52,7 +52,16 @@ describe('PATCH /tasks/:id', () => {
   it.todo('clears estimatedHours with null');         // send { estimatedHours: null }
   it.todo('returns 400 when done is not a boolean');  // send { done: 'yes' }
   it.todo('returns 400 when estimatedHours is negative'); // send { estimatedHours: -1 }
-  it.todo('does not change anything when the request is invalid'); // send { done: true, estimatedHours: -1 }, then GET and check done is still false
+  it('does not change anything when one field is good and one is bad', async () => {
+    // done is valid but estimatedHours is not. If the route saved fields
+    // one by one, done would flip to true before the error.
+    const res = await api.patch('/tasks/262-2').send({ done: true, estimatedHours: -1 });
+    expect(res.status).toBe(400);
+
+    const get = await api.get('/tasks/262-2');
+    expect(get.body.done).toBe(false);        // the good field was NOT saved
+    expect(get.body.estimatedHours).toBe(2);  // the bad field was NOT saved
+  });
   it.todo('returns 404 for an unknown id');
 
   // TP-25 and TP-26 (risk R1): the same limits as the client (MAX_ESTIMATE_HOURS)
