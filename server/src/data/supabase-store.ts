@@ -2,6 +2,28 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { DatabaseError } from './database-error';
 import { nextTaskId } from './task-ids';
+import type { CheckinAnswer, CoursePolicies, GradeWeight } from '../types';
+
+/** Postgres timestamps arrive as text with an offset; the API uses ISO in UTC. */
+const toIso = (timestamp: string) => new Date(timestamp).toISOString();
+
+type GradeWeightRow = { name: string; detail: string | null; percent: number | string };
+type PoliciesRow = { late_percent_per_day: number | string | null; late_max_days: number | null; drop_rule: string | null };
+
+function toGradeWeight(row: GradeWeightRow): GradeWeight {
+  // Postgres numeric can arrive as text, so it is read as a number.
+  return { name: row.name, detail: row.detail, percent: Number(row.percent) };
+}
+
+function toPolicies(row: PoliciesRow): CoursePolicies {
+  return {
+    late:
+      row.late_percent_per_day === null || row.late_max_days === null
+        ? null
+        : { percentPerDay: Number(row.late_percent_per_day), maxDays: row.late_max_days },
+    dropRule: row.drop_rule,
+  };
+}
 
 export class SupabaseStore implements Store {
   private client: SupabaseClient;
@@ -300,5 +322,168 @@ async updateSemester(updates: SemesterUpdates) {
   }
 
   return this.getSemester();
+}
+
+// ---------------------------------------------------------------------------
+// Course details for the AI screens (#144). Tables are in
+// server/db/migration_144_course_tables.sql.
+// ---------------------------------------------------------------------------
+
+async getSyllabus(courseId: string) {
+  const { data, error } = await this.client
+    .from('syllabi')
+    .select('course_id, text')
+    .eq('course_id', courseId)
+    .maybeSingle();
+
+  if (error) {
+    throw new DatabaseError(`Failed to load syllabus: ${error.message}`);
+  }
+
+  return data ? { courseId: data.course_id, text: data.text } : null;
+}
+
+async saveSyllabus(courseId: string, text: string) {
+  // One syllabus per course: a second save replaces the first.
+  const { data, error } = await this.client
+    .from('syllabi')
+    .upsert({ course_id: courseId, text }, { onConflict: 'course_id' })
+    .select('course_id, text')
+    .single();
+
+  if (error) {
+    throw new DatabaseError(`Failed to save syllabus: ${error.message}`);
+  }
+
+  return { courseId: data.course_id, text: data.text };
+}
+
+async listGradeWeights(courseId: string) {
+  const { data, error } = await this.client
+    .from('grade_weights')
+    .select('name, detail, percent')
+    .eq('course_id', courseId)
+    .order('position');
+
+  if (error) {
+    throw new DatabaseError(`Failed to load grade weights: ${error.message}`);
+  }
+
+  return (data as GradeWeightRow[]).map(toGradeWeight);
+}
+
+async replaceGradeWeights(courseId: string, weights: GradeWeight[]) {
+  // One call to a database function that deletes and inserts in the same
+  // transaction, so a failure leaves the old weights, never half of each.
+  const { data, error } = await this.client.rpc('replace_grade_weights', {
+    p_course_id: courseId,
+    p_weights: weights.map(({ name, detail, percent }) => ({ name, detail, percent })),
+  });
+
+  if (error) {
+    throw new DatabaseError(`Failed to save grade weights: ${error.message}`);
+  }
+
+  return (data as (GradeWeightRow & { position: number })[])
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map(toGradeWeight);
+}
+
+async getCoursePolicies(courseId: string) {
+  const { data, error } = await this.client
+    .from('course_policies')
+    .select('late_percent_per_day, late_max_days, drop_rule')
+    .eq('course_id', courseId)
+    .maybeSingle();
+
+  if (error) {
+    throw new DatabaseError(`Failed to load course policies: ${error.message}`);
+  }
+
+  return data ? toPolicies(data) : null;
+}
+
+async saveCoursePolicies(courseId: string, policies: CoursePolicies) {
+  const { data, error } = await this.client
+    .from('course_policies')
+    .upsert(
+      {
+        course_id: courseId,
+        late_percent_per_day: policies.late?.percentPerDay ?? null,
+        late_max_days: policies.late?.maxDays ?? null,
+        drop_rule: policies.dropRule,
+      },
+      { onConflict: 'course_id' }
+    )
+    .select('late_percent_per_day, late_max_days, drop_rule')
+    .single();
+
+  if (error) {
+    throw new DatabaseError(`Failed to save course policies: ${error.message}`);
+  }
+
+  return toPolicies(data);
+}
+
+async getCheckin(userId: string, courseId: string) {
+  const { data, error } = await this.client
+    .from('course_checkins')
+    .select('course_id, answer, answered_at')
+    .eq('user_id', userId)
+    .eq('course_id', courseId)
+    .maybeSingle();
+
+  if (error) {
+    throw new DatabaseError(`Failed to load check-in: ${error.message}`);
+  }
+
+  return data ? { courseId: data.course_id, answer: data.answer, answeredAt: toIso(data.answered_at) } : null;
+}
+
+async saveCheckin(userId: string, courseId: string, answer: CheckinAnswer) {
+  // One row per student and course: the latest answer replaces the last.
+  const { data, error } = await this.client
+    .from('course_checkins')
+    .upsert(
+      { user_id: userId, course_id: courseId, answer, answered_at: new Date().toISOString() },
+      { onConflict: 'user_id,course_id' }
+    )
+    .select('course_id, answer, answered_at')
+    .single();
+
+  if (error) {
+    throw new DatabaseError(`Failed to save check-in: ${error.message}`);
+  }
+
+  return { courseId: data.course_id, answer: data.answer, answeredAt: toIso(data.answered_at) };
+}
+
+async listWeekHours(userId: string) {
+  const { data, error } = await this.client
+    .from('week_hours')
+    .select('week, hours')
+    .eq('user_id', userId)
+    .order('week');
+
+  if (error) {
+    throw new DatabaseError(`Failed to load week hours: ${error.message}`);
+  }
+
+  return data.map((row) => ({ week: row.week, hours: Number(row.hours) }));
+}
+
+async setWeekHours(userId: string, week: number, hours: number | null) {
+  // Clearing a week deletes its row, so the weekly number applies again.
+  const { error } =
+    hours === null
+      ? await this.client.from('week_hours').delete().eq('user_id', userId).eq('week', week)
+      : await this.client.from('week_hours').upsert({ user_id: userId, week, hours }, { onConflict: 'user_id,week' });
+
+  if (error) {
+    throw new DatabaseError(`Failed to save week hours: ${error.message}`);
+  }
+
+  return this.listWeekHours(userId);
 }
 }

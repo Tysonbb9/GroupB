@@ -6,7 +6,11 @@
 
 begin;
 
--- enrollments first: it points at both "user" and courses.
+-- The course details (#144) and enrollments first: they point at "user" and
+-- courses. replace_grade_weights returns grade_weights rows, so it goes
+-- before that table.
+drop function if exists replace_grade_weights(text, jsonb);
+drop table if exists syllabi, grade_weights, course_policies, course_checkins, week_hours;
 drop table if exists enrollments, reviews, tasks, courses, semester;
 drop table if exists "session", "account", "verification", "user";
 
