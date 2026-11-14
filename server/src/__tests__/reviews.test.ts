@@ -70,4 +70,8 @@ describe('GET /courses/:id/reviews', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
   });
+  it('returns 404 for an unknown course', async () => {
+    const res = await api.get('/courses/nope/reviews');
+    expect(res.status).toBe(404);
+  });
 });
