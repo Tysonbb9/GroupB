@@ -1,4 +1,4 @@
-import { checkDraft, Draft, toDraft } from './review';
+import { checkDraft, Draft, fromReading, toDraft } from './review';
 
 /** US-30: checking an assignment the student has reviewed. Pure, no screen. */
 
@@ -13,6 +13,30 @@ describe('toDraft', () => {
   it('leaves the hours box empty when there is no estimate', () => {
     const draft = toDraft({ courseId: 'c1', title: 'Quiz', dueWeek: 9, estimatedHours: null, done: false });
     expect(draft.hours).toBe('');
+  });
+});
+
+describe('fromReading (issue #145)', () => {
+  it('fills the boxes with what the AI read', () => {
+    expect(fromReading({ title: 'Prototype demo', dueWeek: 4, estimatedHours: 6 })).toEqual({
+      title: 'Prototype demo',
+      week: '4',
+      hours: '6',
+    });
+  });
+
+  it('leaves a week or hours the AI did not find empty, never guessed', () => {
+    expect(fromReading({ title: 'Weekly quizzes', dueWeek: null, estimatedHours: null })).toEqual({
+      title: 'Weekly quizzes',
+      week: '',
+      hours: '',
+    });
+  });
+
+  it('gives a draft that checkDraft refuses until the week is filled in', () => {
+    const draft = fromReading({ title: 'Weekly quizzes', dueWeek: null, estimatedHours: null });
+    expect(checkDraft(draft).ok).toBe(false);
+    expect(checkDraft({ ...draft, week: '8' }).ok).toBe(true); // blank hours are fine
   });
 });
 

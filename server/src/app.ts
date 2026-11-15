@@ -3,6 +3,8 @@ import { toNodeHandler, fromNodeHeaders } from 'better-auth/node';
 import { auth, CLIENT_ORIGIN } from './auth';
 import { createStore } from './data/create-store';
 import { syllabusRouter } from './syllabus/routes';
+import { createModelClient } from './ai/model';
+import { aiRouter } from './ai/routes';
 import { DatabaseError } from './data/database-error';
 import { MAX_WEEKLY_CAPACITY } from './rules';
 
@@ -65,6 +67,10 @@ app.use(async (req, res, next) => {
 
 // POST /syllabus/text: a syllabus PDF in, its text out. See syllabus/routes.ts.
 app.use('/syllabus', syllabusRouter);
+
+// GET /ai/status and POST /ai/syllabus: a model reads a syllabus (issue #145).
+// With no AI_* settings there is no model, and the phone keeps its scanner.
+app.use('/ai', aiRouter(createModelClient()));
 
 /**
  * GET /semester

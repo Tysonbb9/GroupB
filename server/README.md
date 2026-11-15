@@ -238,6 +238,8 @@ curl -b cookies.txt http://localhost:3000/semester
 | PATCH | `/semester` | Set the weekly capacity: `{ weeklyCapacity }`, a whole number of hours from 1 to 80. Returns the whole semester | 200 | 400 bad body |
 | PATCH | `/tasks/:id` | Update `done` and/or `estimatedHours` | 200 | 400 bad body, 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
+| GET | `/ai/status` | `{ available }`: whether the server has an AI to read syllabi with | 200 | |
+| POST | `/ai/syllabus` | Syllabus text in (`{ text }`), what the AI read out: `{ assignments, weights, policies, dropped }`, every field checked. Takes about 20 seconds | 200 | 400 no text, 413 over 30,000 characters, 502 the AI failed or gave an unusable answer, 503 no AI set up |
 | POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |
 | GET | `/courses/:id/reviews` | Reviews of one course | 200 | 404 |
 | POST | `/tasks` | Add reviewed syllabus assignments, all or nothing: `{ tasks: [{ courseId, title, dueWeek (1-15), estimatedHours (over 0, up to 100, or null) }] }` | 201 | 400 bad body |
@@ -287,6 +289,22 @@ memory cap, so a slow or hostile file cannot freeze the server.
 **What it cannot do.** It does not read scanned images (that would need
 OCR), and two columns of text side by side read across both columns.
 
+### The AI that reads a syllabus (optional)
+
+With three settings in `server/.env` the server can ask a language model to read a syllabus (issue #145). With any of them empty there is no AI, `GET /ai/status` answers `{ "available": false }`, and the app reads syllabi with its simple scanner as before.
+
+```
+AI_BASE_URL=https://localai.calvin.edu/api/v1
+AI_API_KEY=<your own key>
+AI_MODEL=nvidia-qwen3-6-35b-a3b-nvfp4
+```
+
+- **Calvin's local AI:** make your own key at https://localai.calvin.edu (Settings > Account > API keys, then press Save). The key is a secret: only in `server/.env`, which git ignores. Never put it in the client, a test, an issue or a chat.
+- **Any OpenAI-style service works.** Change the three settings, not the code.
+- **It is slow:** one syllabus takes about 20 seconds, so the app shows a waiting message.
+- **The model never has the last word.** Every field of its answer is checked, and a week outside 1 to 15 or hours outside 0 to 100 are left blank for the student to fill in.
+- **Tests use a fake model.** No test calls a real service or needs a key.
+
 ## Files
 
 - `src/index.ts`: starts the server
@@ -296,6 +314,9 @@ OCR), and two columns of text side by side read across both columns.
 - `src/syllabus/routes.ts`: `POST /syllabus/text`
 - `src/syllabus/pdf-text.ts`: checks the upload and rebuilds lines from the PDF's text
 - `src/syllabus/read-pdf.worker.mjs`: opens the PDF with pdf.js, in a worker thread. Plain JavaScript because pdf.js is an ES module, which the CommonJS server and Jest cannot load directly
+- `src/ai/model.ts`: `createModelClient()`, the one place the server calls a language model (OpenAI-style chat completions, from `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL`)
+- `src/ai/syllabus-reading.ts`: the prompt for reading a syllabus, and `parseReading`, which checks every field of the answer and drops what does not fit
+- `src/ai/routes.ts`: `GET /ai/status` and `POST /ai/syllabus`
 - `src/testing/pdfs.ts`: builds real PDFs for the tests; `src/testing/fixtures/password-protected.pdf` is a locked one
 - `src/types.ts`: Task, Course, Semester (copied from the client), Review and Inputs
 
