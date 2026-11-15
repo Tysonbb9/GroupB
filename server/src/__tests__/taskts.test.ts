@@ -27,7 +27,7 @@ describe('GET /tasks', () => {
   });
 
   it('filters by week (TP-08)', async () => {
-    const res = await request(app).get('/tasks?week=7');
+    const res = await api.get('/tasks?week=7');
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(4);
@@ -38,7 +38,7 @@ describe('GET /tasks', () => {
   });
 
   it('filters by done (TP-09)', async () => {
-    const res = await request(app).get('/tasks?done=true');
+    const res = await api.get('/tasks?done=true');
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(2);
@@ -49,7 +49,7 @@ describe('GET /tasks', () => {
   });
 
   it('combines filters (TP-10)', async () => {
-    const res = await request(app).get(
+    const res = await api.get(
       '/tasks?courseId=cs262&week=4&done=false'
     );
 
@@ -65,7 +65,7 @@ describe('GET /tasks', () => {
   });
 
   it('returns 400 when week is not a number (TP-11)', async () => {
-    const res = await request(app).get('/tasks?week=abc');
+    const res = await api.get('/tasks?week=abc');
 
     expect(res.status).toBe(400);
     expect(res.headers['content-type']).toMatch(/json/);
@@ -74,7 +74,7 @@ describe('GET /tasks', () => {
   });
 
   it('returns 400 when done is not true or false (TP-12)', async () => {
-    const res = await request(app).get('/tasks?done=maybe');
+    const res = await api.get('/tasks?done=maybe');
 
     expect(res.status).toBe(400);
     expect(res.headers['content-type']).toMatch(/json/);
@@ -83,7 +83,7 @@ describe('GET /tasks', () => {
   });
 
   it('returns an empty list for an unknown course (TP-13)', async () => {
-    const res = await request(app).get('/tasks?courseId=nope');
+    const res = await api.get('/tasks?courseId=nope');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
@@ -92,7 +92,7 @@ describe('GET /tasks', () => {
 
 describe('GET /tasks/:id', () => {
   it('returns the task when the id exists (TP-16)', async () => {
-    const res = await request(app).get('/tasks/262-2');
+    const res = await api.get('/tasks/262-2');
 
     expect(res.status).toBe(200);
     expect(res.body.id).toBe('262-2');
@@ -100,7 +100,7 @@ describe('GET /tasks/:id', () => {
   });
 
   it('returns 404 for an unknown id (TP-17)', async () => {
-    const res = await request(app).get('/tasks/nope');
+    const res = await api.get('/tasks/nope');
 
     expect(res.status).toBe(404);
     expect(res.headers['content-type']).toMatch(/json/);
