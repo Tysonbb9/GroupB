@@ -88,8 +88,9 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 
 | File | What it does |
 |---|---|
-| `db/schema.sql` | Creates the tables (the four live tables, Better Auth's four login tables, and `enrollments`), their rules, and turns on Row Level Security |
+| `db/schema.sql` | Creates the tables (the four live tables, Better Auth's four login tables, `enrollments`, and the course tables for the AI screens), their rules, and turns on Row Level Security |
 | `db/migration_127_users_enrollments.sql` | Adds the login tables and `enrollments` to a database that already has data. Leaves existing rows alone. |
+| `db/migration_144_course_tables.sql` | Adds the course tables for the AI screens (`syllabi`, `grade_weights`, `course_policies`, `course_checkins`, `week_hours`) to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
 | `db/seed.sql` | Loads the sample data from `src/data/semester.ts`: 1 semester, 5 courses, 36 tasks |
 | `db/reset.sql` | **Deletes every table and all data**, including saved reviews and accounts |
 

@@ -1,7 +1,18 @@
-import { db, inputs } from './db';
+import { db, details, inputs } from './db';
+import { DatabaseError } from './database-error';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { nextTaskId } from './task-ids';
-import type { Review, Task } from '../types';
+import type { CheckinAnswer, CoursePolicies, GradeWeight, Review, Task } from '../types';
+
+/**
+ * Refuses a course that does not exist, as the database's foreign keys do,
+ * so code that only ran against this store still behaves with Supabase.
+ */
+function requireCourse(courseId: string, action: string): void {
+  if (!db.courses.some((course) => course.id === courseId)) {
+    throw new DatabaseError(`Failed to ${action}: course ${courseId} does not exist`);
+  }
+}
 
 export class MemoryStore implements Store {
 async getSemester() {
@@ -108,6 +119,70 @@ async listReviews(courseId: string) {
   return inputs.reviews.filter(
     (review) => review.courseId === courseId
   );
+}
+
+// Course details (#144). Each method hands back copies, like rows read from
+// a database, so a caller changing them cannot change what is saved.
+
+async getSyllabus(courseId: string) {
+  const syllabus = details.syllabi[courseId];
+  return syllabus ? { ...syllabus } : null;
+}
+
+async saveSyllabus(courseId: string, text: string) {
+  requireCourse(courseId, 'save syllabus');
+  details.syllabi[courseId] = { courseId, text };
+  return { ...details.syllabi[courseId] };
+}
+
+async listGradeWeights(courseId: string) {
+  return structuredClone(details.gradeWeights[courseId] ?? []);
+}
+
+async replaceGradeWeights(courseId: string, weights: GradeWeight[]) {
+  requireCourse(courseId, 'save grade weights');
+  details.gradeWeights[courseId] = structuredClone(weights);
+  return structuredClone(weights);
+}
+
+async getCoursePolicies(courseId: string) {
+  const policies = details.policies[courseId];
+  return policies ? structuredClone(policies) : null;
+}
+
+async saveCoursePolicies(courseId: string, policies: CoursePolicies) {
+  requireCourse(courseId, 'save course policies');
+  details.policies[courseId] = structuredClone(policies);
+  return structuredClone(policies);
+}
+
+async getCheckin(userId: string, courseId: string) {
+  const checkin = details.checkins[userId]?.[courseId];
+  return checkin ? { ...checkin } : null;
+}
+
+async saveCheckin(userId: string, courseId: string, answer: CheckinAnswer) {
+  requireCourse(courseId, 'save check-in');
+  const checkin = { courseId, answer, answeredAt: new Date().toISOString() };
+  details.checkins[userId] = { ...details.checkins[userId], [courseId]: checkin };
+  return { ...checkin };
+}
+
+async listWeekHours(userId: string) {
+  return Object.entries(details.weekHours[userId] ?? {})
+    .map(([week, hours]) => ({ week: Number(week), hours }))
+    .sort((a, b) => a.week - b.week);
+}
+
+async setWeekHours(userId: string, week: number, hours: number | null) {
+  const weeks = { ...details.weekHours[userId] };
+  if (hours === null) {
+    delete weeks[week];
+  } else {
+    weeks[week] = hours;
+  }
+  details.weekHours[userId] = weeks;
+  return this.listWeekHours(userId);
 }
 
 }

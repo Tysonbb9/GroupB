@@ -6,6 +6,7 @@ import { syllabusRouter } from './syllabus/routes';
 import { createModelClient } from './ai/model';
 import { aiRouter } from './ai/routes';
 import { DatabaseError } from './data/database-error';
+import { MAX_WEEKLY_CAPACITY } from './rules';
 
 export const app = express();
 const store = createStore();
@@ -80,9 +81,6 @@ app.get('/semester', async (_req, res) => {
   const semester = await store.getSemester();
   res.json(semester);
 });
-
-/** Most hours a week a student can say they have. Same as the client's MAX_WEEKLY_HOURS. */
-const MAX_WEEKLY_CAPACITY = 80;
 
 /**
  * PATCH /semester (US-32)

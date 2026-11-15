@@ -368,13 +368,15 @@ The Express server uses a Data Access Layer to separate API routes from database
 
 Defines the asynchronous `Store` interface for accessing semesters, courses, tasks, and reviews. `updateSemester(updates)` changes the semester's settings (for now only `weeklyCapacity`, US-32) and returns the semester. The Supabase store reads the one semester row's id and updates that row, because Supabase refuses an update that names no row.
 
+It also holds the course details the AI screens save (#144): `getSyllabus`/`saveSyllabus`, `listGradeWeights`/`replaceGradeWeights`, `getCoursePolicies`/`saveCoursePolicies` for each course, and `getCheckin`/`saveCheckin` and `listWeekHours`/`setWeekHours` for each student, by user id. Saving for a course that does not exist is refused with a `DatabaseError` in both stores, as the database's foreign key refuses it. The routes for them come with the AI screens (#145).
+
 ### `server/src/data/memory-store.ts`
 
-Implements the `Store` interface using the existing in-memory database. This preserves development and test behavior without requiring Supabase credentials.
+Implements the `Store` interface using the existing in-memory database. This preserves development and test behavior without requiring Supabase credentials. The course details are kept in `details` in `db.ts`, which starts empty like the new tables and is emptied by `resetDb()`. Their methods hand back copies, like rows read from a database.
 
 ### `server/src/data/supabase-store.ts`
 
-Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types.
+Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types. `replaceGradeWeights` calls the database function `replace_grade_weights`, which deletes and inserts a course's weights in one transaction, so a failure keeps the old ones.
 
 ### `server/src/data/task-ids.ts`
 
@@ -407,6 +409,10 @@ The order of what runs on each request matters (US-21, #44):
 
 `PATCH /semester` (US-32) takes `{ weeklyCapacity }`, a whole number of hours from 1 to 80, and returns the whole semester with it. Anything else is a 400 with a JSON error, and nothing changes. Its tests are in `server/src/__tests__/weekly-capacity.test.ts` (test plan row TP-36).
 
+### `server/src/rules.ts`
+
+Rules that code checks, shared by the routes (#144). `gradeWeightsProblem` returns the message to show, or null: each grade weight is named and worth more than 0% and at most 100%, and together they add up to 100%, which the database cannot check because it spans rows. `MAX_WEEKLY_CAPACITY` (80) lives here, used by `PATCH /semester`; the database's `week_hours` uses the same limit. Tests: `rules.test.ts`.
+
 ### `server/src/auth.ts`
 
 Login on the server (US-21), with [Better Auth](https://better-auth.com). `docs/LOGIN_DESIGN.md` is the contract with the phone half (#43). Students sign up and sign in with an email and a password, and get a session cookie that lasts 30 days, pushed back each day the app is used.
@@ -433,6 +439,9 @@ The database setup scripts are located in `server/db/`:
 - `server/db/schema.sql`: creates the Supabase database tables and relationships.
 - `server/db/seed.sql`: populates the database with sample semester, course, and task data.
 - `server/db/reset.sql`: resets the database for a fresh setup.
+- `server/db/migration_144_course_tables.sql`: adds the course tables for the AI screens (#144) to a database that already has data. `docs/DATABASE_DESIGN.md` section 3.7 describes them.
+
+`server/src/__tests__/sql-files.test.ts` keeps these files in agreement, since CI cannot run Postgres: `schema.sql` must define each new table exactly as the migration does, `reset.sql` must drop every table in a safe order, and every table and column the Supabase store uses must exist.
 
 Run the SQL scripts using the Supabase SQL Editor.
 See `server/README.md` for the setup instructions.
@@ -498,7 +507,7 @@ npx jest --watch              # while you work
 
 
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 469 of them in twenty files, plus 12 still marked to-do and 4 that only run against a test database. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 583 of them in twenty-four files, plus 12 still marked to-do and 4 that only run against a test database. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
 
 `ai-model.test.ts`, `ai-syllabus-reading.test.ts` and `ai-routes.test.ts` cover issue #145 with a fake model, so no service is called and no key is needed: reading a streamed or a plain answer, what the client sends and that errors never include the key or the address, the checks on every field of the AI's answer (weeks outside 1 to 15 and hours outside 0 to 100 become blank, bad titles and weights are dropped), and the routes (400, 413, 502 and 503, and 401 without a session).
