@@ -219,6 +219,83 @@ export async function extractSyllabusText(pdf: Blob | ArrayBuffer | Uint8Array):
   }
   return json;
 }
+/** An assignment the AI read in a syllabus. A week or hours it was not sure of are null. */
+export type AiAssignment = {
+  title: string;
+  dueWeek: number | null;
+  estimatedHours: number | null;
+};
+
+/** What the AI read in a syllabus, already checked by the server (issue #145). */
+export type AiReading = {
+  assignments: AiAssignment[];
+  weights: { label: string; percent: number }[];
+  policies: { absencesAllowed: number | null; dropRule: string | null };
+  /** Items in the AI's answer the server threw away for not fitting. */
+  dropped: number;
+};
+
+const isNumberOrNull = (value: unknown): value is number | null =>
+  value === null || typeof value === 'number';
+
+function isAiReading(value: unknown): value is AiReading {
+  return (
+    isObject(value) &&
+    Array.isArray(value.assignments) &&
+    value.assignments.every(
+      (a) =>
+        isObject(a) && typeof a.title === 'string' && isNumberOrNull(a.dueWeek) && isNumberOrNull(a.estimatedHours)
+    ) &&
+    Array.isArray(value.weights) &&
+    value.weights.every((w) => isObject(w) && typeof w.label === 'string' && typeof w.percent === 'number') &&
+    isObject(value.policies) &&
+    isNumberOrNull(value.policies.absencesAllowed) &&
+    (value.policies.dropRule === null || typeof value.policies.dropRule === 'string') &&
+    typeof value.dropped === 'number'
+  );
+}
+
+/**
+ * GET /ai/status. True when the server has an AI to read syllabi with. Any
+ * problem (no server, no session, an older server) counts as "no", so the
+ * app falls back to its simple scanner and never shows an error for this.
+ */
+export async function getAiStatus(): Promise<boolean> {
+  try {
+    const response = await send('/ai/status');
+    if (!response.ok) return false;
+    const json: unknown = await response.json();
+    return isObject(json) && json.available === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * POST /ai/syllabus. Sends syllabus text and gets back what the AI read in
+ * it. This takes about 20 seconds, so the caller shows a waiting message.
+ *
+ * Rejects with a message the user can read. The server's own message is used
+ * when it sent one, since it says what to do.
+ */
+export async function readSyllabusWithAi(text: string): Promise<AiReading> {
+  const response = await send('/ai/syllabus', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isAiReading(json)) {
+    throw new Error('The server sent an invalid reading');
+  }
+  return json;
+}
+
 /** One assignment to add with POST /tasks. The server gives it its id. */
 export type NewTask = {
   courseId: string;

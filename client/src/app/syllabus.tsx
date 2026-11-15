@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { addTasks, extractSyllabusText } from '../lib/api';
+import { addTasks, AiReading, extractSyllabusText, getAiStatus, readSyllabusWithAi } from '../lib/api';
 import { scanSyllabus } from '../lib/inputs';
 import { pickPdf } from '../lib/pick-pdf';
-import { checkDraft, Draft, toDraft } from '../lib/review';
+import { checkDraft, Draft, fromReading, toDraft } from '../lib/review';
 import { useSemester } from '../state/semester-store';
 import { theme } from '../theme';
 
@@ -17,6 +17,14 @@ import { theme } from '../theme';
  *
  * US-29: Choose PDF sends a syllabus PDF to the server, puts the text that
  * comes back in the text box, and scans it the same way as pasted text.
+ *
+ * Issue #145 (AI screen 1): when the server has an AI (GET /ai/status), Find
+ * assignments asks it to read the text instead of the simple scanner. Its
+ * answer fills the same boxes, so everything after that is unchanged. A week
+ * or hours it could not find start empty. If the AI fails for any reason, the
+ * scanner runs instead, so a student always gets a result. The grade weights
+ * and policies it found are shown for information only: saving them waits on
+ * the course tables (#144).
  */
 export default function SyllabusScreen() {
   const { semester, addTasks: addToSemester } = useSemester();
@@ -35,28 +43,90 @@ export default function SyllabusScreen() {
   const [reading, setReading] = useState(false);
   const course = semester.courses.find((c) => c.id === courseId);
 
-  /** Scans some syllabus text and shows what was found, ready to review. */
-  const findIn = (syllabusText: string) => {
-    const result = scanSyllabus(syllabusText, courseId);
-    setDrafts(result.tasks.map(toDraft));
-    setSkipped(result.skipped);
-    setErrors([]);
-    setStatus(null);
+  /** Whether the server has an AI to read syllabi with. False until it says so. */
+  const [aiAvailable, setAiAvailable] = useState(false);
+  /** The AI is reading right now (about 20 seconds). */
+  const [aiBusy, setAiBusy] = useState(false);
+  /** What the AI read, kept for the weights and policies. null after a scanner run. */
+  const [aiReading, setAiReading] = useState<AiReading | null>(null);
+  /** Said when the AI could not be used and the scanner ran instead. */
+  const [aiNote, setAiNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    getAiStatus().then((available) => {
+      if (current) setAiAvailable(available);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  /**
+   * Which Find (or PDF) is the current one. A reading can take 20 seconds, and
+   * the student may pick another course, another PDF or press Find again
+   * meanwhile. Every such action starts a new run, and an answer that arrives
+   * for an older run, a result or a failure, is dropped: it must not fill the
+   * boxes of the wrong course or overwrite a newer reading.
+   */
+  const latestRun = useRef(0);
+
+  /** Starts a new run, which makes every run before it stale. */
+  const startRun = () => {
+    latestRun.current += 1;
+    setAiBusy(false); // the run being replaced no longer owns the wait
+    return latestRun.current;
   };
 
-  const find = () => findIn(text);
+  /** Shows what was found in some syllabus text, ready to review. */
+  const findIn = async (syllabusText: string, run: number, forCourseId: string) => {
+    const stale = () => run !== latestRun.current;
+    setStatus(null);
+    setErrors([]);
+    setAiNote(null);
+
+    if (aiAvailable) {
+      setAiBusy(true);
+      try {
+        const answer = await readSyllabusWithAi(syllabusText);
+        if (stale()) return;
+        setDrafts(answer.assignments.map(fromReading));
+        setSkipped([]);
+        setAiReading(answer);
+        return;
+      } catch {
+        if (stale()) return;
+        // Whatever went wrong, the student still gets a result from the scanner.
+        setAiNote('Reading with AI did not work this time, so the simple scanner was used instead.');
+      } finally {
+        if (!stale()) setAiBusy(false);
+      }
+    }
+
+    const result = scanSyllabus(syllabusText, forCourseId);
+    setDrafts(result.tasks.map(toDraft));
+    setSkipped(result.skipped);
+    setAiReading(null);
+  };
+
+  const find = () => findIn(text, startRun(), courseId);
 
   const choosePdf = async () => {
     setPdfError(null);
     const pdf = await pickPdf();
     if (pdf === null) return; // the student cancelled
 
+    const run = startRun();
+    const forCourseId = courseId;
     setReading(true);
     try {
       const extracted = await extractSyllabusText(pdf);
+      if (run !== latestRun.current) return; // the course changed, or a newer run began
       setText(extracted.text); // so the student can see, and fix, what was read
-      findIn(extracted.text);
+      setReading(false); // the PDF is read. The AI wait, if any, has its own message
+      await findIn(extracted.text, run, forCourseId);
     } catch (e) {
+      if (run !== latestRun.current) return;
       // The server's message says what to do, e.g. "...or paste the syllabus
       // text instead" for a scanned PDF. The text box below is that option.
       setPdfError((e as Error).message);
@@ -66,11 +136,14 @@ export default function SyllabusScreen() {
   };
 
   const chooseCourse = (id: string) => {
+    startRun(); // a reading still in flight was for the other course
     setCourseId(id);
     setDrafts(null);
     setSkipped([]);
     setErrors([]);
     setStatus(null);
+    setAiReading(null);
+    setAiNote(null);
   };
 
   /** Changes one field of one draft. */
@@ -86,7 +159,7 @@ export default function SyllabusScreen() {
   };
 
   const add = async () => {
-    if (drafts === null || drafts.length === 0) return;
+    if (drafts === null || drafts.length === 0 || aiBusy) return; // not while a reading is about to replace them
 
     // Check every draft first, so the student sees every problem at once.
     const checked = drafts.map(checkDraft);
@@ -161,9 +234,28 @@ export default function SyllabusScreen() {
         style={styles.input}
       />
 
-      <Pressable testID="syllabus-find" accessibilityRole="button" onPress={find} style={styles.button}>
-        <Text style={styles.buttonText}>Find assignments</Text>
+      <Pressable
+        testID="syllabus-find"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: aiBusy }}
+        disabled={aiBusy}
+        onPress={find}
+        style={[styles.button, aiBusy && styles.buttonOff]}
+      >
+        <Text style={styles.buttonText}>{aiBusy ? 'Reading your syllabus…' : 'Find assignments'}</Text>
       </Pressable>
+
+      {aiBusy && (
+        <Text testID="syllabus-ai-wait" accessibilityLiveRegion="polite" style={styles.faint}>
+          Reading your syllabus. This takes about 20 seconds.
+        </Text>
+      )}
+
+      {aiNote !== null && (
+        <Text testID="syllabus-ai-note" style={styles.faint}>
+          {aiNote}
+        </Text>
+      )}
 
       {drafts !== null && (
         <View style={styles.results}>
@@ -171,8 +263,14 @@ export default function SyllabusScreen() {
             Found {drafts.length} {drafts.length === 1 ? 'assignment' : 'assignments'} for {course?.code}
           </Text>
 
+          {aiReading !== null && aiReading.dropped > 0 && (
+            <Text testID="syllabus-ai-partial" style={styles.error}>
+              {`${aiReading.dropped} ${aiReading.dropped === 1 ? 'item' : 'items'} in the AI's answer could not be used, so this list may be incomplete. Check it against your syllabus.`}
+            </Text>
+          )}
+
           {drafts.map((draft, i) => (
-            <View key={i} style={[styles.draft, errors[i] && styles.draftBad]}>
+            <View key={i} style={[styles.draft, (errors[i] || draft.week.trim() === '') && styles.draftBad]}>
               <TextInput
                 testID={`draft-title-${i}`}
                 accessibilityLabel={`Title of assignment ${i + 1}`}
@@ -208,18 +306,39 @@ export default function SyllabusScreen() {
                   <Text style={styles.link}>Remove</Text>
                 </Pressable>
               </View>
+              {draft.week.trim() === '' && !errors[i] && (
+                <Text testID={`draft-week-hint-${i}`} style={styles.faint}>
+                  The syllabus does not say which week. Enter it before adding.
+                </Text>
+              )}
               {errors[i] && <Text style={styles.error}>{errors[i]}</Text>}
             </View>
           ))}
+
+          {aiReading !== null && (aiReading.weights.length > 0 || aiReading.policies.absencesAllowed !== null || aiReading.policies.dropRule !== null) && (
+            <View testID="syllabus-ai-extras" style={styles.draft}>
+              <Text style={styles.heading}>Also found in the syllabus</Text>
+              <Text style={styles.faint}>For your information. These are not saved yet.</Text>
+              {aiReading.weights.map((weight, i) => (
+                <Text key={i} style={styles.text}>{`${weight.label}: ${weight.percent}%`}</Text>
+              ))}
+              {aiReading.policies.absencesAllowed !== null && (
+                <Text style={styles.text}>{`Absences allowed: ${aiReading.policies.absencesAllowed}`}</Text>
+              )}
+              {aiReading.policies.dropRule !== null && (
+                <Text style={styles.text}>{aiReading.policies.dropRule}</Text>
+              )}
+            </View>
+          )}
 
           {drafts.length > 0 && (
             <Pressable
             testID="syllabus-add"
             accessibilityRole="button"
-            accessibilityState={{ disabled: saving }}
-            disabled={saving}
+            accessibilityState={{ disabled: saving || aiBusy }}
+            disabled={saving || aiBusy}
             onPress={add}
-            style={[styles.button, saving && styles.buttonOff]}
+            style={[styles.button, (saving || aiBusy) && styles.buttonOff]}
           >
             <Text style={styles.buttonText}>Add to semester</Text>
           </Pressable>

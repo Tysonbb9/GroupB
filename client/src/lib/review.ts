@@ -1,3 +1,4 @@
+import type { AiAssignment } from './api';
 import { parseEstimate } from './estimate';
 import { ScannedTask } from './inputs';
 import { WEEKS_IN_SEMESTER } from './types';
@@ -19,6 +20,19 @@ export function toDraft(task: ScannedTask): Draft {
     title: task.title,
     week: String(task.dueWeek),
     hours: task.estimatedHours === null ? '' : String(task.estimatedHours),
+  };
+}
+
+/**
+ * The boxes for an assignment the AI read. A week or hours the AI could not
+ * find start empty, never guessed. A blank week is a problem the student has
+ * to fill in (checkDraft refuses it), and blank hours are allowed.
+ */
+export function fromReading(assignment: AiAssignment): Draft {
+  return {
+    title: assignment.title,
+    week: assignment.dueWeek === null ? '' : String(assignment.dueWeek),
+    hours: assignment.estimatedHours === null ? '' : String(assignment.estimatedHours),
   };
 }
 
