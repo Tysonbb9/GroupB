@@ -111,19 +111,37 @@ export default function SyllabusScreen() {
 
   const find = () => findIn(text, startRun(), courseId);
 
+  /**
+   * Which PDF run holds the "Reading the PDF" state. Only that run may clear
+   * it, so an older PDF finishing its AI wait cannot clear the state of a
+   * newer PDF still being extracted.
+   */
+  const readingOwner = useRef(0);
+
   const choosePdf = async () => {
     setPdfError(null);
+    // What the student was looking at when the picker opened. The picker can
+    // stay open a long time, so the course is the one chosen now, and the file
+    // is dropped if anything newer (another course, another Find) happened
+    // while it was open. Cancelling changes nothing, so a reading already in
+    // progress carries on.
+    const openedAt = latestRun.current;
+    const forCourseId = courseId;
     const pdf = await pickPdf();
     if (pdf === null) return; // the student cancelled
+    if (latestRun.current !== openedAt) return;
 
     const run = startRun();
-    const forCourseId = courseId;
+    readingOwner.current = run;
+    const release = () => {
+      if (readingOwner.current === run) setReading(false);
+    };
     setReading(true);
     try {
       const extracted = await extractSyllabusText(pdf);
       if (run !== latestRun.current) return; // the course changed, or a newer run began
       setText(extracted.text); // so the student can see, and fix, what was read
-      setReading(false); // the PDF is read. The AI wait, if any, has its own message
+      release(); // the PDF is read. The AI wait, if any, has its own message
       await findIn(extracted.text, run, forCourseId);
     } catch (e) {
       if (run !== latestRun.current) return;
@@ -131,7 +149,7 @@ export default function SyllabusScreen() {
       // text instead" for a scanned PDF. The text box below is that option.
       setPdfError((e as Error).message);
     } finally {
-      setReading(false);
+      release();
     }
   };
 

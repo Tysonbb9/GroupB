@@ -302,6 +302,69 @@ describe('a reading that finishes after the student has moved on', () => {
     expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(false);
   });
 
+  it('drops a PDF picked after the course changed while the picker was open', async () => {
+    let picked: (blob: Blob | null) => void = () => {};
+    pickPdfMock.mockReturnValue(new Promise((resolve) => (picked = resolve)));
+    extractMock.mockResolvedValue({ text: SYLLABUS, pageCount: 1, lineCount: 3, pagesWithoutText: [] });
+    readMock.mockResolvedValue(READING);
+    await renderScreen(true);
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // the picker opens and stays open
+    });
+
+    fireEvent.press(screen.getByLabelText(`Choose ${wallSemester.courses[1].code}`));
+    await act(async () => picked(new Blob(['%PDF-1.7'])));
+
+    expect(extractMock).not.toHaveBeenCalled();
+    expect(readMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('draft-title-0')).toBeNull();
+    expect(screen.getByTestId('syllabus-input').props.value).toBe('');
+  });
+
+  it('does not stop a reading in progress when the picker is cancelled', async () => {
+    const slow = pending();
+    readMock.mockReturnValue(slow.promise);
+    pickPdfMock.mockResolvedValue(null);
+    await renderScreen(true);
+    await pasteAndFind();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // cancelled at once
+    });
+    expect(screen.getByTestId('syllabus-ai-wait')).toBeTruthy();
+
+    await act(async () => slow.finish(READING));
+    expect(screen.getByTestId('draft-title-0').props.value).toBe('Prototype demo');
+  });
+
+  it('keeps "Reading the PDF" while a newer PDF is still being read, when an older PDF finishes its AI wait', async () => {
+    const olderAi = pending();
+    let extractedSecond: (value: Awaited<ReturnType<typeof extractSyllabusText>>) => void = () => {};
+    pickPdfMock.mockResolvedValue(new Blob(['%PDF-1.7']));
+    extractMock
+      .mockResolvedValueOnce({ text: 'FIRST', pageCount: 1, lineCount: 1, pagesWithoutText: [] })
+      .mockReturnValueOnce(new Promise((resolve) => (extractedSecond = resolve)));
+    readMock.mockReturnValueOnce(olderAi.promise).mockResolvedValueOnce(READING);
+    await renderScreen(true);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // PDF 1: extracted, now waiting on the AI
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // PDF 2: its extraction stays pending
+    });
+    expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(true);
+
+    await act(async () => olderAi.finish(READING)); // PDF 1 is now stale and finishes
+
+    expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(true); // still PDF 2's
+    expect(screen.getAllByText('Reading the PDF…').length).toBeGreaterThan(0);
+
+    await act(async () => extractedSecond({ text: 'SECOND', pageCount: 1, lineCount: 1, pagesWithoutText: [] }));
+    expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(false);
+    expect(screen.getByTestId('syllabus-input').props.value).toBe('SECOND');
+  });
+
   it('will not add while a newer reading is about to replace the boxes', async () => {
     const second = pending();
     readMock.mockResolvedValueOnce(READING).mockReturnValueOnce(second.promise);
