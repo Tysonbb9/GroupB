@@ -555,6 +555,7 @@ npx jest --watch              # while you work
 | `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
 | `src/__tests__/checkin-question.test.tsx` | 8 | #155, AI screen 2: the question and reason above the figures, no card with no question, Yes, the week and hours boxes for the course's open tasks, Save sending only what changed and the forecast redrawing, a bad week refused, None of these, a failed save keeping the card |
 | `src/__tests__/marked-done.test.tsx` | 8 | US-45: the ticked task staying in place marked done with Undo and not yet in Completed, the hours question directly under it, the figures dropping straight away, moving to Completed on Skip and on Save then Close, Undo and the filled circle putting it back, and a second tick moving the first task on |
+| `src/__tests__/current-week.test.tsx` | 22 | US-46: the Week N of 15 chip on Forecast, This week and Courses, following `currentWeek` rather than a fixed number, the semester name kept above the title, the old line gone, and "Now" under the current week on the strip, in its own column, moving with the semester, with every week number still drawn |
 
 
 
