@@ -27,7 +27,7 @@ export class ModelError extends Error {
   }
 }
 
-/** How long to wait for one answer. A syllabus takes about 20 seconds. */
+/** How long to wait for one answer. A syllabus takes about 30 seconds. */
 export const MODEL_TIMEOUT_MS = 60_000;
 
 /**

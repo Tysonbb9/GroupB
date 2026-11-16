@@ -45,7 +45,7 @@ export default function SyllabusScreen() {
 
   /** Whether the server has an AI to read syllabi with. False until it says so. */
   const [aiAvailable, setAiAvailable] = useState(false);
-  /** The AI is reading right now (about 20 seconds). */
+  /** The AI is reading right now (about 30 seconds). */
   const [aiBusy, setAiBusy] = useState(false);
   /** What the AI read, kept for the weights and policies. null after a scanner run. */
   const [aiReading, setAiReading] = useState<AiReading | null>(null);
@@ -63,7 +63,7 @@ export default function SyllabusScreen() {
   }, []);
 
   /**
-   * Which Find (or PDF) is the current one. A reading can take 20 seconds, and
+   * Which Find (or PDF) is the current one. A reading can take 30 seconds, and
    * the student may pick another course, another PDF or press Find again
    * meanwhile. Every such action starts a new run, and an answer that arrives
    * for an older run, a result or a failure, is dropped: it must not fill the
@@ -94,10 +94,14 @@ export default function SyllabusScreen() {
         setSkipped([]);
         setAiReading(answer);
         return;
-      } catch {
+      } catch (e) {
         if (stale()) return;
         // Whatever went wrong, the student still gets a result from the scanner.
-        setAiNote('Reading with AI did not work this time, so the simple scanner was used instead.');
+        // The reason is the server's own message, written for a student.
+        const reason = (e as Error).message?.trim();
+        setAiNote(
+          `Reading with AI did not work this time${reason ? ` (${reason})` : ''}, so the simple scanner was used instead.`
+        );
       } finally {
         if (!stale()) setAiBusy(false);
       }
@@ -207,7 +211,12 @@ export default function SyllabusScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView
+      contentContainerStyle={styles.page}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       <Text style={styles.heading}>Course</Text>
       <View style={styles.row}>
         {semester.courses.map((c) => (
@@ -245,6 +254,7 @@ export default function SyllabusScreen() {
         testID="syllabus-input"
         accessibilityLabel="Syllabus text"
         multiline
+        scrollEnabled
         value={text}
         onChangeText={setText}
         placeholder={'Week 4: Lab report (3 hours)\nWeek 7: Midterm 1 (8 hours)'}
@@ -265,7 +275,7 @@ export default function SyllabusScreen() {
 
       {aiBusy && (
         <Text testID="syllabus-ai-wait" accessibilityLiveRegion="polite" style={styles.faint}>
-          Reading your syllabus. This takes about 20 seconds.
+          Reading your syllabus. This takes about 30 seconds.
         </Text>
       )}
 
@@ -391,7 +401,7 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: theme.rule, borderRadius: theme.radius, padding: theme.space.xs },
   chipOn: { borderColor: theme.accent },
   text: { color: theme.ink },
-  input: { minHeight: 160, backgroundColor: theme.surface, borderWidth:1, borderColor: theme.rule, borderRadius: 14, color: theme.ink, fontSize: 15, lineHeight: 21, padding: theme.space.md, textAlignVertical: 'top',},
+  input: { height: 180, backgroundColor: theme.surface, borderWidth:1, borderColor: theme.rule, borderRadius: 14, color: theme.ink, fontSize: 15, lineHeight: 21, padding: theme.space.md, textAlignVertical: 'top',},
   button: { backgroundColor: theme.accent, borderRadius: 999, paddingVertical: 14, alignItems: 'center' },
   buttonText: { color: theme.surface, fontSize: 15, fontWeight: '700' },
   buttonOff: { opacity: 0.6 },

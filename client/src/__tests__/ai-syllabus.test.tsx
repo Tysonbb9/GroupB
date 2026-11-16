@@ -155,6 +155,10 @@ describe('with an AI on the server', () => {
     await pasteAndFind('Week 4: Lab report (3 hours)\nWeek 9 - Final project');
 
     expect(screen.getByTestId('syllabus-ai-note')).toBeTruthy();
+    // It says why, in the server's own words.
+    expect(screen.getByTestId('syllabus-ai-note').props.children).toBe(
+      'Reading with AI did not work this time (The AI service could not be reached. Try again in a moment.), so the simple scanner was used instead.'
+    );
     expect(screen.getByTestId('draft-title-0').props.value).toBe('Lab report');
     expect(screen.getByTestId('draft-week-0').props.value).toBe('4');
     expect(screen.getByTestId('draft-hours-0').props.value).toBe('3');
