@@ -13,6 +13,10 @@ import { Course, Semester, Task } from '../lib/types';
 
 type SemesterStore = {
   semester: Semester;
+  /** True when the semester came from the server, false for sample data and tests. */
+  fromServer: boolean;
+  /** Puts in tasks the server has just changed, matched by id (#155). */
+  replaceTasks: (tasks: Task[]) => void;
   canLoadSample: boolean;
   loadingSample: boolean;
   sampleError: string | null;
@@ -57,7 +61,7 @@ export function SemesterProvider({
 }) {
   if (initial !== undefined) {
     return (
-      <SemesterState initial={initial} saveCapacity={keepOnDevice}>
+      <SemesterState initial={initial} saveCapacity={keepOnDevice} fromServer={false}>
         {children}
       </SemesterState>
     );
@@ -95,7 +99,7 @@ function SemesterFromServer({ children }: { children: React.ReactNode }) {
     return error === null ? <LoadingView /> : <ErrorView message={error} onRetry={retry} />;
   }
   return (
-    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity} fetchSample={loadSampleSemester}>
+    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity} fetchSample={loadSampleSemester} fromServer>
       {children}
     </SemesterState>
   );
@@ -106,11 +110,13 @@ function SemesterState({
   children,
   initial,
   saveCapacity,
+  fromServer,
   fetchSample,
 }: {
   children: React.ReactNode;
   initial: Semester;
   saveCapacity: SaveCapacity;
+  fromServer: boolean;
   fetchSample?: () => Promise<Semester>;
 }) {
   const [semester, setSemester] = useState<Semester>(initial);
@@ -130,6 +136,12 @@ function SemesterState({
 
       return {
         semester,
+        fromServer,
+        replaceTasks: (changed: Task[]) =>
+          setSemester((current) => ({
+            ...current,
+            tasks: current.tasks.map((t) => changed.find((c) => c.id === t.id) ?? t),
+          })),
         canLoadSample: fetchSample !== undefined,
         loadingSample,
         sampleError,
@@ -162,7 +174,7 @@ function SemesterState({
         },
       };
     },
-    [semester, saveCapacity, fetchSample, loadingSample, sampleError]
+    [semester, saveCapacity, fetchSample, loadingSample, sampleError, fromServer]
   );
 
   return (

@@ -379,7 +379,76 @@ export async function addReview(
     throw new Error('The server sent something that is not a review');
   }
   return json as Review;
+
 }
+/** #155: the one check-in question the server chose, worded by code. */
+export type CheckinQuestion = {
+  courseId: string;
+  /** e.g. "CS 262". */
+  code: string;
+  /** e.g. "Is CS 262 still on schedule?" */
+  text: string;
+  /** One line of why now, or null when there is none to show. */
+  reason: string | null;
+};
+
+/** What the student told us: "Yes", "Something changed", or "None of these". */
+export type CheckinAnswer = 'on-schedule' | 'changed' | 'none-of-these';
+
+/** A new week and hours for one task, from "Something changed". */
+export type CheckinChange = { taskId: string; dueWeek: number; estimatedHours: number | null };
+
+/**
+ * GET /checkin (#155). The question to show on the Forecast tab, or null when
+ * there is none (no model key on the server, or nothing to ask). Rejects with
+ * a message the user can read.
+ */
+export async function fetchCheckinQuestion(): Promise<CheckinQuestion | null> {
+  const response = await send('/checkin');
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isObject(json) || !('question' in json)) {
+    throw new Error('The server sent something that is not a check-in question');
+  }
+  const q = json.question;
+  if (q === null) return null;
+  if (!isObject(q) || typeof q.courseId !== 'string' || typeof q.text !== 'string') {
+    throw new Error('The server sent something that is not a check-in question');
+  }
+  return q as CheckinQuestion;
+}
+
+/**
+ * POST /checkin (#155). Saves the student's answer, and for "changed" the new
+ * weeks and hours. Returns the tasks as the server saved them. Rejects with a
+ * message the user can read.
+ */
+export async function answerCheckin(
+  courseId: string,
+  answer: CheckinAnswer,
+  changes?: CheckinChange[]
+): Promise<Task[]> {
+  const response = await send('/checkin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes === undefined ? { courseId, answer } : { courseId, answer, changes }),
+  });
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isObject(json) || !Array.isArray(json.tasks)) {
+    throw new Error('The server sent something that is not a check-in answer');
+  }
+  return json.tasks as Task[];
+}
+
+
 
 /** A shared course, with the current student's enrollment status. */
 export type CatalogCourse = Course & { enrolled: boolean };
@@ -434,3 +503,4 @@ export async function createCourse(input: { code: string; name: string }): Promi
   if (!isCourse(json)) throw new Error('The server sent invalid course data');
   return { created: true, course: json };
 }
+

@@ -217,6 +217,9 @@ async updateTask(userId: string, id: string, updates: TaskUpdates) {
   if (Object.keys(changes).length === 0) {
     return this.getTask(userId, id);
   }
+  if (updates.dueWeek !== undefined){
+    changes.due_week = updates.dueWeek;
+  }
 
   const { data, error } = await this.client
     .from('tasks')

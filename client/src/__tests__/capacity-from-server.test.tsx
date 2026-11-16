@@ -8,7 +8,11 @@ import { wallSemester } from '../testing/fixtures';
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
-jest.mock('../lib/api', () => ({ fetchSemester: jest.fn() }));
+// The Forecast tab also asks for a check-in question (#155): none here.
+jest.mock('../lib/api', () => ({
+  fetchSemester: jest.fn(),
+  fetchCheckinQuestion: jest.fn(async () => null),
+}));
 const mockFetchSemester = jest.mocked(fetchSemester);
 
 // Jest stops any test that runs longer than 5 seconds. The first render of the
