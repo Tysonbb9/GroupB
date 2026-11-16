@@ -1,12 +1,12 @@
 import { resetDb } from '../data/db';
-import { signedIn, type Api } from '../testing/session';
+import { withSample, signedIn, type Api } from '../testing/session';
 
 let api: Api;
 beforeAll(async () => {
   api = await signedIn(); // every route outside /api/auth needs a session
 });
 
-beforeEach(() => resetDb());
+beforeEach(async () => { resetDb(); await withSample(api); });
 
 describe('GET /semester', () => {
   it('returns the whole semester', async () => {

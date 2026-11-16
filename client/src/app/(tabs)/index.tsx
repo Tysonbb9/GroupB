@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptySemesterScreen } from '../../components/EmptyState';
 import { LoadPill } from '../../components/LoadPill';
 import { LogOutButton } from '../../components/LogOutButton';
 import { ScreenHeader } from '../../components/ScreenHeader';
@@ -35,6 +36,10 @@ export default function SemesterScreen() {
   const { semester, setWeeklyCapacity } = useSemester();
   // No week is open until a bar is tapped, so the screen starts uncluttered.
   const [openWeek, setOpenWeek] = useState<number | null>(null);
+
+  if (semester.courses.length === 0) {
+    return <EmptySemesterScreen title="Forecast" message="Add courses and their syllabi to see your weekly workload." />;
+  }
 
   const loads = weeklyLoad(semester.tasks);
   const thisWeekHours = hoursInWeek(loads, semester.currentWeek);
