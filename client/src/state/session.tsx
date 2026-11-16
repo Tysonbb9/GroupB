@@ -85,6 +85,7 @@ export function SessionProvider({
     if (!auth.checksPasswords) return;
     setRequestAuth({
       options: auth.requestOptions,
+      onResponse: auth.receiveResponse,
       onSessionEnded: () => setState({ status: 'signedOut', email: null, notice: SESSION_ENDED_MESSAGE }),
     });
     return () => setRequestAuth(null);

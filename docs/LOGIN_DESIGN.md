@@ -84,3 +84,5 @@ New names in `server/.env` (and in `server/.env.example`, without values):
 | `BETTER_AUTH_SECRET` | A long random string that signs the sessions |
 | `BETTER_AUTH_URL` | The server's own address, for example `http://localhost:3000` |
 | `CLIENT_ORIGIN` | Expo Web's address, for the browser version. Default `http://localhost:8081`. |
+
+Renewed `Set-Cookie` headers travel on ordinary API responses: browsers keep them normally, and the phone uses the Expo cookie adapter while the sent cookie still matches its saved session.
