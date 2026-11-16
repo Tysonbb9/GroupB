@@ -13,9 +13,10 @@
  *   account) a password under the server's 8 characters are caught here,
  *   before asking the server.
  * - Anything the server refuses shows the server's own message, such as
- *   "Invalid email or password". It is drawn in red between the password and
- *   the button, and the keyboard closes when it arrives, so it is never hidden
- *   behind the keyboard on a phone (issue #157).
+ *   "Invalid email or password". It is drawn in red at the top of the form,
+ *   above every field, and the keyboard closes when it arrives, so it is never
+ *   hidden behind the keyboard on a phone, even when a field is tapped again
+ *   (issue #157).
  * - In sample-data mode (no server) any email and password open the app,
  *   and a note under the form says so.
  *
@@ -136,6 +137,14 @@ export default function LoginScreen() {
       ) : null}
 
       <View style={styles.card}>
+        {/* At the top of the form, above every field: the field being typed in always
+            stays above the keyboard, so the message does too (issue #157). */}
+        {message ? (
+          <Text testID="login-message" accessibilityLiveRegion="polite" style={styles.error}>
+            {message}
+          </Text>
+        ) : null}
+
         {mode === 'signUp' ? (
           <View style={styles.field}>
             <Text style={styles.label}>Your name</Text>
@@ -197,12 +206,6 @@ export default function LoginScreen() {
             </Pressable>
           </View>
         </View>
-
-        {message ? (
-          <Text testID="login-message" accessibilityLiveRegion="polite" style={styles.error}>
-            {message}
-          </Text>
-        ) : null}
 
         <Pressable
           testID="login-submit"

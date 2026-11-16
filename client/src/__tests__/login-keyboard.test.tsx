@@ -8,8 +8,10 @@ import { theme } from '../theme';
 
 /**
  * Issue #157: on a phone the keyboard covers the login error, so a wrong
- * password looked like nothing happened. The message sits between the
- * password and the button, is red, and the keyboard closes when it arrives.
+ * password looked like nothing happened. The message sits at the top of the
+ * form, above every field, so a field tapped again to fix the mistake never
+ * pushes it under the keyboard. It is red, and the keyboard closes when it
+ * arrives.
  * A stand-in plays the server, so no server is needed.
  */
 
@@ -105,15 +107,28 @@ describe('the keyboard and the login message', () => {
     expect(dismiss).not.toHaveBeenCalled();
   });
 
-  it('draws the message above the button, so it is not under the keyboard', async () => {
+  it('draws the message above every field, so a field tapped again cannot push it under the keyboard', async () => {
     await renderLogin();
     await act(async () => {
       fireEvent.press(screen.getByTestId('login-submit'));
     });
 
     const ids = testIdsInOrder();
-    expect(ids.indexOf('login-password')).toBeLessThan(ids.indexOf('login-message'));
-    expect(ids.indexOf('login-message')).toBeLessThan(ids.indexOf('login-submit'));
+    expect(ids.indexOf('login-message')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('login-message')).toBeLessThan(ids.indexOf('login-email'));
+    expect(ids.indexOf('login-message')).toBeLessThan(ids.indexOf('login-password'));
+  });
+
+  it('draws the message above the name field too, on Create account', async () => {
+    await renderLogin();
+    fireEvent.press(screen.getByTestId('switch-mode'));
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('login-submit'));
+    });
+
+    const ids = testIdsInOrder();
+    expect(ids.indexOf('login-message')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('login-message')).toBeLessThan(ids.indexOf('login-name'));
   });
 
   it('draws the message in red, not in the quiet link colour', async () => {
