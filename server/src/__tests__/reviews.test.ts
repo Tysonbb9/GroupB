@@ -1,5 +1,5 @@
 import { resetDb } from '../data/db';
-import { signedIn, type Api } from '../testing/session';
+import { withSample, signedIn, type Api } from '../testing/session';
 
 let api: Api;
 beforeAll(async () => {
@@ -7,7 +7,7 @@ beforeAll(async () => {
 });
 
 // Every test starts with no reviews.
-beforeEach(() => resetDb());
+beforeEach(async () => { resetDb(); await withSample(api); });
 
 describe('POST /courses/:id/reviews', () => {
   it('saves a review and returns it with 201', async () => {

@@ -3,7 +3,7 @@ import * as pdfText from '../syllabus/pdf-text';
 import { MAX_PDF_BYTES, PDF_ERROR_MESSAGES, PdfErrorCode, PdfReadError } from '../syllabus/pdf-text';
 import { MAX_CONCURRENT_PDF_READS } from '../syllabus/routes';
 import { makeScannedPdf, makeTextPdf, passwordProtectedPdf } from '../testing/pdfs';
-import { signedIn, type Api } from '../testing/session';
+import { withSample, signedIn, type Api } from '../testing/session';
 
 let api: Api;
 beforeAll(async () => {
@@ -14,7 +14,7 @@ beforeAll(async () => {
 
 jest.setTimeout(30_000);
 
-beforeEach(() => resetDb());
+beforeEach(async () => { resetDb(); await withSample(api); });
 afterEach(() => jest.restoreAllMocks());
 
 const postPdf = (bytes: Uint8Array | Buffer, type = 'application/pdf') =>

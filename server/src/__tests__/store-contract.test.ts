@@ -12,18 +12,20 @@ beforeAll(async () => {
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY;
+const supabaseStudent = process.env.SUPABASE_TEST_USER_ID;
 
 // Run Supabase read-only tests only when credentials exist.
 const describeSupabase =
-  supabaseUrl && supabaseKey ? describe : describe.skip;
+  supabaseUrl && supabaseKey && supabaseStudent ? describe : describe.skip;
 
 // Shared read-only contract tests for both stores.
 function runReadOnlyContractTests(
-  createStore: () => Store
+  createStore: () => Store,
+  userId = 'student-a'
 ) {
   it('TP-40: returns a semester with the correct shape', async () => {
     const store = createStore();
-    const semester = await store.getSemester();
+    const semester = await store.getSemester(userId);
 
     expect(typeof semester.label).toBe('string');
     expect(typeof semester.currentWeek).toBe('number');
@@ -35,26 +37,26 @@ function runReadOnlyContractTests(
   it('TP-42: returns null for an unknown task ID', async () => {
     const store = createStore();
 
-    const task = await store.getTask('does-not-exist');
+    const task = await store.getTask(userId, 'does-not-exist');
 
     expect(task).toBeNull();
   }, 20000);
 }
 
 describe('Store Contract — MemoryStore', () => {
-  beforeEach(() => resetDb());
+  beforeEach(async () => { resetDb(); await new MemoryStore().loadSample('student-a'); });
 
   runReadOnlyContractTests(() => new MemoryStore());
 
   it('TP-41: task updates persist when retrieved again', async () => {
     const store = new MemoryStore();
 
-    const original = await store.getTask('262-2');
+    const original = await store.getTask('student-a', '262-2');
     expect(original).not.toBeNull();
 
-    await store.updateTask('262-2', { done: true });
+    await store.updateTask('student-a', '262-2', { done: true });
 
-    const updated = await store.getTask('262-2');
+    const updated = await store.getTask('student-a', '262-2');
 
     expect(updated).not.toBeNull();
     expect(updated?.done).toBe(true);
@@ -64,7 +66,7 @@ describe('Store Contract — MemoryStore', () => {
 
 describeSupabase('Store Contract — SupabaseStore', () => {
   runReadOnlyContractTests(
-    () => new SupabaseStore(supabaseUrl!, supabaseKey!)
+    () => new SupabaseStore(supabaseUrl!, supabaseKey!), supabaseStudent!
   );
 
   const runWriteTest =
@@ -78,7 +80,7 @@ describeSupabase('Store Contract — SupabaseStore', () => {
       const taskId = '262-2';
       const store = new SupabaseStore(supabaseUrl!, supabaseKey!);
 
-      const original = await store.getTask(taskId);
+      const original = await store.getTask(supabaseStudent!, taskId);
       expect(original).not.toBeNull();
 
       if (!original) {
@@ -92,7 +94,7 @@ describeSupabase('Store Contract — SupabaseStore', () => {
       try {
         updateAttempted = true;
 
-        const updated = await store.updateTask(taskId, {
+        const updated = await store.updateTask(supabaseStudent!, taskId, {
           done: changedDone,
         });
 
@@ -104,7 +106,7 @@ describeSupabase('Store Contract — SupabaseStore', () => {
           supabaseKey!
         );
 
-        const persisted = await freshStore.getTask(taskId);
+        const persisted = await freshStore.getTask(supabaseStudent!, taskId);
 
         expect(persisted).not.toBeNull();
         expect(persisted?.done).toBe(changedDone);
@@ -116,11 +118,11 @@ describeSupabase('Store Contract — SupabaseStore', () => {
             supabaseKey!
           );
 
-          await restoreStore.updateTask(taskId, {
+          await restoreStore.updateTask(supabaseStudent!, taskId, {
             done: originalDone,
           });
 
-          const restored = await restoreStore.getTask(taskId);
+          const restored = await restoreStore.getTask(supabaseStudent!, taskId);
           expect(restored?.done).toBe(originalDone);
         }
       }
