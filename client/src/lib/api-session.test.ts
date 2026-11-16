@@ -177,3 +177,21 @@ describe('the cookie on each request', () => {
     expect(onSessionEnded).toHaveBeenCalledTimes(1);
   });
 });
+
+
+it('hands response headers and the sent cookie to the signed-in session', async () => {
+  const onResponse = jest.fn(), response = reply(wallSemester);
+  setRequestAuth({ options: async () => onPhone, onSessionEnded, onResponse });
+  fetchMock.mockResolvedValue(response);
+  await fetchSemester();
+  expect(onResponse).toHaveBeenCalledWith(response, onPhone);
+});
+
+it('still ends the session on 401 without storing a renewal response', async () => {
+  const onResponse = jest.fn();
+  setRequestAuth({ options: async () => onPhone, onSessionEnded, onResponse });
+  fetchMock.mockResolvedValue(reply({ error: 'Sign in first' }, 401));
+  await expect(fetchSemester()).rejects.toThrow(SESSION_ENDED_MESSAGE);
+  expect(onSessionEnded).toHaveBeenCalledTimes(1);
+  expect(onResponse).not.toHaveBeenCalled();
+});

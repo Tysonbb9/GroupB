@@ -26,6 +26,7 @@ export type AuthClientLike = {
   getSession: () => Promise<Answer<SignedInUser | null>>;
   /** The saved session cookie, or "" when there is none. Better Auth returns a promise. */
   getCookie: () => Promise<string>;
+  receiveCookie?: (header: string, sentCookie: string) => void;
 };
 
 /** How a sign-in or sign-up went: who is signed in, or what to tell the student. */
@@ -52,6 +53,8 @@ export type Auth = {
   signOut: () => Promise<void>;
   /** What to add to each request to our server, so it knows who is asking. */
   requestOptions: () => Promise<RequestInit>;
+  /** Keeps renewal headers from ordinary API responses on the phone. */
+  receiveResponse?: (response: Response, sent: RequestInit) => void;
 };
 
 /**
@@ -172,6 +175,13 @@ export function createServerAuth(
       } catch (error) {
         console.error('auth: could not reach the server to end the session:', error);
       }
+    },
+
+    receiveResponse: (response, sent) => {
+      if (isWeb || response.status === 401) return;
+      const header = response.headers?.get('set-cookie');
+      const cookie = (sent.headers as Record<string, string> | undefined)?.Cookie;
+      if (header && cookie) client.receiveCookie?.(header, cookie);
     },
 
     requestOptions: async () => {
