@@ -225,13 +225,21 @@ No state library. If you know `useState` and `useContext`, you know this file.
 - **`initial` given:** use it as is. Tests do this, and so does the fixture switch in `_layout.tsx`. The server is never called.
 - **`initial` not given:** `SemesterFromServer` calls `fetchSemester()`, shows `LoadingView` while it waits, shows `ErrorView` if it fails, and on success hands the semester to `SemesterState`.
 
-`SemesterState` is the original provider, unchanged: the `useState`, `toggleDone` and `setEstimate`. Splitting it out means the loading logic never touches it, and none of the existing tests had to change.
+`SemesterState` holds the shared semester and its updates. Initial loading stays in `SemesterFromServer`.
 
 For now `toggleDone` and `setEstimate` change the semester in memory only. Saving them back to the server is a later step.
 
 `addTasks` appends tasks the server has already saved (US-30).
 
 `setWeeklyCapacity(hours)` changes the hours the student has each week (US-32). It keeps them first and only then changes the semester, so the forecast never shows hours that were not kept; if keeping them fails, it rejects and nothing changes. Where they are kept depends on where the semester came from: from the server, `saveWeeklyCapacity` saves them there; with `initial` (tests and the fixture switch), they stay on the device.
+
+`loadSample()` replaces the whole shared semester after the server accepts the sample. `loadingSample` and `sampleError` are shared across tabs, and a pending request blocks duplicate taps. `canLoadSample` is false with `initial`, where loading a sample is a no-op and the button is hidden.
+
+`loadSampleSemester()` in `api.ts` sends POST /semester/sample without a body. On 409 it fetches the existing semester instead. Other failures preserve the server message and leave the current semester untouched.
+
+### `src/components/EmptyState.tsx`
+
+`EmptyState` pairs a title and a sentence with actions. `EmptyAction` provides an accessible busy button. `EmptySemesterScreen` shares the sample action and error across Forecast, This week and Courses when there are no courses, replacing their figures and empty sections. Syllabus uses `EmptyState` to explain that a course comes first and offers Go to Courses instead of an empty picker. It does not request AI availability without a course.
 
 ### `src/state/session.tsx`
 
@@ -458,7 +466,9 @@ The server does not require these scripts when running with
 
 ## Tests
 
-Client: 909 tests across 42 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+
+Client: 926 tests across 44 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+
 
 ```bash
 npm test                      # all of them
@@ -468,6 +478,8 @@ npx jest --watch              # while you work
 
 | File | Count | Covers |
 |------|-------|--------|
+| `src/__tests__/empty-semester.test.tsx` | 8 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses and fixture isolation |
+| `src/__tests__/load-sample-api.test.ts` | 5 | sample POST, conflict refetch, server message, invalid data and expired session |
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
