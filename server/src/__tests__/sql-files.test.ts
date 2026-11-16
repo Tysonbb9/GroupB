@@ -10,7 +10,7 @@ import path from 'node:path';
  */
 
 const dbDir = path.join(__dirname, '..', '..', 'db');
-const read = (name: string) => fs.readFileSync(path.join(dbDir, name), 'utf8');
+const read = (name: string) => fs.readFileSync(path.join(dbDir, name), 'utf8').replace(/\r\n/g, '\n');
 
 const schema = read('schema.sql');
 const reset = read('reset.sql');
@@ -147,5 +147,37 @@ describe('the Supabase store and the SQL agree', () => {
   it('the week hours limits match the code: weeks 1 to 15, hours 1 to 80', () => {
     expect(tableBody(schema, 'week_hours')).toMatch(/check \(week between 1 and 15\)/);
     expect(tableBody(schema, 'week_hours')).toMatch(/check \(hours between 1 and 80\)/);
+  });
+});
+
+// The upgrade and a fresh database must give the same student-owned data model.
+describe('student semester migration', () => {
+  const migration = read('migration_own_semester.sql');
+  it('runs in one transaction and removes only ownerless tasks', () => {
+    expect(migration.trim()).toMatch(/^(--.*\n|\s)*begin;[\s\S]*commit;$/);
+    expect(migration).toContain('delete from tasks where user_id is null;');
+    expect(migration).toContain('add column if not exists user_id');
+    expect(migration).toContain('drop constraint if exists tasks_pkey');
+    expect(migration).not.toMatch(/delete from (reviews|courses|enrollments)/i);
+    expect(migration).toContain('primary key (user_id, id)');
+    expect(tableBody(schema, 'tasks')).toContain('primary key (user_id, id)');
+    expect(schema).toContain('foreign key (user_id) references "user" (id) on delete cascade');
+  });
+  it('creates the same private student settings from scratch or on upgrade', () => {
+    expect(tableBody(schema, 'student_settings')).toBe(tableBody(migration, 'student_settings'));
+    expect(migration).toContain('alter table student_settings enable row level security;');
+    expect(schema).toContain('alter table student_settings enable row level security;');
+    expect(reset).toContain('student_settings');
+  });
+  it('uses the same atomic sample function with student locking and restricted access', () => {
+    const fn = (sql: string) => /create or replace function load_sample_semester[\s\S]*?\$\$;/.exec(sql)?.[0];
+    expect(fn(schema)).toBeDefined();
+    expect(fn(schema)).toBe(fn(migration));
+    expect(migration).toContain('where id = p_user_id for update');
+    expect(migration).toContain('from enrollments where user_id = p_user_id');
+    expect(migration).toContain('from tasks where user_id = p_user_id');
+    expect(migration).toContain('revoke execute on function load_sample_semester(text, text[], jsonb) from public, anon, authenticated;');
+    expect(reset).toContain('drop function if exists load_sample_semester(text, text[], jsonb);');
+    expect(read('seed.sql')).not.toMatch(/insert into tasks/i);
   });
 });

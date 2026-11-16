@@ -21,9 +21,10 @@ const weights = [
 ];
 
 let store: Store;
-beforeEach(() => {
+beforeEach(async () => {
   resetDb();
   store = new MemoryStore();
+  await store.loadSample('student-a');
 });
 
 describe('syllabi', () => {
@@ -133,7 +134,7 @@ describe('course policies', () => {
 
   it('leaves attendance on the course, where it already lives', async () => {
     await store.saveCoursePolicies('cs262', policies);
-    await expect(store.getCourse('cs262')).resolves.toMatchObject({ attendance: { allowed: 4, used: 1 } });
+    await expect(store.getCourse('student-a', 'cs262')).resolves.toMatchObject({ attendance: { allowed: 4, used: 1 } });
   });
 });
 
@@ -233,9 +234,9 @@ describe('a fresh start', () => {
   });
 
   it('leaves courses, tasks and reviews as they were', async () => {
-    const before = await store.getSemester();
+    const before = await store.getSemester('student-a');
     await store.saveSyllabus('cs262', 'text');
     await store.replaceGradeWeights('cs262', weights);
-    await expect(store.getSemester()).resolves.toEqual(before);
+    await expect(store.getSemester('student-a')).resolves.toEqual(before);
   });
 });
