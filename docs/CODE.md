@@ -366,17 +366,15 @@ The Express server uses a Data Access Layer to separate API routes from database
 
 ### `server/src/data/store.ts`
 
-Defines the asynchronous `Store` interface for accessing semesters, courses, tasks, and reviews. `updateSemester(updates)` changes the semester's settings (for now only `weeklyCapacity`, US-32) and returns the semester. The Supabase store reads the one semester row's id and updates that row, because Supabase refuses an update that names no row.
-
-It also holds the course details the AI screens save (#144): `getSyllabus`/`saveSyllabus`, `listGradeWeights`/`replaceGradeWeights`, `getCoursePolicies`/`saveCoursePolicies` for each course, and `getCheckin`/`saveCheckin` and `listWeekHours`/`setWeekHours` for each student, by user id. Saving for a course that does not exist is refused with a `DatabaseError` in both stores, as the database's foreign key refuses it. The routes for them come with the AI screens (#145).
+Defines the asynchronous `Store` interface. `getSemester(userId)`, `updateSemester(userId, updates)`, `listCourses(userId)`, `getCourse(userId, id)`, `listTasks(userId, filters)`, `getTask(userId, id)`, `updateTask(userId, id, updates)` and `addTasks(userId, tasks)` put the student first. `loadSample(userId)` returns the copied semester, or null if any course enrollment or task already exists. The route turns null into 409. Weekly capacity lives in `student_settings`, with fifteen hours when no row exists. Shared syllabus, grade-weight and course-policy methods keep their course-only signatures. Check-ins and week-hour overrides keep their existing student-first signatures; saving details for an unknown catalog course still raises DatabaseError.
 
 ### `server/src/data/memory-store.ts`
 
-Implements the `Store` interface using the existing in-memory database. This preserves development and test behavior without requiring Supabase credentials. The course details are kept in `details` in `db.ts`, which starts empty like the new tables and is emptied by `resetDb()`. Their methods hand back copies, like rows read from a database.
+Implements the `Store` interface using the existing in-memory database. The catalog is shared, with enrollments, owner-tagged tasks and a settings map kept separately. A new account starts empty; resetDb restores the catalog and clears every student's data. Existing route fixtures call withSample(api) after resetting, so sample-dependent expectations remain explicit. The course details are kept in `details` in `db.ts`, which starts empty like the new tables and is emptied by `resetDb()`. Their methods hand back copies, like rows read from a database.
 
 ### `server/src/data/supabase-store.ts`
 
-Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types. `replaceGradeWeights` calls the database function `replace_grade_weights`, which deletes and inserts a course's weights in one transaction, so a failure keeps the old ones.
+Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types. Course reads require an inner enrollment match; task requests filter user_id. loadSample calls load_sample_semester once, which locks the student and copies the whole sample transactionally. Only then does it read the resulting semester. `replaceGradeWeights` calls the database function `replace_grade_weights`, which deletes and inserts a course's weights in one transaction, so a failure keeps the old ones.
 
 ### `server/src/data/task-ids.ts`
 
@@ -437,7 +435,8 @@ The weights and policies are returned but not saved yet (#144). The check-in que
 The database setup scripts are located in `server/db/`:
 
 - `server/db/schema.sql`: creates the Supabase database tables and relationships.
-- `server/db/seed.sql`: populates the database with sample semester, course, and task data.
+- `server/db/seed.sql`: populates the shared calendar and course catalog; it does not create student tasks.
+- `server/db/migration_own_semester.sql`: adds private task ownership and weekly capacity, removes ownerless sample tasks, and creates the atomic sample-copy function.
 - `server/db/reset.sql`: resets the database for a fresh setup.
 - `server/db/migration_144_course_tables.sql`: adds the course tables for the AI screens (#144) to a database that already has data. `docs/DATABASE_DESIGN.md` section 3.7 describes them.
 
@@ -451,7 +450,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-874 tests across forty-two test suites.
+Client: 874 tests across 42 suites. Server: 611 passing tests across 26 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 11 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them

@@ -73,6 +73,8 @@ erDiagram
     COURSES ||--o{ TASKS : "has"
     COURSES ||--o{ REVIEWS : "receives"
     USER ||--o{ ENROLLMENTS : "takes"
+    USER ||--o{ TASKS : "owns"
+    USER ||--o| STUDENT_SETTINGS : "chooses"
     COURSES ||--o{ ENROLLMENTS : "taken by"
     USER ||--o{ SESSION : "signs in with"
     USER ||--o{ ACCOUNT : "has"
@@ -96,7 +98,12 @@ erDiagram
         int attendance_allowed
         int attendance_used
     }
+    STUDENT_SETTINGS {
+        text user_id PK,FK
+        numeric weekly_capacity
+    }
     TASKS {
+        text user_id PK,FK
         text id PK
         text course_id FK
         text title
@@ -200,15 +207,14 @@ forgot-password).
 
 ### 3.1 `semester`
 
-One row holds the whole semester. The app shows a single semester, so this is a
-single-row table; the `id` is a fixed sentinel value.
+One shared row holds the calendar label and current week. Its `id` is a fixed sentinel value. Courses are selected by enrollment, tasks by their owner, and capacity by `student_settings`.
 
 | Column | Type | Null | Default | Notes |
 |--------|------|------|---------|-------|
 | `id` | `TEXT` | no | — | Primary key. Fixed sentinel, e.g. `'fall-2026'`. |
 | `label` | `TEXT` | no | — | `Semester.label`, e.g. `"Fall 2026"`. |
 | `current_week` | `INT` | no | — | `Semester.currentWeek`. Must be 1–15. |
-| `weekly_capacity` | `NUMERIC` | no | — | `Semester.weeklyCapacity`. Must be > 0. Editable in US-32. |
+| `weekly_capacity` | `NUMERIC` | no | - | Legacy column, retained for compatibility but no longer read by the server. See `student_settings`. |
 
 **Rules**
 
@@ -266,6 +272,8 @@ CHECK ((attendance_allowed IS NULL) = (attendance_used IS NULL))
   before week 1).
 
 ```sql
+PRIMARY KEY (user_id, id)
+FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE
 CHECK (category IN ('exam','project','problemSet','reading','writing','homework'))
 CHECK (due_week BETWEEN 1 AND 15)
 CHECK (estimated_hours IS NULL OR (estimated_hours > 0 AND estimated_hours <= 100))
@@ -429,12 +437,20 @@ that week (#148). No row means the weekly number applies.
 PRIMARY KEY (course_id)                    -- syllabi, course_policies
 PRIMARY KEY (course_id, position)          -- grade_weights
 PRIMARY KEY (user_id, course_id)           -- course_checkins
-PRIMARY KEY (user_id, week)                -- week_hours
+PRIMARY KEY (user_id, week)                -- week_hours, student_settings
 CONSTRAINT late_both_or_neither
   CHECK ((late_percent_per_day IS NULL) = (late_max_days IS NULL))
 ```
 
-### 3.8 Access: Row Level Security
+### 3.8 `student_settings`
+
+One optional row per student holds `weekly_capacity NUMERIC NOT NULL CHECK (weekly_capacity > 0)`. Its primary key `user_id TEXT` references `"user".id` with `ON DELETE CASCADE`. No row means `DEFAULT_WEEKLY_CAPACITY = 15`; PATCH accepts whole hours from 1 through 80. The server upserts this row without changing the shared calendar.
+
+`GET /semester` starts empty for a new account. `POST /semester/sample` enrolls the student in the five shared catalog courses, copies the 36 tasks with that student's owner ID and resets capacity to 15. Existing enrollments or tasks produce 409. The `load_sample_semester` function locks the student row and performs the copy in one transaction, so a failure leaves no partial sample and concurrent requests cannot both load it. Only the server's service role may execute it.
+
+On an existing database, `migration_own_semester.sql` removes only tasks whose `user_id` is null before setting the owner column non-null and replacing the primary key. A second run preserves all owned tasks. Courses, saved reviews and other shared course data stay intact. `seed.sql` creates only the calendar and five catalog courses; it does not seed tasks or student enrollments.
+
+### 3.9 Access: Row Level Security
 
 Supabase serves every table to anyone holding the project's **public**
 (publishable) key, which is not a secret. Tables made with SQL start with Row
@@ -450,7 +466,7 @@ session and decides what each student may see (US-21).
 ALTER TABLE semester ENABLE ROW LEVEL SECURITY;
 -- and courses, tasks, reviews, "user", "session", "account", "verification",
 -- enrollments, syllabi, grade_weights, course_policies, course_checkins,
--- week_hours
+-- week_hours, student_settings
 ```
 
 ---
@@ -462,7 +478,7 @@ sends `id` as a string. To keep the client unchanged, the database keeps
 **`TEXT` primary keys** carrying those same values.
 
 - `courses.id` = the course code slug, e.g. `'cs262'`.
-- `tasks.id` = a short per-course slug, e.g. `'262-2'`.
+- `tasks.id` = a short per-course slug within one student, e.g. `'262-2'`.
 - `reviews.id` = a generated slug, e.g. `'review-1'`.
 
 Integer `SERIAL` ids (as in the earlier `DB Schema.md` sketch) are deferred.
@@ -495,9 +511,6 @@ These are deliberately out of scope for this design, because the app and API do
 not send them yet. They are listed so the team knows they are deferred, not
 forgotten.
 
-- **Per-student data**: tasks, reviews and the semester are still shared by
-  everyone who signs in. `enrollments`, `course_checkins` and `week_hours` tie
-  a student to something; tasks do not have an owner yet.
 - **Email check and forgot-password**: not this sprint (see
   `docs/LOGIN_DESIGN.md`). The `"verification"` table is ready for them.
 - **Syllabus files**: `syllabi` keeps the text read from a syllabus, not the
