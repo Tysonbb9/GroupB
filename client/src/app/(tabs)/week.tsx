@@ -27,6 +27,10 @@ import { theme } from '../../theme';
  *
  * US-23: ticking a task done asks how long it took (HoursReview), so the
  * student's hours are stored as a review for other students' estimates.
+ *
+ * US-45: the ticked task stays where it was, marked done with Undo, and the
+ * hours question sits directly under it. It moves to Completed only once the
+ * question is saved and closed, or skipped.
  */
 export default function WeekScreen() {
   const router = useRouter();
@@ -38,8 +42,19 @@ export default function WeekScreen() {
     return <EmptySemesterScreen title="This week" message="Your assignments will appear here once you have courses and syllabi." />;
   }
 
-  const groups = groupThisWeek(semester);
-  const itemsLeft = groups.reduce((count, group) => count + group.tasks.length, 0);
+  /** The task just ticked, while it is still done (Undo clears justDone). */
+  const isJustDone = (task: Task) => task.done && task.id === justDone?.id;
+  // The store already counts it as done, so the figures and the forecast
+  // change straight away. Only its row stays put until the card is closed.
+  const itemsLeft = groupThisWeek(semester).reduce((count, group) => count + group.tasks.length, 0);
+  const groups = groupThisWeek({
+    ...semester,
+    tasks: semester.tasks.map((t) => (isJustDone(t) ? { ...t, done: false } : t)),
+  });
+  const undoJustDone = (taskId: string) => {
+    toggleDone(taskId);
+    setJustDone(null);
+  };
   const thisWeekHours = hoursInWeek(weeklyLoad(semester.tasks), semester.currentWeek);
   // Work due after next week is not on this list; Forecast shows it week by week.
   const later = semester.tasks.filter(
@@ -75,10 +90,6 @@ export default function WeekScreen() {
           />
         </View>
 
-        {justDone !== null && (
-          <HoursReview key={justDone.id} task={justDone} onClose={() => setJustDone(null)} />
-        )}
-
         {groups.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>Nothing left. Genuinely nothing.</Text>
@@ -89,20 +100,27 @@ export default function WeekScreen() {
               <SectionHeader label={group.label} warn={group.key === 'overdue'} />
               {group.tasks.map((task) => {
                 const overdue = task.dueWeek < semester.currentWeek;
+                const marked = task.id === justDone?.id;
 
                 return (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    courseCode={courseCode(task.courseId)}
-                    overdueSince={overdue ? task.dueWeek : null}
-                    startNow={startsNow(task, semester.currentWeek, semester.weeklyCapacity)}
-                    onDone={() => {
-                      toggleDone(task.id);
-                      setJustDone(task);
-                    }}
-                    onEstimate={(hours) => setEstimate(task.id, hours)}
-                  />
+                  <React.Fragment key={task.id}>
+                    <TaskRow
+                      task={task}
+                      courseCode={courseCode(task.courseId)}
+                      overdueSince={overdue ? task.dueWeek : null}
+                      startNow={startsNow(task, semester.currentWeek, semester.weeklyCapacity)}
+                      onDone={() => {
+                        toggleDone(task.id);
+                        setJustDone(task);
+                      }}
+                      onEstimate={(hours) => setEstimate(task.id, hours)}
+                      markedDone={marked}
+                      onUndo={() => undoJustDone(task.id)}
+                    />
+                    {marked && (
+                      <HoursReview task={task} onClose={() => setJustDone(null)} />
+                    )}
+                  </React.Fragment>
                 );
               })}
             </View>
@@ -110,12 +128,9 @@ export default function WeekScreen() {
         )}
 
         <CompletedTasks
-          tasks={semester.tasks.filter((t) => t.done)}
+          tasks={semester.tasks.filter((t) => t.done && !isJustDone(t))}
           courseCode={courseCode}
-          onUndo={(id) => {
-            toggleDone(id);
-            if (justDone?.id === id) setJustDone(null); // undone, so don't ask
-          }}
+          onUndo={toggleDone}
         />
 
         {later > 0 && (

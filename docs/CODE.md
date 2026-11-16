@@ -1,4 +1,4 @@
-Code walkthrough
+# Code walkthrough
 
 Read this once, top to bottom, and you will know the whole prototype. That is the goal — every one of us has to be able to explain any file in here.
 
@@ -285,6 +285,8 @@ US-32. The line under the week strip with **Change** beside it. Change opens a b
 
 One assignment as a row on the This week screen: category tile, title, details (course, hours or "Add estimate", "Was week N", "start now") and a circle with a faint tick, so it reads as the thing to tap. The circle has `accessibilityRole="checkbox"` and a label naming the work it completes.
 
+US-45: with `markedDone`, the row stays where it is but looks finished: the title is struck through, the circle is filled, "Marked done" and an **Undo** link show under the details, and tapping the circle or Undo calls `onUndo`.
+
 ### `src/components/CompletedTasks.tsx`
 
 The finished work on the This week screen (US-31). It draws one "Completed (n)" line, closed by default, and nothing at all when no task is done. Opening the line lists each finished task with a filled tick, and tapping it calls `onUndo` (the store's `toggleDone`), which puts the task back in the This week list and its hours back in the forecast. The circle has `accessibilityRole="checkbox"`, checked, with a label naming the task.
@@ -359,7 +361,7 @@ It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size 
 Route: `/week`
 
 Two figures (hours landing this week against capacity, and items left to do), then the outstanding work in `groupThisWeek`'s groups: Overdue, Due this week, Next week. Each `TaskRow` has a circular checkbox calling `toggleDone` and, when the task has no estimate, an **Add estimate** link calling `setEstimate`. Below the groups, `CompletedTasks` lists the done work behind a "Completed (n)" line, so a mistaken tap can be undone with `toggleDone`, and a **Later this semester** row counts the work due after next week and opens Forecast, where each week's bar lists it.
-Ticking a task done also shows the HoursReview card under the figures (US-23); undoing that task hides it.
+Ticking a task done takes its hours off the figures and the forecast straight away, but the row stays in its group, marked done with Undo, and the HoursReview card (US-23) is drawn directly under it (US-45). The task moves to Completed only when the card is skipped, or saved and closed. Undo puts it back as not done and hides the card. Ticking a second task moves the first one on.
 
 Tick the checkbox and three things happen at once: the task leaves the list, this week's hours drop, and the bar on screen 1 gets shorter. All from that one `done: true`.
 
@@ -494,7 +496,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 950 tests across 48 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 980 tests across 50 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -552,11 +554,13 @@ npx jest --watch              # while you work
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
 | `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
 | `src/__tests__/checkin-question.test.tsx` | 8 | #155, AI screen 2: the question and reason above the figures, no card with no question, Yes, the week and hours boxes for the course's open tasks, Save sending only what changed and the forecast redrawing, a bad week refused, None of these, a failed save keeping the card |
+| `src/__tests__/marked-done.test.tsx` | 8 | US-45: the ticked task staying in place marked done with Undo and not yet in Completed, the hours question directly under it, the figures dropping straight away, moving to Completed on Skip and on Save then Close, Undo and the filled circle putting it back, and a second tick moving the first task on |
 
 
 
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 693 passing in 31 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
+
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 695 passing in 31 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
 The check-in question (#155) is covered by `checkin.test.ts` (the snapshot and the check on the AI's answer) and `checkin-routes.test.ts` (both routes with a fake AI: no AI means no question, a foreign course dropped, an AI that fails or answers with non-JSON, no repeat after answering, saving changes all or nothing, 400s, 404, and 401 without login).
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
 

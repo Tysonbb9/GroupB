@@ -34,6 +34,14 @@ const completedLine = () => screen.getByRole('button', { name: /^Completed,/ });
 const undoBox = (title: string) => screen.getByRole('checkbox', { name: `Mark ${title} not done` });
 const openCompleted = () => fireEvent.press(completedLine());
 
+/** Ticks a task done and skips the hours question, so it moves to Completed (US-45). */
+const markDone = (id: string) => {
+    fireEvent.press(screen.getByTestId(`done-${id}`));
+    fireEvent.press(screen.getByText('Skip'));
+  };
+
+
+
 describe('US-31: undo marking a task as done', () => {
   it('counts the finished tasks on a Completed line, closed by default', () => {
     renderApp();
@@ -58,7 +66,7 @@ describe('US-31: undo marking a task as done', () => {
 
   it('moves a task to Completed when it is marked done', () => {
     renderApp();
-    fireEvent.press(screen.getByTestId('done-exam'));
+    markDone('exam');
     expect(screen.queryByTestId('row-exam')).toBeNull();
     expect(completedLine()).toHaveTextContent(/Completed \(2\)/);
     openCompleted();
@@ -67,7 +75,7 @@ describe('US-31: undo marking a task as done', () => {
 
   it('puts the task back in This week when it is marked not done', () => {
     renderApp();
-    fireEvent.press(screen.getByTestId('done-exam'));
+    markDone('exam');
     openCompleted();
     fireEvent.press(undoBox('Midterm'));
     expect(screen.getByTestId('row-exam')).toBeTruthy();
@@ -80,7 +88,7 @@ describe('US-31: undo marking a task as done', () => {
     expect(screen.getByLabelText('10 of 10 hours land this week')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('done-proj'));
+    markDone('proj');
     expect(screen.getByLabelText('0 of 10 hours land this week')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 8 hours')).toBeTruthy();
 
