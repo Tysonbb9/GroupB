@@ -114,6 +114,7 @@ export default function WeekScreen() {
                         setJustDone(task);
                       }}
                       onEstimate={(hours) => setEstimate(task.id, hours)}
+                      onOpen={() => router.push({ pathname: '/task/[id]', params: { id: task.id } })}
                       markedDone={marked}
                       onUndo={() => undoJustDone(task.id)}
                     />

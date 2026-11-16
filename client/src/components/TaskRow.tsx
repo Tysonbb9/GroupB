@@ -16,6 +16,8 @@ type Props = {
   startNow: boolean;
   onDone: () => void;
   onEstimate: (hours: number) => void;
+  /** Opens the assignment's details (US-44). Without it, the row does not open. */
+  onOpen?: () => void;
   /**
    * US-45: the task was just ticked done. It stays in its place, looking done,
    * with Undo, until the hours question under it is answered or skipped.
@@ -27,7 +29,7 @@ type Props = {
 
 /**
  * One assignment as a row: category tile, title and details, and a circular
- * checkbox. A circle reads as a state to toggle rather than an action
+ * checkbox. Tapping the tile or the words opens the details (US-44). A circle reads as a state to toggle rather than an action
  * competing with the title for attention.
  */
 export function TaskRow({
@@ -37,42 +39,68 @@ export function TaskRow({
   startNow,
   onDone,
   onEstimate,
+  onOpen,
   markedDone = false,
   onUndo,
 }: Props) {
   return (
     <View testID={`row-${task.id}`} style={styles.row}>
-      <CategoryTile category={task.category} />
+      {/*
+        Tapping anywhere on the tile or the words opens the details (US-44).
+        The whole area is only a bigger target: screen readers reach the same
+        action through the title, so the Add estimate and Undo buttons inside
+        stay reachable on their own.
+      */}
+      <Pressable
+        testID={`open-${task.id}`}
+        accessible={false}
+        disabled={onOpen === undefined}
+        onPress={onOpen}
+        style={styles.openArea}
+      >
+        <CategoryTile category={task.category} />
 
-      <View style={styles.main}>
-        <Text style={[styles.title, markedDone && styles.titleDone]}>{task.title}</Text>
-        <View style={styles.meta}>
-          {overdueSince !== null && (
-            <Text style={[styles.metaText, styles.overdue]}>Was week {overdueSince}</Text>
-          )}
-          <Text style={styles.metaText}>{courseCode}</Text>
-          {task.estimatedHours !== null ? (
-            <Text style={styles.metaText}>{hoursLabel(task.estimatedHours)}</Text>
-          ) : (
-            <EstimateEditor taskId={task.id} title={task.title} onSave={onEstimate} />
-          )}
-          {startNow && <Text style={[styles.metaText, styles.startNow]}>start now</Text>}
-        </View>
-        {markedDone && (
-          <View style={styles.meta}>
-            <Text style={[styles.metaText, styles.markedDone]}>Marked done</Text>
-            <Pressable
-              testID={`row-undo-${task.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={`Undo marking ${task.title} done`}
-              hitSlop={8}
-              onPress={onUndo}
+        <View style={styles.main}>
+          <View style={styles.titleRow}>
+            <Text
+              style={[styles.title, markedDone && styles.titleDone]}
+              accessibilityRole={onOpen ? 'button' : undefined}
+              accessibilityLabel={onOpen ? `${task.title}, ${courseCode}` : undefined}
+              accessibilityHint={onOpen ? 'Opens its details' : undefined}
+              onPress={onOpen}
             >
-              <Text style={styles.undo}>Undo</Text>
-            </Pressable>
+              {task.title}
+            </Text>
+            {onOpen && <Ionicons name="chevron-forward" size={14} color={theme.faint} />}
           </View>
-        )}
-      </View>
+          <View style={styles.meta}>
+            {overdueSince !== null && (
+              <Text style={[styles.metaText, styles.overdue]}>Was week {overdueSince}</Text>
+            )}
+            <Text style={styles.metaText}>{courseCode}</Text>
+            {task.estimatedHours !== null ? (
+              <Text style={styles.metaText}>{hoursLabel(task.estimatedHours)}</Text>
+            ) : (
+              <EstimateEditor taskId={task.id} title={task.title} onSave={onEstimate} />
+            )}
+            {startNow && <Text style={[styles.metaText, styles.startNow]}>start now</Text>}
+          </View>
+          {markedDone && (
+            <View style={styles.meta}>
+              <Text style={[styles.metaText, styles.markedDone]}>Marked done</Text>
+              <Pressable
+                testID={`row-undo-${task.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Undo marking ${task.title} done`}
+                hitSlop={8}
+                onPress={onUndo}
+              >
+                <Text style={styles.undo}>Undo</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </Pressable>
 
       {/* A faint tick inside the circle says what tapping it does. */}
       {/* Once ticked, the circle fills in, and tapping it again is the same as Undo. */}
@@ -106,8 +134,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.space.sm,
   },
+  openArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: theme.space.sm },
   main: { flex: 1, gap: 2 },
-  title: { fontSize: 14, fontWeight: '700', color: theme.ink },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  title: { flexShrink: 1, fontSize: 14, fontWeight: '700', color: theme.ink },
   titleDone: { color: theme.muted, textDecorationLine: 'line-through' },
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.sm },
   metaText: { fontSize: 11, color: theme.muted },

@@ -343,6 +343,29 @@ export async function addTasks(tasks: NewTask[]): Promise<Task[]> {
   }
   return json as Task[];
 }
+/**
+ * PATCH /tasks/:id (US-44). Saves a task's hours, or clears them with null,
+ * and returns the task as the server now holds it. Rejects with a message the
+ * user can read.
+ */
+export async function updateTask(id: string, change: { estimatedHours: number | null }): Promise<Task> {
+  const response = await send(`/tasks/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(change),
+  });
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isObject(json) || json.id !== id || !(json.estimatedHours === null || typeof json.estimatedHours === 'number')) {
+    throw new Error('The server sent invalid task data');
+  }
+  return json as Task;
+}
+
 /** US-23: one student's report of how long an assignment took them, as the server stored it. */
 export type Review = {
   id: string;

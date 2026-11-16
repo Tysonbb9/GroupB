@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorView, LoadingView } from '../components/ServerStatus';
-import { fetchSemester, loadSampleSemester, saveWeeklyCapacity } from '../lib/api';
+import { fetchSemester, loadSampleSemester, saveWeeklyCapacity, updateTask } from '../lib/api';
 import { Course, Semester, Task } from '../lib/types';
 
 /**
@@ -26,6 +26,11 @@ type SemesterStore = {
   toggleDone: (taskId: string) => void;
   /** Sets a task's estimated hours; null clears it. */
   setEstimate: (taskId: string, hours: number | null) => void;
+  /**
+   * Saves a task's hours (US-44), then uses them everywhere; null clears
+   * them. Rejects, changing nothing, when they could not be saved.
+   */
+  saveEstimate: (taskId: string, hours: number | null) => Promise<void>;
   /** Adds tasks the server has already saved (US-30). */
   addTasks: (tasks: Task[]) => void;
   /**
@@ -46,6 +51,16 @@ type SaveCapacity = (hours: number) => Promise<number>;
  */
 const keepOnDevice: SaveCapacity = async (hours) => hours;
 
+/** Keeps a task's new hours somewhere, and returns the hours that were kept. */
+type SaveTaskHours = (taskId: string, hours: number | null) => Promise<number | null>;
+
+/** Like keepOnDevice: with no server, a task's hours stay on this device. */
+const keepTaskHoursOnDevice: SaveTaskHours = async (_taskId, hours) => hours;
+
+/** With the server, a task's hours are saved with PATCH /tasks/:id. */
+const saveTaskHoursOnServer: SaveTaskHours = async (taskId, hours) =>
+  (await updateTask(taskId, { estimatedHours: hours })).estimatedHours;
+
 /**
  * What the app is given at the top. With no `initial`, the semester is
  * fetched from the server, behind a loading screen and an error screen with
@@ -61,7 +76,12 @@ export function SemesterProvider({
 }) {
   if (initial !== undefined) {
     return (
-      <SemesterState initial={initial} saveCapacity={keepOnDevice} fromServer={false}>
+      <SemesterState
+        initial={initial}
+        saveCapacity={keepOnDevice}
+        saveTaskHours={keepTaskHoursOnDevice}
+        fromServer={false}
+      >
         {children}
       </SemesterState>
     );
@@ -99,7 +119,13 @@ function SemesterFromServer({ children }: { children: React.ReactNode }) {
     return error === null ? <LoadingView /> : <ErrorView message={error} onRetry={retry} />;
   }
   return (
-    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity} fetchSample={loadSampleSemester} fromServer>
+    <SemesterState
+      initial={semester}
+      saveCapacity={saveWeeklyCapacity}
+      saveTaskHours={saveTaskHoursOnServer}
+      fetchSample={loadSampleSemester}
+      fromServer
+    >
       {children}
     </SemesterState>
   );
@@ -110,12 +136,14 @@ function SemesterState({
   children,
   initial,
   saveCapacity,
+  saveTaskHours,
   fromServer,
   fetchSample,
 }: {
   children: React.ReactNode;
   initial: Semester;
   saveCapacity: SaveCapacity;
+  saveTaskHours: SaveTaskHours;
   fromServer: boolean;
   fetchSample?: () => Promise<Semester>;
 }) {
@@ -126,7 +154,7 @@ function SemesterState({
 
   const value = useMemo<SemesterStore>(
     () => {
-      const updateTask = (taskId: string, change: (task: Task) => Partial<Task>) =>
+      const changeTask = (taskId: string, change: (task: Task) => Partial<Task>) =>
         setSemester((current) => ({
           ...current,
           tasks: current.tasks.map((t) =>
@@ -162,9 +190,14 @@ function SemesterState({
         addCourse: (course: Course) => setSemester((current) => current.courses.some((item) => item.id === course.id)
           ? current : { ...current, courses: [...current.courses, course] }),
         toggleDone: (taskId: string) =>
-          updateTask(taskId, (task) => ({ done: !task.done })),
+          changeTask(taskId, (task) => ({ done: !task.done })),
         setEstimate: (taskId: string, hours: number | null) =>
-          updateTask(taskId, () => ({ estimatedHours: hours })),
+          changeTask(taskId, () => ({ estimatedHours: hours })),
+        // Saved first, so the forecast only changes to hours that were kept.
+        saveEstimate: async (taskId: string, hours: number | null) => {
+          const kept = await saveTaskHours(taskId, hours);
+          changeTask(taskId, () => ({ estimatedHours: kept }));
+        },
         addTasks: (tasks: Task[]) =>
           setSemester((current) => ({ ...current, tasks: [...current.tasks, ...tasks] })),
         // Saved first, so the forecast only changes to hours that were kept.
@@ -174,7 +207,7 @@ function SemesterState({
         },
       };
     },
-    [semester, saveCapacity, fetchSample, loadingSample, sampleError, fromServer]
+    [semester, saveCapacity, saveTaskHours, fetchSample, loadingSample, sampleError, fromServer]
   );
 
   return (
