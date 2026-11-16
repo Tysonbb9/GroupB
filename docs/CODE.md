@@ -342,7 +342,7 @@ The courses first (`CourseCards`), then **Heads up** (`SpikeNotice`) for the nex
 
 Route: `/login`, the first screen of the app (US-27). Log out on Forecast comes back to it.
 
-Two forms on one screen: **Log in** (email and password) and **Create account** (also a name), switched with the link under the button (US-20). Before asking the server it checks that every field is filled in, that the email looks like an email, and, for a new account, that the password has the 8 characters the server asks for. While waiting the button says "Logging in…" or "Creating account…" and cannot be pressed twice. Anything the server refuses shows the server's own message, and a session that ended shows a notice at the top until the student starts typing. On success the root layout opens the app. In sample-data mode a note under the form says any email and password open the app.
+Two forms on one screen: **Log in** (email and password) and **Create account** (also a name), switched with the link under the button (US-20). Before asking the server it checks that every field is filled in, that the email looks like an email, and, for a new account, that the password has the 8 characters the server asks for. While waiting the button says "Logging in…" or "Creating account…" and cannot be pressed twice. Anything the server refuses shows the server's own message, and a session that ended shows a notice at the top until the student starts typing. On success the root layout opens the app. In sample-data mode a note under the form says any email and password open the app. Anything refused (by the checks or by the server) shows its message in red between the password and the button, and closes the keyboard (issue #157), so on a phone the message is never hidden behind it. Dragging the page also closes the keyboard, and the form scrolls clear of it.
 
 ### `src/app/syllabus.tsx` — Add a syllabus
 
@@ -451,7 +451,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-874 tests across forty-two test suites.
+881 tests across forty-three test suites.
 
 ```bash
 npm test                      # all of them
@@ -481,6 +481,7 @@ npx jest --watch              # while you work
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
 | `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the sample-data note, and Log out on Forecast |
 | `src/__tests__/login-accounts.test.tsx` | 27 | US-20 on the Log in screen: the right and wrong password, an unknown email, no connection, messages clearing, the busy button that cannot send twice, Create account (its name field, the 8-character check, an email already used, signing up then logging back in), and the notice when a session has ended |
+| `src/__tests__/login-keyboard.test.tsx` | 7 | Issue #157: the keyboard closes when a sign-in, a Create account or the checks before asking the server refuse; it stays open when the screen first opens; the message is drawn above the button and in red; a drag closes the keyboard and the form keeps clear of it |
 | `src/__tests__/session.test.tsx` | 22 | US-20: the session in sample-data mode and with the server, restoring a saved session (found, none, offline, failing), signing in and up, the cookie on requests from the very first one, a 401 sending the student back to Log in, and Log out |
 | `src/lib/auth.test.ts` | 43 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session (on a phone and on the web), Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
 | `src/lib/auth-client.test.ts` | 22 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection |
