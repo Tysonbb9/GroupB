@@ -86,6 +86,7 @@ export type RequestAuth = {
   options: () => Promise<RequestInit>;
   /** Called when the server answers 401: the student has to log in again. */
   onSessionEnded: () => void;
+  onResponse?: (response: Response, sent: RequestInit) => void;
 };
 
 let requestAuth: RequestAuth | null = null;
@@ -120,6 +121,7 @@ async function send(path: string, init: RequestInit & { headers?: Record<string,
     auth.onSessionEnded();
     throw new Error(SESSION_ENDED_MESSAGE);
   }
+  auth?.onResponse?.(response, extra);
   return response;
 }
 
@@ -136,6 +138,18 @@ export async function fetchSemester(): Promise<Semester> {
   if (!isSemester(json)) {
     throw new Error('The server sent invalid semester data');
   }
+  return json;
+}
+
+/** Loads the sample, or the semester already saved if another request got there first. */
+export async function loadSampleSemester(): Promise<Semester> {
+  const response = await send('/semester/sample', { method: 'POST' });
+  if (response.status === 409) return fetchSemester();
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isSemester(json)) throw new Error('The server sent invalid semester data');
   return json;
 }
 

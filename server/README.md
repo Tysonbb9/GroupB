@@ -204,6 +204,8 @@ up or in hands back a session cookie that lasts 30 days, pushed back each day
 the app is used. Email and password only: no email check and no
 forgot-password yet, since both need email.
 
+The session check forwards all renewed `Set-Cookie` headers before parsing JSON: browsers save them normally, and the phone uses the Expo cookie adapter to save them only if the request still belongs to its current session.
+
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/auth/sign-up/email` | `{ name, email, password }` | 200 `{ token, user }` and the cookie | 400 password under 8 characters, 422 email already used |
