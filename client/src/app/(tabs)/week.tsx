@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EmptySemesterScreen } from '../../components/EmptyState';
 import { CompletedTasks } from '../../components/CompletedTasks';
 import { Figure } from '../../components/Figure';
 import { HoursReview } from '../../components/HoursReview';
@@ -32,6 +33,10 @@ export default function WeekScreen() {
   const { semester, toggleDone, setEstimate } = useSemester();
   /** The task just ticked done, so we can ask how long it took (US-23). */
   const [justDone, setJustDone] = useState<Task | null>(null);
+
+  if (semester.courses.length === 0) {
+    return <EmptySemesterScreen title="This week" message="Your assignments will appear here once you have courses and syllabi." />;
+  }
 
   const groups = groupThisWeek(semester);
   const itemsLeft = groups.reduce((count, group) => count + group.tasks.length, 0);

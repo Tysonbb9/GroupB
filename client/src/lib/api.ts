@@ -139,6 +139,18 @@ export async function fetchSemester(): Promise<Semester> {
   return json;
 }
 
+/** Loads the sample, or the semester already saved if another request got there first. */
+export async function loadSampleSemester(): Promise<Semester> {
+  const response = await send('/semester/sample', { method: 'POST' });
+  if (response.status === 409) return fetchSemester();
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isSemester(json)) throw new Error('The server sent invalid semester data');
+  return json;
+}
+
 /**
  * PATCH /semester (US-32). Saves the hours the student has each week, and
  * returns the hours the server now holds. Rejects with a message the user
