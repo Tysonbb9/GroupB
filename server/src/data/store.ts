@@ -1,3 +1,4 @@
+import type { NewCourse, CatalogCourse, CourseCreation } from './course-catalog';
 import type {
   CheckinAnswer,
   Course,
@@ -48,6 +49,11 @@ export interface Store {
   /** Changes the student's settings and returns the semester with them. */
   updateSemester(userId: string, updates: SemesterUpdates): Promise<Semester>;
 
+  searchCatalog(userId: string, query: string): Promise<CatalogCourse[]>;
+  /** Joining twice changes nothing; an unknown catalog id returns null. */
+  enroll(userId: string, courseId: string): Promise<Course | null>;
+  /** A duplicate returns the existing course without enrolling the caller. */
+  createCourse(userId: string, course: NewCourse): Promise<CourseCreation>;
   listCourses(userId: string): Promise<Course[]>;
   getCourse(userId: string, id: string): Promise<Course | null>;
 

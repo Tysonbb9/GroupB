@@ -94,6 +94,7 @@ erDiagram
     COURSES {
         text id PK
         text code UK
+        text code_key UK
         text name
         int attendance_allowed
         int attendance_used
@@ -231,6 +232,7 @@ CREATE UNIQUE INDEX semester_one_row ON semester ((true))
 |--------|------|------|---------|-------|
 | `id` | `TEXT` | no | — | Primary key. Text id, e.g. `'cs262'`. |
 | `code` | `TEXT` | no | — | `Course.code`, e.g. `"CS 262"`. Unique. |
+| `code_key` | `TEXT` | no | - | Code identity: upper case with whitespace, dashes, dots and underscores removed. Unique index `courses_code_key_unique`. |
 | `name` | `TEXT` | no | — | `Course.name`. |
 | `attendance_allowed` | `INT` | yes | — | `Course.attendance.allowed`. Null when no policy. |
 | `attendance_used` | `INT` | yes | — | `Course.attendance.used`. Null when no policy. |
@@ -247,6 +249,14 @@ CHECK (attendance_allowed >= 0)
 CHECK (attendance_used >= 0)
 CHECK ((attendance_allowed IS NULL) = (attendance_used IS NULL))
 ```
+
+Course codes and names are trimmed before storage. Code length is 1 through 40 Unicode characters and name length is 1 through 200, enforced by named CHECK constraints. A normalized code must not be empty. The server's shared normalizeCourseCode helper supplies code_key to the create function; migration_course_catalog.sql backfills the existing catalog with the same separator rule. Catalog codes currently have no editing route.
+
+GET /catalog searches code_key and the course name, ranks exact code then prefix then other matches, and returns at most ten courses with a caller-specific enrolled flag. The search_course_catalog function uses literal substring matching, so punctuation is not query syntax or a wildcard. POST /courses/:id/enroll upserts the student's enrollment without duplicating it.
+
+POST /courses calls create_catalog_course with the normalized key and a readable base ID. The function creates the course and enrollment in one transaction. On unique_violation it reads the course with the matching key and returns it with created=false, without enrolling the caller. If only the ID is taken by a different code, it retries with a numeric suffix. A failed enrollment rolls back the inserted course. Both functions pin search_path and permit execute only to service_role.
+
+migration_course_catalog.sql runs as one transaction and is repeatable. It does not merge or delete catalog rows: pre-existing normalized duplicates fail the unique index and roll back the migration for explicit resolution. Fresh schema.sql has the same column, constraints, index and functions; seed.sql supplies the five normalized keys and reset.sql drops the functions before their tables.
 
 ### 3.3 `tasks`
 

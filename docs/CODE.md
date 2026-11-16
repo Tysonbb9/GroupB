@@ -384,6 +384,12 @@ The Express server uses a Data Access Layer to separate API routes from database
 
 Defines the asynchronous `Store` interface. `getSemester(userId)`, `updateSemester(userId, updates)`, `listCourses(userId)`, `getCourse(userId, id)`, `listTasks(userId, filters)`, `getTask(userId, id)`, `updateTask(userId, id, updates)` and `addTasks(userId, tasks)` put the student first. `loadSample(userId)` returns the copied semester, or null if any course enrollment or task already exists. The route turns null into 409. Weekly capacity lives in `student_settings`, with fifteen hours when no row exists. Shared syllabus, grade-weight and course-policy methods keep their course-only signatures. Check-ins and week-hour overrides keep their existing student-first signatures; saving details for an unknown catalog course still raises DatabaseError.
 
+The catalog methods are searchCatalog(userId, query), enroll(userId, courseId) and createCourse(userId, { code, name }). A creation returns `{ created, course }`; created=false means a duplicate suggestion, with no enrollment. An unknown enrollment target returns null. The routes map these outcomes to 409 and 404 respectively.
+
+### `server/src/data/course-catalog.ts`
+
+The shared code-normalization rule, readable ID base and course-input validation. Limits of 40 code characters and 200 name characters match the database; character counting follows Postgres char_length rather than JavaScript UTF-16 units. The routes validate here, the memory store compares the same keys, and the Supabase store passes them as named SQL function parameters.
+
 ### `server/src/data/memory-store.ts`
 
 Implements the `Store` interface using the existing in-memory database. The catalog is shared, with enrollments, owner-tagged tasks and a settings map kept separately. A new account starts empty; resetDb restores the catalog and clears every student's data. Existing route fixtures call withSample(api) after resetting, so sample-dependent expectations remain explicit. The course details are kept in `details` in `db.ts`, which starts empty like the new tables and is emptied by `resetDb()`. Their methods hand back copies, like rows read from a database.
@@ -452,6 +458,7 @@ The database setup scripts are located in `server/db/`:
 
 - `server/db/schema.sql`: creates the Supabase database tables and relationships.
 - `server/db/seed.sql`: populates the shared calendar and course catalog; it does not create student tasks.
+- `server/db/migration_course_catalog.sql`: backfills normalized course keys, enforces uniqueness, and adds literal catalog search plus transactional create-and-enroll. Existing migrations stay unchanged.
 - `server/db/migration_own_semester.sql`: adds private task ownership and weekly capacity, removes ownerless sample tasks, and creates the atomic sample-copy function.
 - `server/db/reset.sql`: resets the database for a fresh setup.
 - `server/db/migration_144_course_tables.sql`: adds the course tables for the AI screens (#144) to a database that already has data. `docs/DATABASE_DESIGN.md` section 3.7 describes them.
@@ -572,3 +579,5 @@ The server now supports Supabase as its persistent database through the Data Acc
 Email and password are the only way to sign in: no email check and no forgotten-password link this sprint, as LOGIN_DESIGN.md decides. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
+
+The 28 course-catalog route tests and 7 Supabase request tests cover search, joining and creation. The course-catalog route tests exercise normalized spellings, name search, enrollment flags and isolation, explicit idempotent joining, new creation, duplicate409 with no enrollment, simultaneous creates, readable-ID collisions, ten-result ranking, input boundaries and session requirements. supabase-course-catalog.test.ts checks actual outgoing request shapes with a local fetch stand-in, including literal parameter data, idempotent upsert and one transactional create call. sql-files.test.ts checks schema/migration agreement, uniqueness handling and private function permissions. These checks do not execute a hosted PostgreSQL migration.

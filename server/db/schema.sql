@@ -33,12 +33,18 @@ create unique index semester_one_row on semester ((true));
 create table courses (
   id                 text primary key,  -- e.g. 'cs262'
   code               text not null unique,
+  code_key           text not null,
   name               text not null,
   attendance_allowed int check (attendance_allowed >= 0),
   attendance_used    int check (attendance_used >= 0),
   constraint attendance_both_or_neither
-    check ((attendance_allowed is null) = (attendance_used is null))
+    check ((attendance_allowed is null) = (attendance_used is null)),
+  constraint courses_code_length check (char_length(btrim(code)) between 1 and 40 and char_length(code) <= 40),
+  constraint courses_name_length check (char_length(btrim(name)) between 1 and 200 and char_length(name) <= 200),
+  constraint courses_code_key_present check (char_length(code_key) > 0)
 );
+
+create unique index courses_code_key_unique on courses (code_key);
 
 -- ---------------------------------------------------------------------------
 -- tasks (Task). A course with tasks cannot be deleted (on delete restrict),
@@ -285,6 +291,70 @@ $$;
 -- The session-checked server may copy a sample; a public client may not.
 revoke execute on function load_sample_semester(text, text[], jsonb, numeric) from public, anon, authenticated;
 grant execute on function load_sample_semester(text, text[], jsonb, numeric) to service_role;
+
+-- Literal substring matching avoids treating user punctuation as wildcards.
+create or replace function search_course_catalog(p_user_id text, p_code_query text, p_name_query text)
+returns table (id text, code text, name text, attendance_allowed int, attendance_used int, enrolled boolean)
+language sql stable
+set search_path = public
+as $$
+  select c.id, c.code, c.name, c.attendance_allowed, c.attendance_used,
+    exists (select 1 from enrollments e where e.user_id = p_user_id and e.course_id = c.id)
+  from courses c
+  where (p_code_query <> '' and strpos(c.code_key, p_code_query) > 0)
+     or strpos(lower(c.name), lower(p_name_query)) > 0
+  order by case when p_code_query <> '' and c.code_key = p_code_query then 0
+                when p_code_query <> '' and starts_with(c.code_key, p_code_query) then 1 else 2 end,
+    c.code_key collate "C", c.id
+  limit 10;
+$$;
+
+-- A unique-index collision waits for the winner, then returns its course without
+-- enrolling this caller. A readable-id collision tries the next suffix instead.
+-- Course creation and enrollment run in the same transaction and roll back together.
+create or replace function create_catalog_course(
+  p_user_id text, p_code text, p_name text, p_code_key text, p_id_base text
+)
+returns table (created boolean, id text, code text, name text, attendance_allowed int, attendance_used int)
+language plpgsql
+set search_path = public
+as $$
+declare
+  existing courses%rowtype;
+  saved courses%rowtype;
+  candidate text := p_id_base;
+  suffix int := 2;
+begin
+  select c.* into existing from courses c where c.code_key = p_code_key;
+  if found then
+    return query select false, existing.id, existing.code, existing.name, existing.attendance_allowed, existing.attendance_used;
+    return;
+  end if;
+  loop
+    begin
+      insert into courses (id, code, name, code_key)
+        values (candidate, p_code, p_name, p_code_key) returning courses.* into saved;
+      exit;
+    exception when unique_violation then
+      select c.* into existing from courses c where c.code_key = p_code_key;
+      if found then
+        return query select false, existing.id, existing.code, existing.name, existing.attendance_allowed, existing.attendance_used;
+        return;
+      end if;
+      candidate := p_id_base || '-' || suffix;
+      suffix := suffix + 1;
+    end;
+  end loop;
+  insert into enrollments (user_id, course_id) values (p_user_id, saved.id);
+  return query select true, saved.id, saved.code, saved.name, saved.attendance_allowed, saved.attendance_used;
+end;
+$$;
+
+-- The checked server supplies the student id; public clients cannot call these.
+revoke execute on function search_course_catalog(text, text, text) from public, anon, authenticated;
+grant execute on function search_course_catalog(text, text, text) to service_role;
+revoke execute on function create_catalog_course(text, text, text, text, text) from public, anon, authenticated;
+grant execute on function create_catalog_course(text, text, text, text, text) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security. Supabase serves every table in this schema to anyone

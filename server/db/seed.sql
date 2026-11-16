@@ -12,12 +12,12 @@ begin;
 insert into semester (id, label, current_week, weekly_capacity) values
   ('fall-2026', 'Fall 2026', 3, 15);
 
-insert into courses (id, code, name, attendance_allowed, attendance_used) values
-  ('cs262', 'CS 262', 'Software Engineering', 4, 1),
-  ('cs336', 'CS 336', 'Web Development', 3, 0),
-  ('math251', 'MATH 251', 'Linear Algebra', null, null),
-  ('phil153', 'PHIL 153', 'Ethics', 2, 2),
-  ('stat243', 'STAT 243', 'Statistics', 3, 1);
+insert into courses (id, code, code_key, name, attendance_allowed, attendance_used) values
+  ('cs262', 'CS 262', 'CS262', 'Software Engineering', 4, 1),
+  ('cs336', 'CS 336', 'CS336', 'Web Development', 3, 0),
+  ('math251', 'MATH 251', 'MATH251', 'Linear Algebra', null, null),
+  ('phil153', 'PHIL 153', 'PHIL153', 'Ethics', 2, 2),
+  ('stat243', 'STAT 243', 'STAT243', 'Statistics', 3, 1);
 
 -- Tasks are copied from server/src/data/semester.ts only when a student asks
 -- for a sample. New accounts have no enrollments, tasks or settings rows.
