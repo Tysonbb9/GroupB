@@ -327,7 +327,7 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 
 ### `src/app/_layout.tsx`
 
-expo-router's root, and the front door. It holds the `SessionProvider` (with `serverAuth()`, or `localAuth` in sample-data mode) and keeps the splash screen up until the check for a saved session is done, so a student who is still signed in never sees Log in flash past. Below that is a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
+expo-router's root, and the front door. It holds the `SessionProvider` (with `serverAuth()`, or `localAuth` in sample-data mode) and keeps the splash screen up until the check for a saved session is done, so a student who is still signed in never sees Log in flash past. Below that is a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server. The back button on Add a Syllabus says "Back" (`headerBackTitle`), not the name of the screen before it, "(tabs)" (issue #163).
 
 ### `src/app/(tabs)/_layout.tsx`
 
@@ -478,7 +478,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 934 tests across 44 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 936 tests across 45 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -510,6 +510,7 @@ npx jest --watch              # while you work
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
 | `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the sample-data note, and Log out on Forecast |
 | `src/__tests__/login-accounts.test.tsx` | 27 | US-20 on the Log in screen: the right and wrong password, an unknown email, no connection, messages clearing, the busy button that cannot send twice, Create account (its name field, the 8-character check, an email already used, signing up then logging back in), and the notice when a session has ended |
+| `src/__tests__/layout.test.tsx` | 2 | Issue #163: the root stack gives Add a Syllabus its title and a back button that says "Back", and still hides the stack header on the tabs and on Log in (the stack's screens are stand-ins that record their options) |
 | `src/__tests__/session.test.tsx` | 22 | US-20: the session in sample-data mode and with the server, restoring a saved session (found, none, offline, failing), signing in and up, the cookie on requests from the very first one, a 401 sending the student back to Log in, and Log out |
 | `src/lib/auth.test.ts` | 43 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session (on a phone and on the web), Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
 | `src/lib/auth-client.test.ts` | 28 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection, a successful logout sending its cookie without a reported error, the Expo dependencies needed on the phone being installed, ordinary API renewal persisted through the Expo adapter, and late responses after logout or a newer sign-in ignored |
