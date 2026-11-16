@@ -183,3 +183,39 @@ describe('student semester migration', () => {
     expect(read('seed.sql')).not.toMatch(/insert into tasks/i);
   });
 });
+
+describe('course catalog migration', () => {
+  const migration = read('migration_course_catalog.sql');
+  it('backfills and enforces code identity transactionally without deleting or merging courses', () => {
+    expect(migration.trim()).toMatch(/^(--.*\n|\s)*begin;[\s\S]*commit;$/);
+    expect(migration).toContain('add column if not exists code_key text');
+    expect(migration).toContain("regexp_replace(upper(code), '[[:space:]._-]', '', 'g')");
+    expect(migration).toContain('create unique index if not exists courses_code_key_unique on courses (code_key)');
+    expect(schema).toContain('create unique index courses_code_key_unique on courses (code_key)');
+    expect(migration).not.toMatch(/delete from|drop table|truncate/i);
+    expect(tableBody(schema, 'courses')).toContain('code_key');
+  });
+  it.each(['search_course_catalog', 'create_catalog_course'])('defines %s identically for upgrades and fresh databases', name => {
+    const fn = (sql: string) => new RegExp(`create or replace function ${name}[\\s\\S]*?\\$\\$;`).exec(sql)?.[0];
+    expect(fn(schema)).toBeDefined();
+    expect(fn(schema)).toBe(fn(migration));
+    expect(migration).toMatch(new RegExp(`revoke execute on function ${name}[^;]+from public, anon, authenticated;`));
+    expect(reset).toContain(`drop function if exists ${name}`);
+  });
+  it('handles uniqueness collisions and enrolls only after a successful insert', () => {
+    expect(migration).toContain('exception when unique_violation then');
+    expect(migration).toContain('where c.code_key = p_code_key');
+    expect(migration).toContain("candidate := p_id_base || '-' || suffix");
+    expect(migration).toContain('insert into enrollments (user_id, course_id) values (p_user_id, saved.id)');
+  });
+  it('matches route length limits and uses bounded literal search with deterministic priority', () => {
+    for (const sql of [schema, migration]) {
+      expect(sql).toContain('char_length(btrim(code)) between 1 and 40');
+      expect(sql).toContain('char_length(btrim(name)) between 1 and 200');
+      expect(sql).toContain('limit 10;');
+      expect(sql).toContain("p_code_query <> '' and c.code_key = p_code_query then 0");
+      expect(sql).toContain('starts_with(c.code_key, p_code_query) then 1');
+      expect(sql).toContain('strpos(lower(c.name), lower(p_name_query))');
+    }
+  });
+});

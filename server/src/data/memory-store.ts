@@ -1,3 +1,4 @@
+import { normalizeCourseCode, courseIdBase, type NewCourse } from './course-catalog';
 import { db, details, inputs } from './db';
 import { semester as sample, DEFAULT_WEEKLY_CAPACITY } from './semester';
 import { DatabaseError } from './database-error';
@@ -29,6 +30,41 @@ async getSemester(userId: string) {
 async updateSemester(userId: string, updates: SemesterUpdates) {
   if (updates.weeklyCapacity !== undefined) db.settings.set(userId, updates.weeklyCapacity);
   return this.getSemester(userId);
+}
+
+// Search suggests catalog choices; it never changes a student's enrollments.
+async searchCatalog(userId: string, query: string) {
+  const key = normalizeCourseCode(query.trim());
+  const name = query.trim().toLowerCase();
+  const rank = (code: string) => key && code === key ? 0 : key && code.startsWith(key) ? 1 : 2;
+  const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
+  return db.courses
+    .map(course => ({ course, key: normalizeCourseCode(course.code) }))
+    .filter(row => (key && row.key.includes(key)) || row.course.name.toLowerCase().includes(name))
+    .sort((a, b) => rank(a.key) - rank(b.key) || compare(a.key, b.key) || compare(a.course.id, b.course.id))
+    .slice(0, 10)
+    .map(({ course }) => ({ ...structuredClone(course), enrolled: db.enrollments.some(row => row.userId === userId && row.courseId === course.id) }));
+}
+
+async enroll(userId: string, courseId: string) {
+  const course = db.courses.find(course => course.id === courseId);
+  if (!course) return null;
+  if (!db.enrollments.some(row => row.userId === userId && row.courseId === courseId)) db.enrollments.push({ userId, courseId });
+  return structuredClone(course);
+}
+
+// Decide and insert before yielding, so simultaneous creates cannot both succeed.
+async createCourse(userId: string, input: NewCourse) {
+  const code = input.code.trim(), name = input.name.trim(), key = normalizeCourseCode(code);
+  const existing = db.courses.find(course => normalizeCourseCode(course.code) === key);
+  if (existing) return { created: false, course: structuredClone(existing) };
+  const base = courseIdBase(code);
+  let id = base, suffix = 2;
+  while (db.courses.some(course => course.id === id)) id = `${base}-${suffix++}`;
+  const course = { id, code, name, attendance: null };
+  db.courses.push(course);
+  db.enrollments.push({ userId, courseId: id });
+  return { created: true, course: structuredClone(course) };
 }
 
 async listCourses(userId: string) {

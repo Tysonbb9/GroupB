@@ -1,3 +1,4 @@
+import { courseInput, MAX_COURSE_CODE, MAX_COURSE_NAME } from './data/course-catalog';
 import express from 'express';
 import { toNodeHandler, fromNodeHeaders } from 'better-auth/node';
 import { auth, CLIENT_ORIGIN } from './auth';
@@ -120,6 +121,39 @@ app.patch('/semester', async (req, res) => {
 
   const semester = await store.updateSemester(studentId(res), { weeklyCapacity });
   res.json(semester);
+});
+
+// Suggestions are explicit choices; finding a course never joins it automatically.
+app.get('/catalog', async (req, res) => {
+  const query = req.query.q;
+  if (typeof query !== 'string' || !query.trim() || query.includes('\0')) {
+    res.status(400).json({ error: 'q must be a non-empty course code or name' });
+    return;
+  }
+  res.json(await store.searchCatalog(studentId(res), query.trim()));
+});
+
+app.post('/courses/:id/enroll', async (req, res) => {
+  const course = await store.enroll(studentId(res), req.params.id);
+  if (!course) {
+    res.status(404).json({ error: 'Course not found' });
+    return;
+  }
+  res.json(course);
+});
+
+app.post('/courses', async (req, res) => {
+  const input = courseInput(req.body);
+  if (!input) {
+    res.status(400).json({ error: `code and name must be non-empty text, at most ${MAX_COURSE_CODE} and ${MAX_COURSE_NAME} characters respectively` });
+    return;
+  }
+  const result = await store.createCourse(studentId(res), input);
+  if (!result.created) {
+    res.status(409).json({ error: 'A course with this code already exists. Choose it to join.', course: result.course });
+    return;
+  }
+  res.status(201).json(result.course);
 });
 
 app.get('/courses', async (_req, res) => {

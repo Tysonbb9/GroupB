@@ -1,3 +1,4 @@
+import { normalizeCourseCode, courseIdBase, type NewCourse } from './course-catalog';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { DatabaseError } from './database-error';
@@ -26,6 +27,11 @@ function toPolicies(row: PoliciesRow): CoursePolicies {
   };
 }
 
+type CourseRow = { id: string; code: string; name: string; attendance_allowed: number | null; attendance_used: number | null };
+function toCourse(row: CourseRow) {
+  return { id: row.id, code: row.code, name: row.name, attendance: row.attendance_allowed === null ? null : { allowed: row.attendance_allowed, used: row.attendance_used! } };
+}
+
 export class SupabaseStore implements Store {
   private client: SupabaseClient;
 
@@ -44,6 +50,38 @@ private async getSemesterRow() {
 
 
   return data;
+}
+
+async searchCatalog(userId: string, query: string) {
+  const { data, error } = await this.client.rpc('search_course_catalog', {
+    p_user_id: userId, p_code_query: normalizeCourseCode(query.trim()), p_name_query: query.trim(),
+  });
+  if (error) throw new DatabaseError(`Failed to search catalog: ${error.message}`);
+  return (data as (CourseRow & { enrolled: boolean })[]).map(row => ({ ...toCourse(row), enrolled: row.enrolled }));
+}
+
+async enroll(userId: string, courseId: string) {
+  // Catalog lookup deliberately includes courses the student has not joined yet.
+  const { data, error } = await this.client.from('courses')
+    .select('id, code, name, attendance_allowed, attendance_used').eq('id', courseId).maybeSingle();
+  if (error) throw new DatabaseError(`Failed to load course: ${error.message}`);
+  if (!data) return null;
+  const { error: joinError } = await this.client.from('enrollments')
+    .upsert({ user_id: userId, course_id: courseId }, { onConflict: 'user_id,course_id', ignoreDuplicates: true });
+  if (joinError) throw new DatabaseError(`Failed to enroll: ${joinError.message}`);
+  return toCourse(data);
+}
+
+async createCourse(userId: string, input: NewCourse) {
+  const code = input.code.trim(), name = input.name.trim();
+  const { data, error } = await this.client.rpc('create_catalog_course', {
+    p_user_id: userId, p_code: code, p_name: name,
+    p_code_key: normalizeCourseCode(code), p_id_base: courseIdBase(code),
+  });
+  if (error) throw new DatabaseError(`Failed to create course: ${error.message}`);
+  const row = (data as (CourseRow & { created: boolean })[])[0];
+  if (!row) throw new DatabaseError('Failed to create course: no course returned');
+  return { created: row.created, course: toCourse(row) };
 }
 
 async listCourses(userId: string) {
