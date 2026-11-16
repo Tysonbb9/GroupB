@@ -91,6 +91,7 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 | `db/migration_127_users_enrollments.sql` | Adds the login tables and `enrollments` to a database that already has data. Leaves existing rows alone. |
 | `db/migration_144_course_tables.sql` | Adds the course tables for the AI screens (`syllabi`, `grade_weights`, `course_policies`, `course_checkins`, `week_hours`) to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
 | `db/seed.sql` | Loads the shared calendar and catalog: 1 semester, 5 courses, no student tasks |
+| `db/migration_course_catalog.sql` | Backfills normalized code identity with a unique index and adds search and atomic create-and-enroll functions. Run after migration_own_semester.sql. |
 | `db/migration_own_semester.sql` | Adds student settings and task ownership, deletes only ownerless sample tasks and adds the transactional sample-copy function. Run after the existing migrations. |
 | `db/reset.sql` | **Deletes every table and all data**, including saved reviews and accounts |
 
@@ -230,6 +231,9 @@ curl -b cookies.txt http://localhost:3000/semester
 
 | Method | Path | Description | Success | Errors |
 |---|---|---|---|---|
+| GET | `/catalog?q=TEXT` | Search shared codes and names, ranked exact code then code prefix then other matches; at most 10, each with enrolled | 200 | 400 for missing, blank or unusable q |
+| POST | `/courses/:id/enroll` | Join a catalog course; joining again is unchanged | 200 with the course | 404 for an unknown catalog id |
+| POST | `/courses` | Trim code and name, create a new course and enroll the caller | 201 with the course | 400 for invalid text; 409 with error and existing course for a duplicate code |
 | GET | `/semester` | Shared calendar with this student's capacity, enrolled courses and tasks; new accounts are empty with capacity 15 | 200 | |
 | POST | `/semester/sample` | Enroll in five sample courses, copy 36 tasks; use capacity 15 only when unset | 201 with the whole semester | 409 if any enrollment or task already exists |
 | GET | `/courses` | All courses | 200 | |
@@ -344,3 +348,19 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3000/semester/sample -WebSe
 ```
 
 The optional hosted store contract checks also need `SUPABASE_TEST_USER_ID`, the ID of an existing test student. Write checks still require `RUN_SUPABASE_WRITE_TESTS=true`; use a disposable account that already loaded its sample. Local checks do not load server/.env or connect to the hosted database.
+
+### Find, join or create a course
+
+All three catalog routes require a session. Search only suggests choices: it does not enroll anyone. Codes compare in upper case with whitespace, dashes, dots and underscores removed. For example, cs262, CS 262 and CS-262 find the same course. Names use literal case-insensitive substring search; punctuation does not become a wildcard. The enrolled flag belongs to the student making the request.
+
+A duplicate create returns 409 with `{ error, course }` and does not enroll the caller or change the existing course's name. The student can explicitly join that returned course. New code and name values are trimmed and limited to 40 and 200 Unicode characters, matching the database CHECK constraints. A code made entirely of ignored separators is invalid. New IDs use the code's lowercase ASCII letters and digits, or course when none remain, adding -2, -3 and so on when taken.
+
+The Supabase store uses the service-role-only create_catalog_course function for course creation and enrollment in one transaction. Its unique index stops normalized-code duplicates, including simultaneous requests; a code collision returns the winner, while an ID collision tries a suffix. Apply migration_course_catalog.sql with this server version. If old catalog rows already have the same normalized code, the migration aborts without merging or deleting them; decide how to resolve those rows before trying again.
+
+PowerShell with an existing signed-in `$session`:
+
+```powershell
+Invoke-RestMethod -Uri 'http://localhost:3000/catalog?q=cs262' -WebSession $session
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/courses/cs262/enroll' -WebSession $session
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/courses' -WebSession $session -ContentType 'application/json' -Body '{"code":"CS 999","name":"New subject"}'
+```
