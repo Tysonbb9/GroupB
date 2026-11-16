@@ -10,7 +10,7 @@ import path from 'node:path';
  */
 
 const dbDir = path.join(__dirname, '..', '..', 'db');
-const read = (name: string) => fs.readFileSync(path.join(dbDir, name), 'utf8');
+const read = (name: string) => fs.readFileSync(path.join(dbDir, name), 'utf8').replace(/\r\n/g, '\n');
 
 const schema = read('schema.sql');
 const reset = read('reset.sql');
@@ -147,5 +147,75 @@ describe('the Supabase store and the SQL agree', () => {
   it('the week hours limits match the code: weeks 1 to 15, hours 1 to 80', () => {
     expect(tableBody(schema, 'week_hours')).toMatch(/check \(week between 1 and 15\)/);
     expect(tableBody(schema, 'week_hours')).toMatch(/check \(hours between 1 and 80\)/);
+  });
+});
+
+// The upgrade and a fresh database must give the same student-owned data model.
+describe('student semester migration', () => {
+  const migration = read('migration_own_semester.sql');
+  it('runs in one transaction and removes only ownerless tasks', () => {
+    expect(migration.trim()).toMatch(/^(--.*\n|\s)*begin;[\s\S]*commit;$/);
+    expect(migration).toContain('delete from tasks where user_id is null;');
+    expect(migration).toContain('add column if not exists user_id');
+    expect(migration).toContain('drop constraint if exists tasks_pkey');
+    expect(migration).not.toMatch(/delete from (reviews|courses|enrollments)/i);
+    expect(migration).toContain('primary key (user_id, id)');
+    expect(tableBody(schema, 'tasks')).toContain('primary key (user_id, id)');
+    expect(schema).toContain('foreign key (user_id) references "user" (id) on delete cascade');
+  });
+  it('creates the same private student settings from scratch or on upgrade', () => {
+    expect(tableBody(schema, 'student_settings')).toBe(tableBody(migration, 'student_settings'));
+    expect(migration).toContain('alter table student_settings enable row level security;');
+    expect(schema).toContain('alter table student_settings enable row level security;');
+    expect(reset).toContain('student_settings');
+  });
+  it('uses the same atomic sample function with student locking and restricted access', () => {
+    const fn = (sql: string) => /create or replace function load_sample_semester[\s\S]*?\$\$;/.exec(sql)?.[0];
+    expect(fn(schema)).toBeDefined();
+    expect(fn(schema)).toBe(fn(migration));
+    expect(migration).toContain('where id = p_user_id for update');
+    expect(migration).toContain('values (p_user_id, p_weekly_capacity)');
+    expect(migration).toContain('on conflict (user_id) do nothing;');
+    expect(migration).toContain('from enrollments where user_id = p_user_id');
+    expect(migration).toContain('from tasks where user_id = p_user_id');
+    expect(migration).toContain('revoke execute on function load_sample_semester(text, text[], jsonb, numeric) from public, anon, authenticated;');
+    expect(reset).toContain('drop function if exists load_sample_semester(text, text[], jsonb, numeric);');
+    expect(read('seed.sql')).not.toMatch(/insert into tasks/i);
+  });
+});
+
+describe('course catalog migration', () => {
+  const migration = read('migration_course_catalog.sql');
+  it('backfills and enforces code identity transactionally without deleting or merging courses', () => {
+    expect(migration.trim()).toMatch(/^(--.*\n|\s)*begin;[\s\S]*commit;$/);
+    expect(migration).toContain('add column if not exists code_key text');
+    expect(migration).toContain("regexp_replace(upper(code), '[[:space:]._-]', '', 'g')");
+    expect(migration).toContain('create unique index if not exists courses_code_key_unique on courses (code_key)');
+    expect(schema).toContain('create unique index courses_code_key_unique on courses (code_key)');
+    expect(migration).not.toMatch(/delete from|drop table|truncate/i);
+    expect(tableBody(schema, 'courses')).toContain('code_key');
+  });
+  it.each(['search_course_catalog', 'create_catalog_course'])('defines %s identically for upgrades and fresh databases', name => {
+    const fn = (sql: string) => new RegExp(`create or replace function ${name}[\\s\\S]*?\\$\\$;`).exec(sql)?.[0];
+    expect(fn(schema)).toBeDefined();
+    expect(fn(schema)).toBe(fn(migration));
+    expect(migration).toMatch(new RegExp(`revoke execute on function ${name}[^;]+from public, anon, authenticated;`));
+    expect(reset).toContain(`drop function if exists ${name}`);
+  });
+  it('handles uniqueness collisions and enrolls only after a successful insert', () => {
+    expect(migration).toContain('exception when unique_violation then');
+    expect(migration).toContain('where c.code_key = p_code_key');
+    expect(migration).toContain("candidate := p_id_base || '-' || suffix");
+    expect(migration).toContain('insert into enrollments (user_id, course_id) values (p_user_id, saved.id)');
+  });
+  it('matches route length limits and uses bounded literal search with deterministic priority', () => {
+    for (const sql of [schema, migration]) {
+      expect(sql).toContain('char_length(btrim(code)) between 1 and 40');
+      expect(sql).toContain('char_length(btrim(name)) between 1 and 200');
+      expect(sql).toContain('limit 10;');
+      expect(sql).toContain("p_code_query <> '' and c.code_key = p_code_query then 0");
+      expect(sql).toContain('starts_with(c.code_key, p_code_query) then 1');
+      expect(sql).toContain('strpos(lower(c.name), lower(p_name_query))');
+    }
   });
 });

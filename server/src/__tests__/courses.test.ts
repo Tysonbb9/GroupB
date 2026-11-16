@@ -1,5 +1,5 @@
 import { resetDb } from '../data/db';
-import { signedIn, type Api } from '../testing/session';
+import { withSample, signedIn, type Api } from '../testing/session';
 
 let api: Api;
 beforeAll(async () => {
@@ -7,7 +7,7 @@ beforeAll(async () => {
 });
 
 // Start every test from the same mock data.
-beforeEach(() => resetDb());
+beforeEach(async () => { resetDb(); await withSample(api); });
 
 describe('GET /courses', () => {
   it('returns all five courses', async () => {

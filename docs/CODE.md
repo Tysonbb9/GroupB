@@ -202,6 +202,12 @@ Signing in (US-20), as [LOGIN_DESIGN.md](LOGIN_DESIGN.md) sets out. `auth.ts` ho
 
 `auth-client.ts` is the only file that imports Better Auth. `createCrunchWeekAuthClient` sets up `createAuthClient` with the Expo plugin (`scheme` and `storagePrefix` both `crunchweek`, SecureStore for storage), and `serverAuth()` makes the one the app uses, once, so every screen shares the session. One thing differs from the design's example: in Better Auth 1.7.21 `getCookie()` returns a promise, so it is awaited.
 
+The Expo client also needs `expo-network`, installed with `npx expo install expo-network` to match the Expo SDK. Better Auth's online manager loads it when session state changes, including logout; without it the phone can clear its local cookie while failing to end the server session. The dependency test explicitly resolves `expo-constants`, `expo-linking`, `expo-network` and `expo-secure-store`, and the logout test verifies that a previously valid cookie no longer has a server session with no error reported.
+
+The plugin only loads `expo-web-browser` for a redirect sign-in or social account link. Our email/password sign-in, sign-up, logout, cookie reading and session refresh do not use that branch, so it is not added for those flows.
+
+Ordinary API responses also carry cookie renewals. `SessionProvider` gives `api.ts` the auth response handler, and the phone stores matching `Set-Cookie` headers with the Expo adapter and parser; a response for a session that was logged out or replaced is ignored. Web requests leave cookie storage to the browser. No extra refresh request is needed.
+
 ### `src/data/semester.ts`
 
 One fake student, five courses, 36 tasks. Every task has a category, and one (the discussion post) has no estimate on purpose so the "Add estimate" path can be seen. Everything the app displays comes from here.
@@ -223,13 +229,21 @@ No state library. If you know `useState` and `useContext`, you know this file.
 - **`initial` given:** use it as is. Tests do this, and so does the fixture switch in `_layout.tsx`. The server is never called.
 - **`initial` not given:** `SemesterFromServer` calls `fetchSemester()`, shows `LoadingView` while it waits, shows `ErrorView` if it fails, and on success hands the semester to `SemesterState`.
 
-`SemesterState` is the original provider, unchanged: the `useState`, `toggleDone` and `setEstimate`. Splitting it out means the loading logic never touches it, and none of the existing tests had to change.
+`SemesterState` holds the shared semester and its updates. Initial loading stays in `SemesterFromServer`.
 
 For now `toggleDone` and `setEstimate` change the semester in memory only. Saving them back to the server is a later step.
 
 `addTasks` appends tasks the server has already saved (US-30).
 
 `setWeeklyCapacity(hours)` changes the hours the student has each week (US-32). It keeps them first and only then changes the semester, so the forecast never shows hours that were not kept; if keeping them fails, it rejects and nothing changes. Where they are kept depends on where the semester came from: from the server, `saveWeeklyCapacity` saves them there; with `initial` (tests and the fixture switch), they stay on the device.
+
+`loadSample()` replaces the whole shared semester after the server accepts the sample. `loadingSample` and `sampleError` are shared across tabs, and a pending request blocks duplicate taps. `canLoadSample` is false with `initial`, where loading a sample is a no-op and the button is hidden.
+
+`loadSampleSemester()` in `api.ts` sends POST /semester/sample without a body. On 409 it fetches the existing semester instead. Other failures preserve the server message and leave the current semester untouched.
+
+### `src/components/EmptyState.tsx`
+
+`EmptyState` pairs a title and a sentence with actions. `EmptyAction` provides an accessible busy button. `EmptySemesterScreen` shares the sample action and error across Forecast, This week and Courses when there are no courses, replacing their figures and empty sections. Syllabus uses `EmptyState` to explain that a course comes first and offers Go to Courses instead of an empty picker. It does not request AI availability without a course.
 
 ### `src/state/session.tsx`
 
@@ -313,7 +327,7 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 
 ### `src/app/_layout.tsx`
 
-expo-router's root, and the front door. It holds the `SessionProvider` (with `serverAuth()`, or `localAuth` in sample-data mode) and keeps the splash screen up until the check for a saved session is done, so a student who is still signed in never sees Log in flash past. Below that is a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
+expo-router's root, and the front door. It holds the `SessionProvider` (with `serverAuth()`, or `localAuth` in sample-data mode) and keeps the splash screen up until the check for a saved session is done, so a student who is still signed in never sees Log in flash past. Below that is a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server. The back button on Add a Syllabus says "Back" (`headerBackTitle`), not the name of the screen before it, "(tabs)" (issue #163).
 
 ### `src/app/(tabs)/_layout.tsx`
 
@@ -372,17 +386,21 @@ The Express server uses a Data Access Layer to separate API routes from database
 
 ### `server/src/data/store.ts`
 
-Defines the asynchronous `Store` interface for accessing semesters, courses, tasks, and reviews. `updateSemester(updates)` changes the semester's settings (for now only `weeklyCapacity`, US-32) and returns the semester. The Supabase store reads the one semester row's id and updates that row, because Supabase refuses an update that names no row.
+Defines the asynchronous `Store` interface. `getSemester(userId)`, `updateSemester(userId, updates)`, `listCourses(userId)`, `getCourse(userId, id)`, `listTasks(userId, filters)`, `getTask(userId, id)`, `updateTask(userId, id, updates)` and `addTasks(userId, tasks)` put the student first. `loadSample(userId)` returns the copied semester, or null if any course enrollment or task already exists. The route turns null into 409. Weekly capacity lives in `student_settings`, with fifteen hours when no row exists. Shared syllabus, grade-weight and course-policy methods keep their course-only signatures. Check-ins and week-hour overrides keep their existing student-first signatures; saving details for an unknown catalog course still raises DatabaseError.
 
-It also holds the course details the AI screens save (#144): `getSyllabus`/`saveSyllabus`, `listGradeWeights`/`replaceGradeWeights`, `getCoursePolicies`/`saveCoursePolicies` for each course, and `getCheckin`/`saveCheckin` and `listWeekHours`/`setWeekHours` for each student, by user id. Saving for a course that does not exist is refused with a `DatabaseError` in both stores, as the database's foreign key refuses it. The routes for them come with the AI screens (#145).
+The catalog methods are searchCatalog(userId, query), enroll(userId, courseId) and createCourse(userId, { code, name }). A creation returns `{ created, course }`; created=false means a duplicate suggestion, with no enrollment. An unknown enrollment target returns null. The routes map these outcomes to 409 and 404 respectively.
+
+### `server/src/data/course-catalog.ts`
+
+The shared code-normalization rule, readable ID base and course-input validation. Limits of 40 code characters and 200 name characters match the database; character counting follows Postgres char_length rather than JavaScript UTF-16 units. The routes validate here, the memory store compares the same keys, and the Supabase store passes them as named SQL function parameters.
 
 ### `server/src/data/memory-store.ts`
 
-Implements the `Store` interface using the existing in-memory database. This preserves development and test behavior without requiring Supabase credentials. The course details are kept in `details` in `db.ts`, which starts empty like the new tables and is emptied by `resetDb()`. Their methods hand back copies, like rows read from a database.
+Implements the `Store` interface using the existing in-memory database. The catalog is shared, with enrollments, owner-tagged tasks and a settings map kept separately. A new account starts empty; resetDb restores the catalog and clears every student's data. Existing route fixtures call withSample(api) after resetting, so sample-dependent expectations remain explicit. The course details are kept in `details` in `db.ts`, which starts empty like the new tables and is emptied by `resetDb()`. Their methods hand back copies, like rows read from a database.
 
 ### `server/src/data/supabase-store.ts`
 
-Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types. `replaceGradeWeights` calls the database function `replace_grade_weights`, which deletes and inserts a course's weights in one transaction, so a failure keeps the old ones.
+Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types. Course reads require an inner enrollment match; task requests filter user_id. loadSample calls load_sample_semester once, which locks the student and copies the whole sample transactionally. Only then does it read the resulting semester. `replaceGradeWeights` calls the database function `replace_grade_weights`, which deletes and inserts a course's weights in one transaction, so a failure keeps the old ones.
 
 ### `server/src/data/task-ids.ts`
 
@@ -409,8 +427,8 @@ The order of what runs on each request matters (US-21, #44):
 
 1. **CORS.** Names Expo Web's address (`CLIENT_ORIGIN`, default `http://localhost:8081`) and allows cookies, in place of `*`, which browsers refuse once a cookie is sent. Answers the browser's OPTIONS preflight, which needs no session.
 2. **`/api/auth/*`**, Better Auth's own routes (see `auth.ts` below). They come before `express.json()`, because Better Auth reads the request body itself.
-3. **`express.json()`.**
-4. **The session check.** Asks Better Auth whose session the cookie belongs to. With no valid session it answers `401 { "error": "Sign in first" }`, so the phone shows the login screen. Otherwise it puts the session on `res.locals.session`, for routes that will later keep each student's own data.
+3. **The session check.** Asks Better Auth whose session the cookie belongs to and appends every renewal cookie to the response. With no valid session it answers `401 { "error": "Sign in first" }`, before parsing a body. The session stays on `res.locals.session` for the routes.
+4. **`express.json()`.** Signed-in requests with broken JSON still get 400.
 5. **Every other route**, `/syllabus` included.
 
 `PATCH /semester` (US-32) takes `{ weeklyCapacity }`, a whole number of hours from 1 to 80, and returns the whole semester with it. Anything else is a 400 with a JSON error, and nothing changes. Its tests are in `server/src/__tests__/weekly-capacity.test.ts` (test plan row TP-36).
@@ -443,7 +461,9 @@ The weights and policies are returned but not saved yet (#144). The check-in que
 The database setup scripts are located in `server/db/`:
 
 - `server/db/schema.sql`: creates the Supabase database tables and relationships.
-- `server/db/seed.sql`: populates the database with sample semester, course, and task data.
+- `server/db/seed.sql`: populates the shared calendar and course catalog; it does not create student tasks.
+- `server/db/migration_course_catalog.sql`: backfills normalized course keys, enforces uniqueness, and adds literal catalog search plus transactional create-and-enroll. Existing migrations stay unchanged.
+- `server/db/migration_own_semester.sql`: adds private task ownership and weekly capacity, removes ownerless sample tasks, and creates the atomic sample-copy function.
 - `server/db/reset.sql`: resets the database for a fresh setup.
 - `server/db/migration_144_course_tables.sql`: adds the course tables for the AI screens (#144) to a database that already has data. `docs/DATABASE_DESIGN.md` section 3.7 describes them.
 
@@ -457,7 +477,8 @@ The server does not require these scripts when running with
 
 ## Tests
 
-913 tests across forty-three test suites.
+
+Client: 944 tests across 46 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -467,6 +488,8 @@ npx jest --watch              # while you work
 
 | File | Count | Covers |
 |------|-------|--------|
+| `src/__tests__/empty-semester.test.tsx` | 8 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses and fixture isolation |
+| `src/__tests__/load-sample-api.test.ts` | 5 | sample POST, conflict refetch, server message, invalid data and expired session |
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
@@ -488,10 +511,11 @@ npx jest --watch              # while you work
 | `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the sample-data note, and Log out on Forecast |
 | `src/__tests__/login-accounts.test.tsx` | 27 | US-20 on the Log in screen: the right and wrong password, an unknown email, no connection, messages clearing, the busy button that cannot send twice, Create account (its name field, the 8-character check, an email already used, signing up then logging back in), and the notice when a session has ended |
 | `src/__tests__/login-keyboard.test.tsx` | 8 | Issue #157: the keyboard closes when a sign-in, a Create account or the checks before asking the server refuse; it stays open when the screen first opens; the message is drawn at the top of the form, above every field (on Log in and on Create account), and in red; a drag closes the keyboard and the form keeps clear of it |
+| `src/__tests__/layout.test.tsx` | 2 | Issue #163: the root stack gives Add a Syllabus its title and a back button that says "Back", and still hides the stack header on the tabs and on Log in (the stack's screens are stand-ins that record their options) |
 | `src/__tests__/session.test.tsx` | 22 | US-20: the session in sample-data mode and with the server, restoring a saved session (found, none, offline, failing), signing in and up, the cookie on requests from the very first one, a 401 sending the student back to Log in, and Log out |
 | `src/lib/auth.test.ts` | 43 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session (on a phone and on the web), Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
-| `src/lib/auth-client.test.ts` | 22 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection |
-| `src/lib/api-session.test.ts` | 55 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, and nothing added in sample-data mode |
+| `src/lib/auth-client.test.ts` | 28 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection, a successful logout sending its cookie without a reported error, the Expo dependencies needed on the phone being installed, ordinary API renewal persisted through the Expo adapter, and late responses after logout or a newer sign-in ignored |
+| `src/lib/api-session.test.ts` | 57 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, nothing added in sample-data mode, renewal responses delivered with the sent cookie, and 401 handled before renewal storage |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (peak week, heavy weeks in words and labels, a course with none) |
@@ -514,10 +538,12 @@ npx jest --watch              # while you work
 
 
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 583 of them in twenty-four files, plus 12 still marked to-do and 4 that only run against a test database. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 623 passing in 27 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
 
 `ai-model.test.ts`, `ai-syllabus-reading.test.ts` and `ai-routes.test.ts` cover issue #145 with a fake model, so no service is called and no key is needed: reading a streamed or a plain answer, what the client sends and that errors never include the key or the address, the checks on every field of the AI's answer (weeks outside 1 to 15 and hours outside 0 to 100 become blank, bad titles and weights are dropped), and the routes (400, 413, 502 and 503, and 401 without a session).
+`session-renewal.test.ts` adds five server tests: renewal headers and forward expiry for an aged session, multiple cookies preserved, signed-out broken or oversized JSON refused with 401, and signed-in broken JSON still returning 400.
+
 `auth.test.ts` covers US-21: signing up and in, a wrong password, an email already used, a short password, a sign-in from a web page that is not trusted, the 30-day session, 401 from every other route without a session or after signing out, and 200 with one. Since every route needs a session, the other route tests sign in first with `signedIn()` from `src/testing/session.ts`, which signs up a test student and returns a supertest agent that sends the cookie.
 
 
@@ -558,3 +584,5 @@ The server now supports Supabase as its persistent database through the Data Acc
 Email and password are the only way to sign in: no email check and no forgotten-password link this sprint, as LOGIN_DESIGN.md decides. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
+
+The 28 course-catalog route tests and 7 Supabase request tests cover search, joining and creation. The course-catalog route tests exercise normalized spellings, name search, enrollment flags and isolation, explicit idempotent joining, new creation, duplicate409 with no enrollment, simultaneous creates, readable-ID collisions, ten-result ranking, input boundaries and session requirements. supabase-course-catalog.test.ts checks actual outgoing request shapes with a local fetch stand-in, including literal parameter data, idempotent upsert and one transactional create call. sql-files.test.ts checks schema/migration agreement, uniqueness handling and private function permissions. These checks do not execute a hosted PostgreSQL migration.

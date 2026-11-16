@@ -9,9 +9,12 @@ begin;
 -- The course details (#144) and enrollments first: they point at "user" and
 -- courses. replace_grade_weights returns grade_weights rows, so it goes
 -- before that table.
+drop function if exists search_course_catalog(text, text, text);
+drop function if exists create_catalog_course(text, text, text, text, text);
+drop function if exists load_sample_semester(text, text[], jsonb, numeric);
 drop function if exists replace_grade_weights(text, jsonb);
 drop table if exists syllabi, grade_weights, course_policies, course_checkins, week_hours;
-drop table if exists enrollments, reviews, tasks, courses, semester;
+drop table if exists student_settings, enrollments, reviews, tasks, courses, semester;
 drop table if exists "session", "account", "verification", "user";
 
 commit;

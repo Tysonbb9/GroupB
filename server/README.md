@@ -5,8 +5,7 @@ Express + TypeScript REST API for the Crunch Week app. The server supports
 two data stores: an in-memory MemoryStore and a hosted Supabase (Postgres)
 SupabaseStore.
 
-By default, the server uses MemoryStore with the sample data from
-`src/data/semester.ts`. No Supabase account or credentials are required.
+By default, the server uses MemoryStore with a shared course catalog and an empty semester for each new student. `POST /semester/sample` explicitly copies the sample from `src/data/semester.ts` into that account. No Supabase account or credentials are required.
 Changes made in memory are lost when the server restarts.
 
 When both `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are configured,
@@ -91,7 +90,9 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 | `db/schema.sql` | Creates the tables (the four live tables, Better Auth's four login tables, `enrollments`, and the course tables for the AI screens), their rules, and turns on Row Level Security |
 | `db/migration_127_users_enrollments.sql` | Adds the login tables and `enrollments` to a database that already has data. Leaves existing rows alone. |
 | `db/migration_144_course_tables.sql` | Adds the course tables for the AI screens (`syllabi`, `grade_weights`, `course_policies`, `course_checkins`, `week_hours`) to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
-| `db/seed.sql` | Loads the sample data from `src/data/semester.ts`: 1 semester, 5 courses, 36 tasks |
+| `db/seed.sql` | Loads the shared calendar and catalog: 1 semester, 5 courses, no student tasks |
+| `db/migration_course_catalog.sql` | Backfills normalized code identity with a unique index and adds search and atomic create-and-enroll functions. Run after migration_own_semester.sql. |
+| `db/migration_own_semester.sql` | Adds student settings and task ownership, deletes only ownerless sample tasks and adds the transactional sample-copy function. Run after the existing migrations. |
 | `db/reset.sql` | **Deletes every table and all data**, including saved reviews and accounts |
 
 On an empty project:
@@ -99,7 +100,7 @@ On an empty project:
 1. In the Supabase dashboard, open **SQL Editor** and start a new query.
 2. Paste all of `db/schema.sql` and press **Run**. It should say "Success. No rows returned".
 3. Paste all of `db/seed.sql` and press **Run**. The last result should show
-   `semester_rows 1`, `courses 5`, `tasks 36`, `reviews 0`.
+   `semester_rows 1`, `courses 5`, `tasks 0`, `reviews 0`.
 
 To start over, run `db/reset.sql` first, then steps 2 and 3. Check with the
 team before you do: it deletes every review students have saved.
@@ -129,7 +130,7 @@ npm run dev
 The server starts at `http://localhost:3000`.
 
 If `server/.env` does not exist, the server automatically uses
-`MemoryStore`, which loads sample data from `src/data/semester.ts`.
+`MemoryStore`, which starts each account empty. A sample is available through `POST /semester/sample`.
 
 You can verify the sample data by opening
 `http://localhost:3000/semester` in your browser.
@@ -203,6 +204,8 @@ up or in hands back a session cookie that lasts 30 days, pushed back each day
 the app is used. Email and password only: no email check and no
 forgot-password yet, since both need email.
 
+The session check forwards all renewed `Set-Cookie` headers before parsing JSON: browsers save them normally, and the phone uses the Expo cookie adapter to save them only if the request still belongs to its current session.
+
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/auth/sign-up/email` | `{ name, email, password }` | 200 `{ token, user }` and the cookie | 400 password under 8 characters, 422 email already used |
@@ -230,7 +233,11 @@ curl -b cookies.txt http://localhost:3000/semester
 
 | Method | Path | Description | Success | Errors |
 |---|---|---|---|---|
-| GET | `/semester` | Whole semester: label, current week, capacity, courses, tasks | 200 | |
+| GET | `/catalog?q=TEXT` | Search shared codes and names, ranked exact code then code prefix then other matches; at most 10, each with enrolled | 200 | 400 for missing, blank or unusable q |
+| POST | `/courses/:id/enroll` | Join a catalog course; joining again is unchanged | 200 with the course | 404 for an unknown catalog id |
+| POST | `/courses` | Trim code and name, create a new course and enroll the caller | 201 with the course | 400 for invalid text; 409 with error and existing course for a duplicate code |
+| GET | `/semester` | Shared calendar with this student's capacity, enrolled courses and tasks; new accounts are empty with capacity 15 | 200 | |
+| POST | `/semester/sample` | Enroll in five sample courses, copy 36 tasks; use capacity 15 only when unset | 201 with the whole semester | 409 if any enrollment or task already exists |
 | GET | `/courses` | All courses | 200 | |
 | GET | `/courses/:id` | One course | 200 | 404 |
 | GET | `/tasks` | All tasks. Filters: `?courseId=`, `?week=`, `?done=true\|false` | 200 | 400 bad `week` or `done` |
@@ -330,3 +337,32 @@ AI_MODEL=nvidia-qwen3-6-35b-a3b-nvfp4
 - `src/data/task-ids.ts`: utilities for task identifiers
 - `db/schema.sql`, `db/seed.sql`, `db/reset.sql`: build the Supabase database (see above)
 - `.env.example`: the names of the Supabase keys, with no values
+### Student ownership
+
+Every semester, course and task lookup takes the signed-in student's ID from the checked session. Course lookups return 404 unless the student is enrolled. Task reads, ticks, estimates and generated IDs are scoped to that student. A task's ID can therefore be the same in two accounts without sharing its contents. POST /tasks accepts only the student's enrolled courses. Shared reviews, syllabi, weights and course policies stay attached to the catalog course.
+
+Apply `db/migration_own_semester.sql` before using this server with an existing database. It runs in one transaction and can be repeated; only ownerless tasks are deleted. It does not delete saved course reviews. Do not run reset.sql on a database you want to keep.
+
+PowerShell example after signing in and keeping the session in `$session`:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/semester/sample -WebSession $session
+```
+
+The optional hosted store contract checks also need `SUPABASE_TEST_USER_ID`, the ID of an existing test student. Write checks still require `RUN_SUPABASE_WRITE_TESTS=true`; use a disposable account that already loaded its sample. Local checks do not load server/.env or connect to the hosted database.
+
+### Find, join or create a course
+
+All three catalog routes require a session. Search only suggests choices: it does not enroll anyone. Codes compare in upper case with whitespace, dashes, dots and underscores removed. For example, cs262, CS 262 and CS-262 find the same course. Names use literal case-insensitive substring search; punctuation does not become a wildcard. The enrolled flag belongs to the student making the request.
+
+A duplicate create returns 409 with `{ error, course }` and does not enroll the caller or change the existing course's name. The student can explicitly join that returned course. New code and name values are trimmed and limited to 40 and 200 Unicode characters, matching the database CHECK constraints. A code made entirely of ignored separators is invalid. New IDs use the code's lowercase ASCII letters and digits, or course when none remain, adding -2, -3 and so on when taken.
+
+The Supabase store uses the service-role-only create_catalog_course function for course creation and enrollment in one transaction. Its unique index stops normalized-code duplicates, including simultaneous requests; a code collision returns the winner, while an ID collision tries a suffix. Apply migration_course_catalog.sql with this server version. If old catalog rows already have the same normalized code, the migration aborts without merging or deleting them; decide how to resolve those rows before trying again.
+
+PowerShell with an existing signed-in `$session`:
+
+```powershell
+Invoke-RestMethod -Uri 'http://localhost:3000/catalog?q=cs262' -WebSession $session
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/courses/cs262/enroll' -WebSession $session
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/courses' -WebSession $session -ContentType 'application/json' -Body '{"code":"CS 999","name":"New subject"}'
+```
