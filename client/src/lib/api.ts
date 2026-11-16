@@ -273,7 +273,7 @@ export async function getAiStatus(): Promise<boolean> {
 
 /**
  * POST /ai/syllabus. Sends syllabus text and gets back what the AI read in
- * it. This takes about 20 seconds, so the caller shows a waiting message.
+ * it. This takes about 30 seconds, so the caller shows a waiting message.
  *
  * Rejects with a message the user can read. The server's own message is used
  * when it sent one, since it says what to do.

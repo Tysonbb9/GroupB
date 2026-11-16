@@ -35,6 +35,14 @@ export type ScanResult = {
  */
 const SYLLABUS_LINE = /^(?:[-*•]\s*)?week\s+(\d{1,3})(?!\d|[-–—]\d)\s*[:\-–—]?\s*(.*)$/i;
 
+/** Only a leading calendar date list is removed, never a month word in a title. */
+const MONTH = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\.?';
+const DAY = '(?:[12]\\d|3[01]|[1-9])(?!\\d)';
+const LEADING_DATES = new RegExp(
+  `^${MONTH}\\s+${DAY}(?:\\s*(?:,|and\\b|&|-)\\s*(?:${MONTH}\\s+)?${DAY})*(?=\\s|[:,\\-]|$)`, 'i'
+);
+const LEADING_SEPARATORS = /^[\s,:\-\u2013\u2014*•]+/;
+
 /** A trailing "(8 hours)", "(2.5 hrs)" or "(3h)". */
 const TRAILING_HOURS = /\(\s*(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*\)\s*$/i;
 
@@ -68,7 +76,8 @@ function scanLine(line: string, courseId: string): ScannedTask | null {
   const dueWeek = Number(match[1]);
   if (dueWeek < 1 || dueWeek > WEEKS_IN_SEMESTER) return null;
 
-  let title = match[2].trim();
+  let title = match[2].trim().replace(LEADING_SEPARATORS, '');
+  title = title.replace(LEADING_DATES, '').replace(LEADING_SEPARATORS, '').trim();
   let estimatedHours: number | null = null;
 
   const hours = TRAILING_HOURS.exec(title);

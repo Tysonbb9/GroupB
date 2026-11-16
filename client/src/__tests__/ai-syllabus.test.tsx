@@ -155,6 +155,10 @@ describe('with an AI on the server', () => {
     await pasteAndFind('Week 4: Lab report (3 hours)\nWeek 9 - Final project');
 
     expect(screen.getByTestId('syllabus-ai-note')).toBeTruthy();
+    // It says why, in the server's own words.
+    expect(screen.getByTestId('syllabus-ai-note').props.children).toBe(
+      'Reading with AI did not work this time (The AI service could not be reached. Try again in a moment.), so the simple scanner was used instead.'
+    );
     expect(screen.getByTestId('draft-title-0').props.value).toBe('Lab report');
     expect(screen.getByTestId('draft-week-0').props.value).toBe('4');
     expect(screen.getByTestId('draft-hours-0').props.value).toBe('3');
@@ -302,6 +306,69 @@ describe('a reading that finishes after the student has moved on', () => {
     expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(false);
   });
 
+  it('drops a PDF picked after the course changed while the picker was open', async () => {
+    let picked: (blob: Blob | null) => void = () => {};
+    pickPdfMock.mockReturnValue(new Promise((resolve) => (picked = resolve)));
+    extractMock.mockResolvedValue({ text: SYLLABUS, pageCount: 1, lineCount: 3, pagesWithoutText: [] });
+    readMock.mockResolvedValue(READING);
+    await renderScreen(true);
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // the picker opens and stays open
+    });
+
+    fireEvent.press(screen.getByLabelText(`Choose ${wallSemester.courses[1].code}`));
+    await act(async () => picked(new Blob(['%PDF-1.7'])));
+
+    expect(extractMock).not.toHaveBeenCalled();
+    expect(readMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('draft-title-0')).toBeNull();
+    expect(screen.getByTestId('syllabus-input').props.value).toBe('');
+  });
+
+  it('does not stop a reading in progress when the picker is cancelled', async () => {
+    const slow = pending();
+    readMock.mockReturnValue(slow.promise);
+    pickPdfMock.mockResolvedValue(null);
+    await renderScreen(true);
+    await pasteAndFind();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // cancelled at once
+    });
+    expect(screen.getByTestId('syllabus-ai-wait')).toBeTruthy();
+
+    await act(async () => slow.finish(READING));
+    expect(screen.getByTestId('draft-title-0').props.value).toBe('Prototype demo');
+  });
+
+  it('keeps "Reading the PDF" while a newer PDF is still being read, when an older PDF finishes its AI wait', async () => {
+    const olderAi = pending();
+    let extractedSecond: (value: Awaited<ReturnType<typeof extractSyllabusText>>) => void = () => {};
+    pickPdfMock.mockResolvedValue(new Blob(['%PDF-1.7']));
+    extractMock
+      .mockResolvedValueOnce({ text: 'FIRST', pageCount: 1, lineCount: 1, pagesWithoutText: [] })
+      .mockReturnValueOnce(new Promise((resolve) => (extractedSecond = resolve)));
+    readMock.mockReturnValueOnce(olderAi.promise).mockResolvedValueOnce(READING);
+    await renderScreen(true);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // PDF 1: extracted, now waiting on the AI
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('syllabus-pdf')); // PDF 2: its extraction stays pending
+    });
+    expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(true);
+
+    await act(async () => olderAi.finish(READING)); // PDF 1 is now stale and finishes
+
+    expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(true); // still PDF 2's
+    expect(screen.getAllByText('Reading the PDF…').length).toBeGreaterThan(0);
+
+    await act(async () => extractedSecond({ text: 'SECOND', pageCount: 1, lineCount: 1, pagesWithoutText: [] }));
+    expect(screen.getByTestId('syllabus-pdf').props.accessibilityState.disabled).toBe(false);
+    expect(screen.getByTestId('syllabus-input').props.value).toBe('SECOND');
+  });
+
   it('will not add while a newer reading is about to replace the boxes', async () => {
     const second = pending();
     readMock.mockResolvedValueOnce(READING).mockReturnValueOnce(second.promise);
@@ -352,5 +419,61 @@ describe('without an AI on the server', () => {
     expect(readMock).not.toHaveBeenCalled();
     expect(screen.getByTestId('draft-title-0').props.value).toBe('Lab report');
     expect(screen.queryByTestId('syllabus-ai-note')).toBeNull();
+  });
+});
+
+
+describe('course and duplicate review hints', () => {
+  it('warns for the wrong course and clears after choosing the mentioned course and finding again', async () => {
+    await renderScreen(false);
+    fireEvent.press(screen.getByLabelText('Choose MATH 251'));
+    await pasteAndFind('CS-262\nWeek 4: Lab report');
+    expect(screen.getByTestId('syllabus-course-warning').props.children).toBe(
+      'This syllabus mentions CS 262, but MATH 251 is chosen. Check the course before adding.'
+    );
+    fireEvent.press(screen.getByLabelText('Choose CS 262'));
+    expect(screen.queryByTestId('syllabus-course-warning')).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByTestId('syllabus-find')); });
+    expect(screen.queryByTestId('syllabus-course-warning')).toBeNull();
+  });
+  it('keeps the wrong-course warning non-blocking on Add', async () => {
+    await renderScreen(false);
+    await pasteAndFind('MATH 251\nWeek 4: Lab report');
+    expect(screen.getByTestId('syllabus-course-warning')).toBeTruthy();
+    addTasksMock.mockResolvedValue([]);
+    await act(async () => { fireEvent.press(screen.getByTestId('syllabus-add')); });
+    expect(addTasksMock).toHaveBeenCalledWith([
+      { courseId: 'c1', title: 'Lab report', dueWeek: 4, estimatedHours: null },
+    ]);
+  });
+  it('shows duplicate hints for AI drafts, recomputes edits, and still adds duplicates', async () => {
+    readMock.mockResolvedValue({ ...READING, assignments: [{ title: 'Big project', dueWeek: 6, estimatedHours: 20 }] });
+    await renderScreen(true);
+    await pasteAndFind();
+    expect(screen.getByTestId('draft-duplicate-hint-0').props.children).toBe(
+      'Already in your semester for CS 262, week 6.'
+    );
+    fireEvent.changeText(screen.getByTestId('draft-title-0'), 'Other project');
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('draft-title-0'), ' BIG PROJECT ');
+    expect(screen.getByTestId('draft-duplicate-hint-0')).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId('draft-week-0'), '7');
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('draft-week-0'), '');
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('draft-week-0'), '6');
+    expect(screen.getByTestId('draft-duplicate-hint-0')).toBeTruthy();
+    addTasksMock.mockResolvedValue([]);
+    await act(async () => { fireEvent.press(screen.getByTestId('syllabus-add')); });
+    expect(addTasksMock).toHaveBeenCalledWith([
+      { courseId: 'c1', title: 'BIG PROJECT', dueWeek: 6, estimatedHours: 20 },
+    ]);
+  });
+  it('shows the duplicate hint for a scanner draft and lets the student remove it', async () => {
+    await renderScreen(false);
+    await pasteAndFind('Week 6: Big project');
+    expect(screen.getByTestId('draft-duplicate-hint-0')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Remove Big project'));
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
   });
 });

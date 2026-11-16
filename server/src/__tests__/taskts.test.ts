@@ -88,6 +88,33 @@ describe('GET /tasks', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
   });
+
+  it('returns 400 when week is outside 1 to 15 (TP-14)', async () => {
+    const res = await api.get('/tasks?week=99');
+    expect(res.status).toBe(400);
+    expect(res.headers['content-type']).toMatch(/json/);
+    expect(res.body.error).toEqual(expect.any(String));
+  });
+
+  it('returns 400 when week is empty (TP-15)', async () => {
+    const res = await api.get('/tasks?week=');
+    expect(res.status).toBe(400);
+    expect(res.headers['content-type']).toMatch(/json/);
+    expect(res.body.error).toEqual(expect.any(String));
+  });
+
+  it.each([
+    ['zero', '0'],
+    ['above maximum', '16'],
+    ['spaces', '   '],
+    ['decimal notation', '7.0'],
+  ])('returns 400 when week is %s', async (_description, week) => {
+    const res = await api.get('/tasks').query({ week });
+    expect(res.status).toBe(400);
+    expect(res.headers['content-type']).toMatch(/json/);
+    expect(res.body.error).toEqual(expect.any(String));
+  });
+
 });
 
 describe('GET /tasks/:id', () => {

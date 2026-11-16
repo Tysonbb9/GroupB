@@ -36,6 +36,7 @@ export function aiRouter(model: ModelClient | null): express.Router {
       return;
     }
     if (text.length > MAX_SYLLABUS_CHARS) {
+      console.warn(`[ai] syllabus refused: ${text.length} characters, the limit is ${MAX_SYLLABUS_CHARS}`);
       res.status(413).json({
         error: 'That syllabus is too long to read in one go. Paste the part with the schedule.',
       });
@@ -52,6 +53,8 @@ export function aiRouter(model: ModelClient | null): express.Router {
       // Problems with the model or its answer are expected, and their messages
       // are written for a student. Anything else is our own bug: pass it on.
       if (error instanceof ModelError || error instanceof ReadingError) {
+        // The message holds no address and no key, so it is safe to log.
+        console.warn(`[ai] syllabus reading failed (${text.length} characters): ${error.name}: ${error.message}`);
         res.status(502).json({ error: error.message });
         return;
       }
