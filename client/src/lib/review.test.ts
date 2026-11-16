@@ -1,4 +1,4 @@
-import { checkDraft, Draft, fromReading, toDraft } from './review';
+import { checkDraft, courseMentioned, Draft, fromReading, isDuplicate, toDraft } from './review';
 
 /** US-30: checking an assignment the student has reviewed. Pure, no screen. */
 
@@ -81,5 +81,46 @@ describe('checkDraft', () => {
       ok: false,
       error: 'Give the assignment a title.',
     });
+  });
+});
+
+describe('courseMentioned', () => {
+  const courses = [
+    { id: 'short', code: 'CS 26' },
+    { id: 'cs', code: 'CS 262' },
+    { id: 'math', code: 'MATH 251' },
+  ];
+  it.each(['CS 262', 'cs262', 'CS-262'])('matches a whole course code in %s', (text) => {
+    expect(courseMentioned(`Syllabus for ${text}.`, courses, 'math')).toBe('CS 262');
+  });
+  it.each(['XCS 262', 'CS 2620', 'CS 262A'])('does not match part of %s', (text) => {
+    expect(courseMentioned(text, courses, 'math')).toBeNull();
+  });
+  it('stays silent when the chosen course is mentioned too', () => {
+    expect(courseMentioned('CS262 and MATH251', courses, 'math')).toBeNull();
+  });
+  it('stays silent when several other courses are mentioned', () => {
+    expect(courseMentioned('CS26 and CS262', courses, 'math')).toBeNull();
+  });
+  it('stays silent when no course is mentioned', () => {
+    expect(courseMentioned('Weekly homework', courses, 'math')).toBeNull();
+  });
+});
+
+describe('isDuplicate', () => {
+  const tasks = [{ courseId: 'c1', title: 'Lab report', dueWeek: 4 }];
+  it('matches trimmed case-insensitive titles in the same course and week', () => {
+    expect(isDuplicate({ ...good, title: ' LAB REPORT ' }, tasks, 'c1')).toBe(true);
+  });
+  it.each([
+    { ...good, title: 'Other report' },
+    { ...good, week: '5' },
+    { ...good, week: '' },
+    { ...good, week: ' ' },
+  ])('does not flag a different title, week, or blank week: %j', (draft) => {
+    expect(isDuplicate(draft, tasks, 'c1')).toBe(false);
+  });
+  it('does not flag a task in a different course', () => {
+    expect(isDuplicate(good, tasks, 'c2')).toBe(false);
   });
 });

@@ -165,13 +165,19 @@ app.get('/tasks', async (req, res) => {
   let weekNumber: number | undefined;
   let doneValue: boolean | undefined;
 
-  // Query values always arrive as strings ("7", not 7), so convert and check.
+  // Accept only whole-number week values from 1 through 15.
   if (week !== undefined) {
-    const parsedWeek = Number(week); // "7" becomes 7, "abc" becomes NaN
-    if (!Number.isInteger(parsedWeek)) {
-      res.status(400).json({ error: 'week must be a whole number' });
+    if (typeof week !== 'string' || !/^[0-9]+$/.test(week)) {
+      res.status(400).json({ error: 'week must be a whole number from 1 to 15' });
       return;
     }
+
+    const parsedWeek = Number(week);
+    if (!Number.isInteger(parsedWeek) || parsedWeek < 1 || parsedWeek > 15) {
+      res.status(400).json({ error: 'week must be a whole number from 1 to 15' });
+      return;
+    }
+
     weekNumber = parsedWeek;
   }
 
