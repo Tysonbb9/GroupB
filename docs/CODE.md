@@ -468,7 +468,9 @@ The server does not require these scripts when running with
 ## Tests
 
 
-922 tests across forty-two test suites.
+922 tests across forty-four test suites.
+
+Each test may take up to 20 seconds (`testTimeout` in `client/package.json`), the same as the server. On the two-core CI machine, the first test in a file pays for loading the app's modules while other files hash real passwords at the same time (`auth-client.test.ts`), and Jest's 5-second default made `login-accounts.test.tsx` fail there although nothing was wrong.
 
 ```bash
 npm test                      # all of them
