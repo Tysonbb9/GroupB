@@ -109,15 +109,17 @@ describe('This week: grouped rows', () => {
     expect(row('rd').getByText('PHIL 153')).toBeTruthy();
     expect(row('rd').getByText('2 hrs')).toBeTruthy();
   });
-
   it('marks work done with a checkbox labelled by the work it completes', () => {
     renderApp();
     const box = screen.getByLabelText('Mark Reading response done');
     expect(box.props.accessibilityRole).toBe('checkbox');
     fireEvent.press(box);
-    expect(screen.queryByTestId('row-rd')).toBeNull();
-  });
 
+    // US-45: it stays, marked done, until the hours question is skipped.
+    expect(screen.getByTestId('row-rd')).toBeTruthy();
+    fireEvent.press(screen.getByText('Skip'));
+    expect(screen.queryByTestId('row-rd')).toBeNull();
+   });
   it('leaves out work due after next week', () => {
     renderApp(wallSemester);
     expect(screen.queryByTestId('row-proj')).toBeNull();

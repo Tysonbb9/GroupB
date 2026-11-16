@@ -16,6 +16,13 @@ type Props = {
   startNow: boolean;
   onDone: () => void;
   onEstimate: (hours: number) => void;
+  /**
+   * US-45: the task was just ticked done. It stays in its place, looking done,
+   * with Undo, until the hours question under it is answered or skipped.
+   */
+  markedDone?: boolean;
+  /** Marks the task not done again. Used while `markedDone` is true. */
+  onUndo?: () => void;
 };
 
 /**
@@ -30,13 +37,15 @@ export function TaskRow({
   startNow,
   onDone,
   onEstimate,
+  markedDone = false,
+  onUndo,
 }: Props) {
   return (
     <View testID={`row-${task.id}`} style={styles.row}>
       <CategoryTile category={task.category} />
 
       <View style={styles.main}>
-        <Text style={styles.title}>{task.title}</Text>
+        <Text style={[styles.title, markedDone && styles.titleDone]}>{task.title}</Text>
         <View style={styles.meta}>
           {overdueSince !== null && (
             <Text style={[styles.metaText, styles.overdue]}>Was week {overdueSince}</Text>
@@ -49,19 +58,38 @@ export function TaskRow({
           )}
           {startNow && <Text style={[styles.metaText, styles.startNow]}>start now</Text>}
         </View>
+        {markedDone && (
+          <View style={styles.meta}>
+            <Text style={[styles.metaText, styles.markedDone]}>Marked done</Text>
+            <Pressable
+              testID={`row-undo-${task.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Undo marking ${task.title} done`}
+              hitSlop={8}
+              onPress={onUndo}
+            >
+              <Text style={styles.undo}>Undo</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       {/* A faint tick inside the circle says what tapping it does. */}
+      {/* Once ticked, the circle fills in, and tapping it again is the same as Undo. */}
       <Pressable
         testID={`done-${task.id}`}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: false }}
-        accessibilityLabel={`Mark ${task.title} done`}
-        accessibilityHint="Takes its hours off the forecast"
+        accessibilityState={{ checked: markedDone }}
+        accessibilityLabel={markedDone ? `Mark ${task.title} not done` : `Mark ${task.title} done`}
+        accessibilityHint={markedDone ? 'Puts its hours back on the forecast' : 'Takes its hours off the forecast'}
         hitSlop={10}
-        onPress={onDone}
+        onPress={markedDone ? onUndo : onDone}
       >
-        <Ionicons name="checkmark-circle-outline" size={30} color={theme.faint} />
+        <Ionicons
+          name={markedDone ? 'checkmark-circle' : 'checkmark-circle-outline'}
+          size={30}
+          color={markedDone ? theme.accent : theme.faint}
+        />
       </Pressable>
     </View>
   );
@@ -80,8 +108,11 @@ const styles = StyleSheet.create({
   },
   main: { flex: 1, gap: 2 },
   title: { fontSize: 14, fontWeight: '700', color: theme.ink },
+  titleDone: { color: theme.muted, textDecorationLine: 'line-through' },
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.sm },
   metaText: { fontSize: 11, color: theme.muted },
   overdue: { color: theme.heavy, fontWeight: '700' },
   startNow: { color: theme.accent, fontWeight: '700' },
+  markedDone: { color: theme.accent, fontWeight: '700' },
+  undo: { fontSize: 11, color: theme.accent, fontWeight: '700', textDecorationLine: 'underline' },
 });

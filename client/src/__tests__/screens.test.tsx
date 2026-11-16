@@ -92,11 +92,12 @@ describe('Week screen', () => {
     expect(screen.getByTestId('week-hours')).toHaveTextContent(/4 \/ 10 hrs/);
   });
 
-  it('removes a task from the list once it is marked done', () => {
+  it('removes a task from the list once it is marked done and the hours question is skipped', () => {
     renderWith(<WeekScreen />);
     expect(screen.getByText('Vision statement')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('done-now'));
+    fireEvent.press(screen.getByText('Skip')); // US-45: it moves after the question
 
     expect(screen.queryByText('Vision statement')).toBeNull();
   });
