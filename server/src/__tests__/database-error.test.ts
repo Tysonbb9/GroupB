@@ -9,21 +9,20 @@ describe('TP-43: Database failure handling', () => {
       'fake-test-key'
     );
 
-    const fakeClient = {
-      from: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Connection failed' },
-          }),
-        }),
-      }),
+    const failure = { data: null, error: { message: 'Connection failed' } };
+    const query = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue(failure),
+      maybeSingle: jest.fn().mockResolvedValue(failure),
+      order: jest.fn().mockResolvedValue(failure),
     };
+    const fakeClient = { from: jest.fn().mockReturnValue(query) };
 
     // Replace the real client with a fake one.
     (store as any).client = fakeClient;
 
-    await expect(store.getSemester()).rejects.toBeInstanceOf(
+    await expect(store.getSemester('student-a')).rejects.toBeInstanceOf(
       DatabaseError
     );
   });

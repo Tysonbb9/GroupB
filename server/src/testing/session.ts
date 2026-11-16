@@ -25,3 +25,9 @@ export async function signedIn(): Promise<Api> {
   }
   return agent;
 }
+
+/** Existing route fixtures explicitly opt into the sample semester. */
+export async function withSample(api: Api): Promise<void> {
+  const response = await api.post('/semester/sample');
+  if (response.status !== 201) throw new Error(`Sample setup failed with ${response.status}`);
+}

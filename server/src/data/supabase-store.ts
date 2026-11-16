@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { DatabaseError } from './database-error';
 import { nextTaskId } from './task-ids';
+import { semester as sample, DEFAULT_WEEKLY_CAPACITY } from './semester';
 import type { CheckinAnswer, CoursePolicies, GradeWeight } from '../types';
 
 /** Postgres timestamps arrive as text with an offset; the API uses ISO in UTC. */
@@ -35,7 +36,7 @@ export class SupabaseStore implements Store {
 private async getSemesterRow() {
   const { data, error } = await this.client
     .from('semester')
-    .select('id, label, current_week, weekly_capacity')
+    .select('id, label, current_week')
     .single();
     if (error) {
         throw new DatabaseError(`Failed to load semester: ${error.message}`);
@@ -45,10 +46,11 @@ private async getSemesterRow() {
   return data;
 }
 
-async listCourses() {
+async listCourses(userId: string) {
   const { data, error } = await this.client
     .from('courses')
-    .select('id, code, name, attendance_allowed, attendance_used')
+    .select('id, code, name, attendance_allowed, attendance_used, enrollments!inner(user_id)')
+    .eq('enrollments.user_id', userId)
     .order('id');
 
   if (error) {
@@ -69,10 +71,11 @@ async listCourses() {
   }));
 }
 
-async getCourse(id: string) {
+async getCourse(userId: string, id: string) {
   const { data, error } = await this.client
     .from('courses')
-    .select('id, code, name, attendance_allowed, attendance_used')
+    .select('id, code, name, attendance_allowed, attendance_used, enrollments!inner(user_id)')
+    .eq('enrollments.user_id', userId)
     .eq('id', id)
     .maybeSingle();
 
@@ -98,10 +101,11 @@ async getCourse(id: string) {
   };
 }
 
-async getTask(id: string) {
+async getTask(userId: string, id: string) {
   const { data, error } = await this.client
     .from('tasks')
     .select('*')
+    .eq('user_id', userId)
     .eq('id', id)
     .maybeSingle();
 
@@ -125,10 +129,11 @@ async getTask(id: string) {
   };
 }
 
-async listTasks(filters: TaskFilters) {
+async listTasks(userId: string, filters: TaskFilters) {
   let query = this.client
     .from('tasks')
-    .select('*');
+    .select('*')
+    .eq('user_id', userId);
 
   if (filters.courseId !== undefined) {
     query = query.eq('course_id', filters.courseId);
@@ -160,7 +165,7 @@ async listTasks(filters: TaskFilters) {
   }));
 }
 
-async updateTask(id: string, updates: TaskUpdates) {
+async updateTask(userId: string, id: string, updates: TaskUpdates) {
   const changes: Record<string, boolean | number | null> = {};
 
   if (updates.done !== undefined) {
@@ -172,12 +177,13 @@ async updateTask(id: string, updates: TaskUpdates) {
   }
 
   if (Object.keys(changes).length === 0) {
-    return this.getTask(id);
+    return this.getTask(userId, id);
   }
 
   const { data, error } = await this.client
     .from('tasks')
     .update(changes)
+    .eq('user_id', userId)
     .eq('id', id)
     .select('*')
     .maybeSingle();
@@ -202,11 +208,12 @@ async updateTask(id: string, updates: TaskUpdates) {
   };
 }
 
-async addTasks(newTasks: NewTask[]) {
+async addTasks(userId: string, newTasks: NewTask[]) {
   // The ids already in use, so the new ones never clash with them.
   const { data: existing, error: idsError } = await this.client
     .from('tasks')
-    .select('id');
+    .select('id')
+    .eq('user_id', userId);
 
   if (idsError) {
     throw new DatabaseError(`Failed to add tasks: ${idsError.message}`);
@@ -218,6 +225,7 @@ async addTasks(newTasks: NewTask[]) {
     taken.add(id);
     return {
       id,
+      user_id: userId,
       course_id: newTask.courseId,
       title: newTask.title,
       due_week: newTask.dueWeek,
@@ -292,36 +300,45 @@ async listReviews(courseId: string) {
   }));
 }
 
-async getSemester() {
-  const semester = await this.getSemesterRow();
-  const courses = await this.listCourses();
-  const tasks = await this.listTasks({});
-
+async getSemester(userId: string) {
+  const [semester, courses, tasks, settings] = await Promise.all([
+    this.getSemesterRow(), this.listCourses(userId), this.listTasks(userId, {}),
+    this.client.from('student_settings').select('weekly_capacity').eq('user_id', userId).maybeSingle(),
+  ]);
+  if (settings.error) throw new DatabaseError(`Failed to load student settings: ${settings.error.message}`);
   return {
     label: semester.label,
     currentWeek: semester.current_week,
-    weeklyCapacity: semester.weekly_capacity,
+    weeklyCapacity: settings.data ? Number(settings.data.weekly_capacity) : DEFAULT_WEEKLY_CAPACITY,
     courses,
     tasks,
   };
 }
 
-async updateSemester(updates: SemesterUpdates) {
+async updateSemester(userId: string, updates: SemesterUpdates) {
   if (updates.weeklyCapacity !== undefined) {
-    // The table holds exactly one row. Supabase refuses an update that names
-    // no row, so read that row's id and update it by id.
-    const { id } = await this.getSemesterRow();
-    const { error } = await this.client
-      .from('semester')
-      .update({ weekly_capacity: updates.weeklyCapacity })
-      .eq('id', id);
-
-    if (error) {
-      throw new DatabaseError(`Failed to update semester: ${error.message}`);
-    }
+    const { error } = await this.client.from('student_settings')
+      .upsert({ user_id: userId, weekly_capacity: updates.weeklyCapacity }, { onConflict: 'user_id' });
+    if (error) throw new DatabaseError(`Failed to update student settings: ${error.message}`);
   }
+  return this.getSemester(userId);
+}
 
-  return this.getSemester();
+// One transaction checks emptiness, enrolls, copies tasks and fills missing capacity.
+// Locking the student's row also serializes simultaneous sample requests.
+async loadSample(userId: string) {
+  const { data, error } = await this.client.rpc('load_sample_semester', {
+    p_user_id: userId,
+    p_weekly_capacity: DEFAULT_WEEKLY_CAPACITY,
+    p_course_ids: sample.courses.map(course => course.id),
+    p_tasks: sample.tasks.map(task => ({
+      id: task.id, course_id: task.courseId, title: task.title, category: task.category ?? null,
+      due_week: task.dueWeek, estimated_hours: task.estimatedHours,
+      spread_weeks: task.spreadWeeks ?? 1, done: task.done,
+    })),
+  });
+  if (error) throw new DatabaseError(`Failed to load sample semester: ${error.message}`);
+  return data ? this.getSemester(userId) : null;
 }
 
 // ---------------------------------------------------------------------------

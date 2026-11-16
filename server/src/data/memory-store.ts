@@ -1,4 +1,5 @@
 import { db, details, inputs } from './db';
+import { semester as sample, DEFAULT_WEEKLY_CAPACITY } from './semester';
 import { DatabaseError } from './database-error';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { nextTaskId } from './task-ids';
@@ -15,90 +16,69 @@ function requireCourse(courseId: string, action: string): void {
 }
 
 export class MemoryStore implements Store {
-async getSemester() {
-  return db;
+async getSemester(userId: string) {
+  return {
+    label: db.label,
+    currentWeek: db.currentWeek,
+    weeklyCapacity: db.settings.get(userId) ?? DEFAULT_WEEKLY_CAPACITY,
+    courses: await this.listCourses(userId),
+    tasks: await this.listTasks(userId, {}),
+  };
 }
 
-async updateSemester(updates: SemesterUpdates) {
-  if (updates.weeklyCapacity !== undefined) {
-    db.weeklyCapacity = updates.weeklyCapacity;
-  }
-  return db;
+async updateSemester(userId: string, updates: SemesterUpdates) {
+  if (updates.weeklyCapacity !== undefined) db.settings.set(userId, updates.weeklyCapacity);
+  return this.getSemester(userId);
 }
 
-
-async listCourses() {
-  return db.courses;
+async listCourses(userId: string) {
+  const enrolled = new Set(db.enrollments.filter(row => row.userId === userId).map(row => row.courseId));
+  return structuredClone(db.courses.filter(course => enrolled.has(course.id)));
 }
 
-async getCourse(id: string) {
-  return db.courses.find((course) => course.id === id) ?? null;
+async getCourse(userId: string, id: string) {
+  return (await this.listCourses(userId)).find(course => course.id === id) ?? null;
 }
 
-async getTask(id: string) {
-  return db.tasks.find((task) => task.id === id) ?? null;
+async getTask(userId: string, id: string) {
+  return (await this.listTasks(userId, {})).find(task => task.id === id) ?? null;
 }
 
-async listTasks(filters: TaskFilters) {
-  let tasks = db.tasks;
-
-  if (filters.courseId !== undefined) {
-    tasks = tasks.filter(
-      (task) => task.courseId === filters.courseId
-    );
-  }
-
-  if (filters.week !== undefined) {
-    tasks = tasks.filter(
-      (task) => task.dueWeek === filters.week
-    );
-  }
-
-  if (filters.done !== undefined) {
-    tasks = tasks.filter(
-      (task) => task.done === filters.done
-    );
-  }
-
-  return tasks;
+async listTasks(userId: string, filters: TaskFilters) {
+  return db.tasks
+    .filter(task => task.userId === userId)
+    .filter(task => filters.courseId === undefined || task.courseId === filters.courseId)
+    .filter(task => filters.week === undefined || task.dueWeek === filters.week)
+    .filter(task => filters.done === undefined || task.done === filters.done)
+    .map(({ userId: _userId, ...task }) => structuredClone(task));
 }
 
-async updateTask(id: string, updates: TaskUpdates) {
-  const task = db.tasks.find((task) => task.id === id);
-
-  if (!task) {
-    return null;
-  }
-
-  if (updates.done !== undefined) {
-    task.done = updates.done;
-  }
-
-  if (updates.estimatedHours !== undefined) {
-    task.estimatedHours = updates.estimatedHours;
-  }
-
-  return task;
+async updateTask(userId: string, id: string, updates: TaskUpdates) {
+  const task = db.tasks.find(task => task.userId === userId && task.id === id);
+  if (!task) return null;
+  if (updates.done !== undefined) task.done = updates.done;
+  if (updates.estimatedHours !== undefined) task.estimatedHours = updates.estimatedHours;
+  return this.getTask(userId, id);
 }
 
-// The route checks every task before calling this, so nothing here can fail
-// halfway and leave only some of them added.
-async addTasks(newTasks: NewTask[]) {
-  const taken = new Set(db.tasks.map((task) => task.id));
-
-  return newTasks.map((newTask) => {
-    const task: Task = {
-      id: nextTaskId(newTask.courseId, taken),
-      courseId: newTask.courseId,
-      title: newTask.title,
-      dueWeek: newTask.dueWeek,
-      estimatedHours: newTask.estimatedHours,
-      done: false,
-    };
+// The route checks enrollment and every task first, so the batch cannot partly apply.
+async addTasks(userId: string, newTasks: NewTask[]) {
+  const taken = new Set(db.tasks.filter(task => task.userId === userId).map(task => task.id));
+  return newTasks.map(newTask => {
+    const task: Task = { ...newTask, id: nextTaskId(newTask.courseId, taken), done: false };
     taken.add(task.id);
-    db.tasks.push(task);
+    db.tasks.push({ ...task, userId });
     return task;
   });
+}
+
+// Check and copy before the first await, so concurrent calls cannot add two samples.
+async loadSample(userId: string) {
+  if (db.enrollments.some(row => row.userId === userId) || db.tasks.some(task => task.userId === userId)) return null;
+  db.enrollments.push(...sample.courses.map(course => ({ userId, courseId: course.id })));
+  db.tasks.push(...structuredClone(sample.tasks).map(task => ({ ...task, userId })));
+  if (!db.settings.has(userId)) db.settings.set(userId, DEFAULT_WEEKLY_CAPACITY);
+  return this.getSemester(userId);
 }
 
 async addReview(review: NewReview) {
