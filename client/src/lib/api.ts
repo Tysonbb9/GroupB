@@ -395,7 +395,7 @@ function isCourse(value: unknown): value is Course {
 export async function searchCatalog(q: string): Promise<CatalogCourse[]> {
   const response = await send('/catalog?q=' + encodeURIComponent(q));
   if (!response.ok) {
-    throw new Error((await serverErrorMessage(response)) ?? 'The server answered ' + response.status);
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
   }
   const json: unknown = await response.json();
   if (!Array.isArray(json) || !json.every((course) => isObject(course) && typeof course.enrolled === 'boolean' && isCourse(course))) {
@@ -408,7 +408,7 @@ export async function searchCatalog(q: string): Promise<CatalogCourse[]> {
 export async function enrollInCourse(id: string): Promise<Course> {
   const response = await send('/courses/' + encodeURIComponent(id) + '/enroll', { method: 'POST' });
   if (!response.ok) {
-    throw new Error((await serverErrorMessage(response)) ?? 'The server answered ' + response.status);
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
   }
   const json: unknown = await response.json();
   if (!isCourse(json)) throw new Error('The server sent invalid course data');
@@ -428,7 +428,7 @@ export async function createCourse(input: { code: string; name: string }): Promi
     return { created: false, course: json.course };
   }
   if (!response.ok) {
-    throw new Error((await serverErrorMessage(response)) ?? 'The server answered ' + response.status);
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
   }
   const json: unknown = await response.json();
   if (!isCourse(json)) throw new Error('The server sent invalid course data');

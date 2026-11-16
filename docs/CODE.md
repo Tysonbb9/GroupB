@@ -488,7 +488,8 @@ npx jest --watch              # while you work
 
 | File | Count | Covers |
 |------|-------|--------|
-| `src/__tests__/empty-semester.test.tsx` | 8 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses and fixture isolation |
+| `src/__tests__/empty-semester.test.tsx` | 11 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses, direct course navigation and fixture isolation |
+| `src/__tests__/add-course.test.tsx` | 19 | catalog search, stale answers, joining, creation, explicit duplicate enrollment, shared updates, busy states, errors and fixture mode |
 | `src/__tests__/load-sample-api.test.ts` | 5 | sample POST, conflict refetch, server message, invalid data and expired session |
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
@@ -615,3 +616,8 @@ query, enrollment, duplicate-safe state, live Courses and syllabus updates,
 creation, explicit joining after 409, refused requests, retry, network failure,
 malformed responses, busy states, leaving during a save, fixture mode and the
 entry point. These tests use a stand-in fetch; they do not require a database.
+
+Empty Forecast, This week and Courses tabs offer **Add a course** beside the
+sample-semester action. It opens the same protected route and is disabled while
+a sample is loading. The empty syllabus screen links directly there as well.
+Both empty-state entry points hide the action in sample-data mode.

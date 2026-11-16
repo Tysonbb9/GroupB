@@ -533,7 +533,7 @@ The Semester screen, shown at its full length: everything in one scroll.
 
 With no courses, Forecast, This week and Courses show one short explanation and Try a sample semester. The button says Loading sample semester while waiting and blocks repeated taps across tabs. A successful load replaces the shared semester; a refusal leaves the empty screen with the server's message and lets the student try again. If a semester already exists, it is loaded instead. The offline fixture keeps its existing behavior and never offers the server action.
 
-Syllabus says Add a course first and offers Go to Courses, without a course picker or upload controls. Course search, joining and creation are separate work.
+Syllabus says Add a course first and offers Add a course directly, without a course picker or upload controls. Empty Forecast, This week and Courses also offer Add a course beside the sample action. The course action waits while a sample is loading and is hidden in sample-data mode.
 
 ## Adding a course
 
