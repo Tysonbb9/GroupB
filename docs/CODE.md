@@ -202,6 +202,10 @@ Signing in (US-20), as [LOGIN_DESIGN.md](LOGIN_DESIGN.md) sets out. `auth.ts` ho
 
 `auth-client.ts` is the only file that imports Better Auth. `createCrunchWeekAuthClient` sets up `createAuthClient` with the Expo plugin (`scheme` and `storagePrefix` both `crunchweek`, SecureStore for storage), and `serverAuth()` makes the one the app uses, once, so every screen shares the session. One thing differs from the design's example: in Better Auth 1.7.21 `getCookie()` returns a promise, so it is awaited.
 
+The Expo client also needs `expo-network`, installed with `npx expo install expo-network` to match the Expo SDK. Better Auth's online manager loads it when session state changes, including logout; without it the phone can clear its local cookie while failing to end the server session. The dependency test explicitly resolves `expo-constants`, `expo-linking`, `expo-network` and `expo-secure-store`, and the logout test verifies that a previously valid cookie no longer has a server session with no error reported.
+
+The plugin only loads `expo-web-browser` for a redirect sign-in or social account link. Our email/password sign-in, sign-up, logout, cookie reading and session refresh do not use that branch, so it is not added for those flows.
+
 Ordinary API responses also carry cookie renewals. `SessionProvider` gives `api.ts` the auth response handler, and the phone stores matching `Set-Cookie` headers with the Expo adapter and parser; a response for a session that was logged out or replaced is ignored. Web requests leave cookie storage to the browser. No extra refresh request is needed.
 
 ### `src/data/semester.ts`
@@ -474,8 +478,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 926 tests across 44 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
-
+Client: 934 tests across 44 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -509,7 +512,7 @@ npx jest --watch              # while you work
 | `src/__tests__/login-accounts.test.tsx` | 27 | US-20 on the Log in screen: the right and wrong password, an unknown email, no connection, messages clearing, the busy button that cannot send twice, Create account (its name field, the 8-character check, an email already used, signing up then logging back in), and the notice when a session has ended |
 | `src/__tests__/session.test.tsx` | 22 | US-20: the session in sample-data mode and with the server, restoring a saved session (found, none, offline, failing), signing in and up, the cookie on requests from the very first one, a 401 sending the student back to Log in, and Log out |
 | `src/lib/auth.test.ts` | 43 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session (on a phone and on the web), Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
-| `src/lib/auth-client.test.ts` | 24 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection, ordinary API renewal persisted through the Expo adapter, and late responses after logout or a newer sign-in ignored |
+| `src/lib/auth-client.test.ts` | 28 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection, a successful logout sending its cookie without a reported error, the Expo dependencies needed on the phone being installed, ordinary API renewal persisted through the Expo adapter, and late responses after logout or a newer sign-in ignored |
 | `src/lib/api-session.test.ts` | 57 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, nothing added in sample-data mode, renewal responses delivered with the sent cookie, and 401 handled before renewal storage |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
