@@ -44,12 +44,14 @@ test('each student can tick and estimate the same sample task independently', as
   expect((await b.get('/tasks?done=true')).body.some((task: { id: string }) => task.id === '262-2')).toBe(false);
 });
 
-test('weekly capacity belongs to the signed-in student', async () => {
-  expect((await a.patch('/semester').send({ weeklyCapacity: 27 })).status).toBe(200);
-  expect((await a.get('/semester')).body.weeklyCapacity).toBe(27);
+test('sample loading preserves the signed-in student chosen weekly capacity', async () => {
+  expect((await a.patch('/semester').send({ weeklyCapacity: 20 })).status).toBe(200);
+  expect((await a.get('/semester')).body.weeklyCapacity).toBe(20);
   expect((await b.get('/semester')).body.weeklyCapacity).toBe(15);
-  await sample(a);
-  expect((await a.get('/semester')).body.weeklyCapacity).toBe(15);
+  const loaded = await sample(a);
+  expect(loaded.weeklyCapacity).toBe(20);
+  expect((await a.get('/semester')).body.weeklyCapacity).toBe(20);
+  expect((await b.get('/semester')).body.weeklyCapacity).toBe(15);
 });
 
 test('another student cannot read or change a task they do not own', async () => {
@@ -102,4 +104,11 @@ test('a task alone also prevents replacing a student semester with the sample', 
   db.tasks.push({ ...semester.tasks[0], userId: body.user.id });
   expect((await a.post('/semester/sample')).status).toBe(409);
   expect((await a.get('/courses')).body).toEqual([]);
+});
+
+test('course feedback cannot be read or posted without enrollment', async () => {
+  await sample(b);
+  expect((await a.get('/courses/cs262/reviews')).status).toBe(404);
+  expect((await a.post('/courses/cs262/reviews').send({ title: 'Vision statement', hours: 2, comment: 'Finished' })).status).toBe(404);
+  expect((await b.get('/courses/cs262/reviews')).body).toEqual([]);
 });

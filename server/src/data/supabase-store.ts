@@ -324,11 +324,12 @@ async updateSemester(userId: string, updates: SemesterUpdates) {
   return this.getSemester(userId);
 }
 
-// One transaction checks emptiness, enrolls, copies tasks and sets capacity.
+// One transaction checks emptiness, enrolls, copies tasks and fills missing capacity.
 // Locking the student's row also serializes simultaneous sample requests.
 async loadSample(userId: string) {
   const { data, error } = await this.client.rpc('load_sample_semester', {
     p_user_id: userId,
+    p_weekly_capacity: DEFAULT_WEEKLY_CAPACITY,
     p_course_ids: sample.courses.map(course => course.id),
     p_tasks: sample.tasks.map(task => ({
       id: task.id, course_id: task.courseId, title: task.title, category: task.category ?? null,

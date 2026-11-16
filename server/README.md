@@ -231,7 +231,7 @@ curl -b cookies.txt http://localhost:3000/semester
 | Method | Path | Description | Success | Errors |
 |---|---|---|---|---|
 | GET | `/semester` | Shared calendar with this student's capacity, enrolled courses and tasks; new accounts are empty with capacity 15 | 200 | |
-| POST | `/semester/sample` | Enroll in five sample courses, copy 36 tasks and set capacity 15 | 201 with the whole semester | 409 if any enrollment or task already exists |
+| POST | `/semester/sample` | Enroll in five sample courses, copy 36 tasks; use capacity 15 only when unset | 201 with the whole semester | 409 if any enrollment or task already exists |
 | GET | `/courses` | All courses | 200 | |
 | GET | `/courses/:id` | One course | 200 | 404 |
 | GET | `/tasks` | All tasks. Filters: `?courseId=`, `?week=`, `?done=true\|false` | 200 | 400 bad `week` or `done` |

@@ -446,7 +446,7 @@ CONSTRAINT late_both_or_neither
 
 One optional row per student holds `weekly_capacity NUMERIC NOT NULL CHECK (weekly_capacity > 0)`. Its primary key `user_id TEXT` references `"user".id` with `ON DELETE CASCADE`. No row means `DEFAULT_WEEKLY_CAPACITY = 15`; PATCH accepts whole hours from 1 through 80. The server upserts this row without changing the shared calendar.
 
-`GET /semester` starts empty for a new account. `POST /semester/sample` enrolls the student in the five shared catalog courses, copies the 36 tasks with that student's owner ID and resets capacity to 15. Existing enrollments or tasks produce 409. The `load_sample_semester` function locks the student row and performs the copy in one transaction, so a failure leaves no partial sample and concurrent requests cannot both load it. Only the server's service role may execute it.
+`GET /semester` starts empty for a new account. `POST /semester/sample` enrolls the student in the five shared catalog courses, copies the 36 tasks with that student's owner ID and uses capacity 15 only if the student has not already chosen their hours. Existing enrollments or tasks produce 409. The `load_sample_semester` function locks the student row and performs the copy in one transaction, so a failure leaves no partial sample and concurrent requests cannot both load it. Only the server's service role may execute it.
 
 On an existing database, `migration_own_semester.sql` removes only tasks whose `user_id` is null before setting the owner column non-null and replacing the primary key. A second run preserves all owned tasks. Courses, saved reviews and other shared course data stay intact. `seed.sql` creates only the calendar and five catalog courses; it does not seed tasks or student enrollments.
 

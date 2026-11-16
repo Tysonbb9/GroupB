@@ -77,7 +77,7 @@ async loadSample(userId: string) {
   if (db.enrollments.some(row => row.userId === userId) || db.tasks.some(task => task.userId === userId)) return null;
   db.enrollments.push(...sample.courses.map(course => ({ userId, courseId: course.id })));
   db.tasks.push(...structuredClone(sample.tasks).map(task => ({ ...task, userId })));
-  db.settings.set(userId, DEFAULT_WEEKLY_CAPACITY);
+  if (!db.settings.has(userId)) db.settings.set(userId, DEFAULT_WEEKLY_CAPACITY);
   return this.getSemester(userId);
 }
 

@@ -20,7 +20,7 @@ alter table student_settings enable row level security;
 
 -- A sample is copied all at once, only when the account has no courses or tasks.
 -- Lock the student row so two concurrent requests cannot both see an empty account.
-create or replace function load_sample_semester(p_user_id text, p_course_ids text[], p_tasks jsonb)
+create or replace function load_sample_semester(p_user_id text, p_course_ids text[], p_tasks jsonb, p_weekly_capacity numeric)
 returns boolean
 language plpgsql
 set search_path = public
@@ -43,14 +43,15 @@ begin
       id text, course_id text, title text, category text, due_week int,
       estimated_hours numeric, spread_weeks int, done boolean
     );
-  insert into student_settings (user_id, weekly_capacity) values (p_user_id, 15)
-    on conflict (user_id) do update set weekly_capacity = excluded.weekly_capacity;
+  -- The server supplies DEFAULT_WEEKLY_CAPACITY; keep hours the student already chose.
+  insert into student_settings (user_id, weekly_capacity) values (p_user_id, p_weekly_capacity)
+    on conflict (user_id) do nothing;
   return true;
 end;
 $$;
 
 -- The session-checked server may copy a sample; a public client may not.
-revoke execute on function load_sample_semester(text, text[], jsonb) from public, anon, authenticated;
-grant execute on function load_sample_semester(text, text[], jsonb) to service_role;
+revoke execute on function load_sample_semester(text, text[], jsonb, numeric) from public, anon, authenticated;
+grant execute on function load_sample_semester(text, text[], jsonb, numeric) to service_role;
 
 commit;

@@ -174,10 +174,12 @@ describe('student semester migration', () => {
     expect(fn(schema)).toBeDefined();
     expect(fn(schema)).toBe(fn(migration));
     expect(migration).toContain('where id = p_user_id for update');
+    expect(migration).toContain('values (p_user_id, p_weekly_capacity)');
+    expect(migration).toContain('on conflict (user_id) do nothing;');
     expect(migration).toContain('from enrollments where user_id = p_user_id');
     expect(migration).toContain('from tasks where user_id = p_user_id');
-    expect(migration).toContain('revoke execute on function load_sample_semester(text, text[], jsonb) from public, anon, authenticated;');
-    expect(reset).toContain('drop function if exists load_sample_semester(text, text[], jsonb);');
+    expect(migration).toContain('revoke execute on function load_sample_semester(text, text[], jsonb, numeric) from public, anon, authenticated;');
+    expect(reset).toContain('drop function if exists load_sample_semester(text, text[], jsonb, numeric);');
     expect(read('seed.sql')).not.toMatch(/insert into tasks/i);
   });
 });

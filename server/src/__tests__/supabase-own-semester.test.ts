@@ -1,5 +1,6 @@
 import { SupabaseStore } from '../data/supabase-store';
 import { DatabaseError } from '../data/database-error';
+import { DEFAULT_WEEKLY_CAPACITY } from '../data/semester';
 
 // Exercise the actual PostgREST requests without a hosted database or secret key.
 let calls: { url: URL; method: string; body: any }[];
@@ -75,6 +76,7 @@ test('sample copy uses one transactional request and an occupied account is retu
   expect(calls).toHaveLength(1);
   expect(calls[0].url.pathname).toBe('/rest/v1/rpc/load_sample_semester');
   expect(calls[0].body.p_user_id).toBe('alice');
+  expect(calls[0].body.p_weekly_capacity).toBe(DEFAULT_WEEKLY_CAPACITY);
   expect(calls[0].body.p_course_ids).toHaveLength(5);
   expect(calls[0].body.p_tasks).toHaveLength(36);
 });
