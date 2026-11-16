@@ -48,15 +48,16 @@ app.use((req, res, next) => {
 // auth.ts). Above express.json(), because Better Auth reads the body itself.
 app.all('/api/auth/*splat', toNodeHandler(auth));
 
-app.use(express.json()); // Lets PATCH read a JSON body
-
 /**
  * Every route below needs a signed-in student. Without a valid session
  * cookie the answer is 401, and the phone shows the login screen. The session
  * goes on res.locals for routes that later keep each student's own data.
  */
 app.use(async (req, res, next) => {
-  const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+  const { headers, response: session } = await auth.api.getSession({
+    headers: fromNodeHeaders(req.headers), returnHeaders: true,
+  });
+  for (const cookie of headers.getSetCookie()) res.append('Set-Cookie', cookie);
   if (!session) {
     res.status(401).json({ error: 'Sign in first' });
     return;
@@ -64,6 +65,8 @@ app.use(async (req, res, next) => {
   res.locals.session = session;
   next();
 });
+
+app.use(express.json()); // Parse bodies only after checking the session
 
 // POST /syllabus/text: a syllabus PDF in, its text out. See syllabus/routes.ts.
 app.use('/syllabus', syllabusRouter);
