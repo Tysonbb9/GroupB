@@ -1,11 +1,14 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { theme } from '../theme';
+import { WeekChip } from './WeekChip';
 
 type Props = {
   /** A short line above the title that places the screen in the semester. */
   eyebrow: React.ReactNode;
   title: string;
+  /** The week of the semester we are in, shown as a chip under the title. */
+  week?: number;
   /** Anything that belongs beside the title: a load label, a button. */
   right?: React.ReactNode;
 };
@@ -15,7 +18,7 @@ type Props = {
  * whatever belongs beside it. It replaces the plain navigation header so each
  * screen opens with a heading that says what it is for (Option A, #96).
  */
-export function ScreenHeader({ eyebrow, title, right }: Props) {
+export function ScreenHeader({ eyebrow, title, week, right }: Props) {
   return (
     <View style={styles.row}>
       <View style={styles.text}>
@@ -23,6 +26,7 @@ export function ScreenHeader({ eyebrow, title, right }: Props) {
         <Text accessibilityRole="header" style={styles.title}>
           {title}
         </Text>
+        {week !== undefined && <WeekChip week={week} />}
       </View>
       {right !== undefined && <View style={styles.right}>{right}</View>}
     </View>
