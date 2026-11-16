@@ -20,6 +20,7 @@ export type TaskFilters = {
 export type TaskUpdates = {
   done?: boolean;
   estimatedHours?: number | null;
+  dueWeek?: number;
 };
 
 export type SemesterUpdates = {

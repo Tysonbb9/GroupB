@@ -13,6 +13,10 @@ import { Semester, Task } from '../lib/types';
 
 type SemesterStore = {
   semester: Semester;
+  /** True when the semester came from the server, false for sample data and tests. */
+  fromServer: boolean;
+  /** Puts in tasks the server has just changed, matched by id (#155). */
+  replaceTasks: (tasks: Task[]) => void;
   toggleDone: (taskId: string) => void;
   /** Sets a task's estimated hours; null clears it. */
   setEstimate: (taskId: string, hours: number | null) => void;
@@ -51,7 +55,7 @@ export function SemesterProvider({
 }) {
   if (initial !== undefined) {
     return (
-      <SemesterState initial={initial} saveCapacity={keepOnDevice}>
+      <SemesterState initial={initial} saveCapacity={keepOnDevice} fromServer={false}>
         {children}
       </SemesterState>
     );
@@ -89,7 +93,7 @@ function SemesterFromServer({ children }: { children: React.ReactNode }) {
     return error === null ? <LoadingView /> : <ErrorView message={error} onRetry={retry} />;
   }
   return (
-    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity}>
+    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity} fromServer>
       {children}
     </SemesterState>
   );
@@ -100,10 +104,12 @@ function SemesterState({
   children,
   initial,
   saveCapacity,
+  fromServer,
 }: {
   children: React.ReactNode;
   initial: Semester;
   saveCapacity: SaveCapacity;
+  fromServer: boolean;
 }) {
   const [semester, setSemester] = useState<Semester>(initial);
 
@@ -119,6 +125,12 @@ function SemesterState({
 
       return {
         semester,
+        fromServer,
+        replaceTasks: (changed: Task[]) =>
+          setSemester((current) => ({
+            ...current,
+            tasks: current.tasks.map((t) => changed.find((c) => c.id === t.id) ?? t),
+          })),
         toggleDone: (taskId: string) =>
           updateTask(taskId, (task) => ({ done: !task.done })),
         setEstimate: (taskId: string, hours: number | null) =>
@@ -132,7 +144,7 @@ function SemesterState({
         },
       };
     },
-    [semester, saveCapacity]
+    [semester, saveCapacity, fromServer]
   );
 
   return (

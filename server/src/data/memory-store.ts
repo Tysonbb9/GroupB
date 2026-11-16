@@ -78,6 +78,10 @@ async updateTask(id: string, updates: TaskUpdates) {
     task.estimatedHours = updates.estimatedHours;
   }
 
+  if(updates.dueWeek !== undefined){
+    task.dueWeek = updates.dueWeek;
+  }
+
   return task;
 }
 
