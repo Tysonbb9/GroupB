@@ -15,6 +15,18 @@ jest.mock('expo-linking', () => ({
   createURL: (path: string) => `crunchweek://${path.replace(/^\//, '')}`,
 }));
 
+// @better-auth/expo/dist/client.js imports constants/linking and dynamically loads
+// network in ExpoOnlineManager.setup during session updates. Our storage uses SecureStore.
+// Resolve each peer explicitly: mocked native APIs do not test whether it is installed.
+const installedPackages = require as typeof require & { resolve: (name: string) => string };
+describe('the phone authentication dependencies', () => {
+  it.each(['expo-constants', 'expo-linking', 'expo-network', 'expo-secure-store'])(
+    'installs %s for the real phone client', (name) => {
+      expect(() => installedPackages.resolve(name)).not.toThrow();
+    }
+  );
+});
+
 const SERVER = 'http://server.test';
 
 /** SecureStore, kept in a Map. */
@@ -221,11 +233,16 @@ describe('the session on the phone', () => {
 
 describe('Log out', () => {
   it('ends the session on the server, so the old cookie stops working', async () => {
-    const { auth, client, server } = setUp();
+    const { auth, client, server, requests } = setUp();
     await auth.signUp('Sam Student', 'sam@example.edu', 'password-123');
     const cookie = await client.getCookie();
+    await expect(whoseSession(server, cookie)).resolves.toBe('sam@example.edu');
 
-    await auth.signOut();
+    await expect(auth.signOut()).resolves.toBeUndefined();
+    expect(consoleError).not.toHaveBeenCalled();
+    const signOut = requests.find((request) => new URL(request.url).pathname.endsWith('/sign-out'));
+    expect(signOut?.method).toBe('POST');
+    expect(signOut?.headers.get('cookie')).toBe(cookie);
     await expect(whoseSession(server, cookie)).resolves.toBeNull();
   });
 
