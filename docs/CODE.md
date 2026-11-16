@@ -126,6 +126,8 @@ US-24: processing what the student hands over. Three steps, each pure, and nothi
 | `applyCrowdEstimates` | fills tasks that have **no** estimate from `crowdEstimate`, matching on course and title (ignoring case and spacing). A student's own estimate is never replaced |
 | `processInputs` | scans each syllabus, adds only assignments the semester does not already have (so processing twice cannot double the workload), applies crowd estimates, then runs `weeklyLoad` and `detectCrunch` over the result |
 
+`scanLine` removes leading separators and calendar date lists such as "Sept 29, Oct 1" from scanner titles without changing the week or inventing an empty title. This cleanup is only for the simple scanner, not AI readings.
+
 A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called through `extractSyllabusText` in `lib/api.ts`), and that text is what `scanSyllabus` reads. Reading photos and scanned PDFs, and matching reports to assignments any way other than course and title, are later work.
 
 ### `src/lib/review.ts`
@@ -133,6 +135,10 @@ A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called
 US-30. `toDraft` turns a scanned assignment into the text in its edit boxes, and `checkDraft` checks one reviewed assignment: a title, a whole-number week from 1 to 15, and hours that `parseEstimate` accepts (blank means no estimate). It returns the first problem as a message the student can read.
 
 `fromReading` (issue #145) does the same for an assignment the AI read. A week or hours the AI did not find stay blank, never guessed: a blank week is a problem the student has to fill in (`checkDraft` refuses it), and blank hours are allowed.
+
+`courseMentioned` matches whole course codes with spaces, hyphens or no gap, ignoring case. It warns only when exactly one other course is mentioned and the chosen course is not.
+
+`isDuplicate` checks the chosen course, a trimmed case-insensitive title and a nonblank matching week against existing semester tasks. Its hint updates as the student edits and never blocks Add or skips a task.
 
 ### `src/lib/pick-pdf.ts`
 
@@ -451,7 +457,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-877 tests across forty-two test suites.
+905 tests across forty-two test suites.
 
 ```bash
 npm test                      # all of them
@@ -464,7 +470,7 @@ npx jest --watch              # while you work
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
-| `src/lib/inputs.test.ts` | 287 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, and hostile or oversized input |
+| `src/lib/inputs.test.ts` | 296 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, hostile or oversized input, and calendar date prefixes with normal titles preserved |
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
@@ -491,13 +497,13 @@ npx jest --watch              # while you work
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Courses screen in place of the old one-line text |
 | `src/__tests__/syllabus-text.test.tsx` | 7 |  US-28: choosing a course, the assignments found shown in edit boxes with their week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |
 | `src/__tests__/undo-done.test.tsx` | 7 | US-31: the Completed line and its count, opening and closing it, moving a task there and back, the hours returning to this week and the forecast, the line going away after the last undo, and nothing drawn when no task is done. Queries by role and name, so the open and checked states are tested too |
-| `src/lib/review.test.ts` | 21 | US-30: `toDraft`, `fromReading` (issue #145: the boxes for an assignment the AI read, with a week or hours it did not find left blank), and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number |
+| `src/lib/review.test.ts` | 36 | US-30: `toDraft`, `fromReading` (issue #145: the boxes for an assignment the AI read, with a week or hours it did not find left blank), and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number; whole-course-code warnings and same-course/title/week duplicate hints |
 | `src/lib/add-tasks-api.test.ts` | 5 | `addTasks`: what it posts, the saved tasks it returns, the server's message on a refusal, an unreachable server, a reply that is not a list |
 | `src/__tests__/review-before-adding.test.tsx` | 8 | US-30: editing and removing found assignments, messages for a bad week, bad hours or a blank title, the forecast unchanged while reviewing, adding on confirm, and a failed save |
 | `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
 | `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
 | `src/lib/ai-api.test.ts` | 16 | Issue #145: `getAiStatus` (true only when the server says available, false and never throwing for an error, a wrong shape, bad JSON or no server) and `readSyllabusWithAi` (the JSON it posts, the server's message on a refusal, six wrong shapes rejected, the unreachable-server message) |
-| `src/__tests__/ai-syllabus.test.tsx` | 20 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, weights and policies shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, and a warning when the server dropped items |
+| `src/__tests__/ai-syllabus.test.tsx` | 24 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, weights and policies shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, a warning when the server dropped items, a non-blocking wrong-course warning cleared on a course switch, and duplicate hints that update on edits and allow Add or Remove |
 | `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
 | `src/lib/capacity.test.ts` | 15 | US-32: `parseWeeklyHours` reading whole hours from 1 to 80, and refusing blank, 0, 81, decimals, negatives and words |
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |

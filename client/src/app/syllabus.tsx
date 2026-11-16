@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { addTasks, AiReading, extractSyllabusText, getAiStatus, readSyllabusWithAi } from '../lib/api';
 import { scanSyllabus } from '../lib/inputs';
 import { pickPdf } from '../lib/pick-pdf';
-import { checkDraft, Draft, fromReading, toDraft } from '../lib/review';
+import { checkDraft, courseMentioned, Draft, fromReading, isDuplicate, toDraft } from '../lib/review';
 import { useSemester } from '../state/semester-store';
 import { theme } from '../theme';
 
@@ -32,6 +32,7 @@ export default function SyllabusScreen() {
   const [text, setText] = useState('');
   /** The assignments being reviewed. null until Find assignments is pressed. */
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
+  const [resultText, setResultText] = useState('');
   const [skipped, setSkipped] = useState<string[]>([]);
   /** One message per draft, or null when that draft is fine. */
   const [errors, setErrors] = useState<(string | null)[]>([]);
@@ -42,6 +43,7 @@ export default function SyllabusScreen() {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const course = semester.courses.find((c) => c.id === courseId);
+  const mentionedCourse = courseMentioned(resultText, semester.courses, courseId);
 
   /** Whether the server has an AI to read syllabi with. False until it says so. */
   const [aiAvailable, setAiAvailable] = useState(false);
@@ -90,6 +92,7 @@ export default function SyllabusScreen() {
       try {
         const answer = await readSyllabusWithAi(syllabusText);
         if (stale()) return;
+        setResultText(syllabusText);
         setDrafts(answer.assignments.map(fromReading));
         setSkipped([]);
         setAiReading(answer);
@@ -108,6 +111,7 @@ export default function SyllabusScreen() {
     }
 
     const result = scanSyllabus(syllabusText, forCourseId);
+    setResultText(syllabusText);
     setDrafts(result.tasks.map(toDraft));
     setSkipped(result.skipped);
     setAiReading(null);
@@ -291,6 +295,12 @@ export default function SyllabusScreen() {
             Found {drafts.length} {drafts.length === 1 ? 'assignment' : 'assignments'} for {course?.code}
           </Text>
 
+          {mentionedCourse !== null && (
+            <Text testID="syllabus-course-warning" style={styles.faint}>
+              {`This syllabus mentions ${mentionedCourse}, but ${course?.code} is chosen. Check the course before adding.`}
+            </Text>
+          )}
+
           {aiReading !== null && aiReading.dropped > 0 && (
             <Text testID="syllabus-ai-partial" style={styles.error}>
               {`${aiReading.dropped} ${aiReading.dropped === 1 ? 'item' : 'items'} in the AI's answer could not be used, so this list may be incomplete. Check it against your syllabus.`}
@@ -334,6 +344,11 @@ export default function SyllabusScreen() {
                   <Text style={styles.link}>Remove</Text>
                 </Pressable>
               </View>
+              {isDuplicate(draft, semester.tasks, courseId) && (
+                <Text testID={`draft-duplicate-hint-${i}`} style={styles.faint}>
+                  {`Already in your semester for ${course?.code}, week ${Number(draft.week)}.`}
+                </Text>
+              )}
               {draft.week.trim() === '' && !errors[i] && (
                 <Text testID={`draft-week-hint-${i}`} style={styles.faint}>
                   The syllabus does not say which week. Enter it before adding.

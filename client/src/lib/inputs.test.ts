@@ -823,3 +823,28 @@ describe('hostile and oversized input', () => {
     expect(result.tasks).toEqual(wallSemester.tasks);
   });
 });
+
+
+describe('scanSyllabus: schedule title prefixes', () => {
+  it.each([
+    ['Week 1, Sept 1, 3 Graphics; R and RStudio; Constructive Critique', 'Graphics; R and RStudio; Constructive Critique'],
+    ['Week 2, Sept 8, 10 Linear Regression Intro', 'Linear Regression Intro'],
+    ['Week 5, Sept 29, Oct 1 Maximum Likelihood Estimation', 'Maximum Likelihood Estimation'],
+    ['Week 4: Lab report (3 hours)', 'Lab report'],
+    ['Week 2: -- : • September 8 and 10: Quiz', 'Quiz'],
+    ['Week 2: Jan 8 & 10 - Quiz', 'Quiz'],
+    ['Week 2: Feb 8-10 Quiz', 'Quiz'],
+  ])('cleans %s without changing its week', (line, title) => {
+    const task = scanSyllabus(line, 'c1').tasks[0];
+    expect(task.title).toBe(title);
+    expect(task.dueWeek).toBe(Number(/Week (\d+)/.exec(line)![1]));
+    if (line.includes('(3 hours)')) expect(task.estimatedHours).toBe(3);
+  });
+  it('does not invent a title for a date-only line', () => {
+    const line = 'Week 2, Sept 8, 10';
+    expect(scanSyllabus(line, 'c1')).toEqual({ tasks: [], skipped: [line] });
+  });
+  it('keeps month words that are part of the title', () => {
+    expect(scanSyllabus('Week 2: March reading', 'c1').tasks[0].title).toBe('March reading');
+  });
+});

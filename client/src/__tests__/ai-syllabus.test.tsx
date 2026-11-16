@@ -421,3 +421,59 @@ describe('without an AI on the server', () => {
     expect(screen.queryByTestId('syllabus-ai-note')).toBeNull();
   });
 });
+
+
+describe('course and duplicate review hints', () => {
+  it('warns for the wrong course and clears after choosing the mentioned course and finding again', async () => {
+    await renderScreen(false);
+    fireEvent.press(screen.getByLabelText('Choose MATH 251'));
+    await pasteAndFind('CS-262\nWeek 4: Lab report');
+    expect(screen.getByTestId('syllabus-course-warning').props.children).toBe(
+      'This syllabus mentions CS 262, but MATH 251 is chosen. Check the course before adding.'
+    );
+    fireEvent.press(screen.getByLabelText('Choose CS 262'));
+    expect(screen.queryByTestId('syllabus-course-warning')).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByTestId('syllabus-find')); });
+    expect(screen.queryByTestId('syllabus-course-warning')).toBeNull();
+  });
+  it('keeps the wrong-course warning non-blocking on Add', async () => {
+    await renderScreen(false);
+    await pasteAndFind('MATH 251\nWeek 4: Lab report');
+    expect(screen.getByTestId('syllabus-course-warning')).toBeTruthy();
+    addTasksMock.mockResolvedValue([]);
+    await act(async () => { fireEvent.press(screen.getByTestId('syllabus-add')); });
+    expect(addTasksMock).toHaveBeenCalledWith([
+      { courseId: 'c1', title: 'Lab report', dueWeek: 4, estimatedHours: null },
+    ]);
+  });
+  it('shows duplicate hints for AI drafts, recomputes edits, and still adds duplicates', async () => {
+    readMock.mockResolvedValue({ ...READING, assignments: [{ title: 'Big project', dueWeek: 6, estimatedHours: 20 }] });
+    await renderScreen(true);
+    await pasteAndFind();
+    expect(screen.getByTestId('draft-duplicate-hint-0').props.children).toBe(
+      'Already in your semester for CS 262, week 6.'
+    );
+    fireEvent.changeText(screen.getByTestId('draft-title-0'), 'Other project');
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('draft-title-0'), ' BIG PROJECT ');
+    expect(screen.getByTestId('draft-duplicate-hint-0')).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId('draft-week-0'), '7');
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('draft-week-0'), '');
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('draft-week-0'), '6');
+    expect(screen.getByTestId('draft-duplicate-hint-0')).toBeTruthy();
+    addTasksMock.mockResolvedValue([]);
+    await act(async () => { fireEvent.press(screen.getByTestId('syllabus-add')); });
+    expect(addTasksMock).toHaveBeenCalledWith([
+      { courseId: 'c1', title: 'BIG PROJECT', dueWeek: 6, estimatedHours: 20 },
+    ]);
+  });
+  it('shows the duplicate hint for a scanner draft and lets the student remove it', async () => {
+    await renderScreen(false);
+    await pasteAndFind('Week 6: Big project');
+    expect(screen.getByTestId('draft-duplicate-hint-0')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Remove Big project'));
+    expect(screen.queryByTestId('draft-duplicate-hint-0')).toBeNull();
+  });
+});
