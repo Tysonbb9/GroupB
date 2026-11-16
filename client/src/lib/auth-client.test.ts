@@ -2,6 +2,8 @@ import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { createAppAuth, createCrunchWeekAuthClient, serverAuth, SessionStorage } from './auth-client';
 import { createServerAuth } from './auth';
+import { fetchSemester, setRequestAuth } from './api';
+import { wallSemester } from '../testing/fixtures';
 
 /**
  * These tests run the phone's real Better Auth client against a real Better
@@ -14,6 +16,18 @@ import { createServerAuth } from './auth';
 jest.mock('expo-linking', () => ({
   createURL: (path: string) => `crunchweek://${path.replace(/^\//, '')}`,
 }));
+
+// @better-auth/expo/dist/client.js imports constants/linking and dynamically loads
+// network in ExpoOnlineManager.setup during session updates. Our storage uses SecureStore.
+// Resolve each peer explicitly: mocked native APIs do not test whether it is installed.
+const installedPackages = require as typeof require & { resolve: (name: string) => string };
+describe('the phone authentication dependencies', () => {
+  it.each(['expo-constants', 'expo-linking', 'expo-network', 'expo-secure-store'])(
+    'installs %s for the real phone client', (name) => {
+      expect(() => installedPackages.resolve(name)).not.toThrow();
+    }
+  );
+});
 
 const SERVER = 'http://server.test';
 
@@ -221,11 +235,16 @@ describe('the session on the phone', () => {
 
 describe('Log out', () => {
   it('ends the session on the server, so the old cookie stops working', async () => {
-    const { auth, client, server } = setUp();
+    const { auth, client, server, requests } = setUp();
     await auth.signUp('Sam Student', 'sam@example.edu', 'password-123');
     const cookie = await client.getCookie();
+    await expect(whoseSession(server, cookie)).resolves.toBe('sam@example.edu');
 
-    await auth.signOut();
+    await expect(auth.signOut()).resolves.toBeUndefined();
+    expect(consoleError).not.toHaveBeenCalled();
+    const signOut = requests.find((request) => new URL(request.url).pathname.endsWith('/sign-out'));
+    expect(signOut?.method).toBe('POST');
+    expect(signOut?.headers.get('cookie')).toBe(cookie);
     await expect(whoseSession(server, cookie)).resolves.toBeNull();
   });
 
@@ -289,4 +308,51 @@ describe('the auth the app uses', () => {
     expect(serverAuth()).toBe(serverAuth());
     expect(serverAuth().checksPasswords).toBe(true);
   });
+});
+
+
+it('stores an ordinary API renewal in the phone cookie through the Expo adapter', async () => {
+  const { auth, client, server, storage } = setUp();
+  await auth.signUp('Sam Student', 'sam@example.edu', 'password-123');
+  const cookie = await client.getCookie();
+  const session = await server.api.getSession({ headers: new Headers({ cookie }) });
+  const day = 86_400_000, oldExpiry = new Date(Date.now() + 28 * day);
+  await (await server.$context).internalAdapter.updateSession(session!.session.token, {
+    expiresAt: oldExpiry, updatedAt: new Date(Date.now() - 2 * day),
+  });
+  const stored = JSON.parse(storage.saved.get('crunchweek_cookie')!);
+  for (const value of Object.values(stored) as { expires: string }[]) value.expires = oldExpiry.toISOString();
+  storage.saved.set('crunchweek_cookie', JSON.stringify(stored));
+  const network = jest.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+    const reply = await server.api.getSession({ headers: new Headers(init?.headers), returnHeaders: true });
+    return new Response(JSON.stringify(wallSemester), { headers: reply.headers });
+  });
+  setRequestAuth({ options: auth.requestOptions, onSessionEnded: jest.fn(), onResponse: auth.receiveResponse });
+  try {
+    await fetchSemester();
+    const renewed = JSON.parse(storage.saved.get('crunchweek_cookie')!);
+    const token = Object.entries(renewed).find(([key]) => key.includes('session_token'))![1] as { expires: string };
+    expect(new Date(token.expires).getTime()).toBeGreaterThan(oldExpiry.getTime() + day);
+    await expect(whoseSession(server, await client.getCookie())).resolves.toBe('sam@example.edu');
+  } finally { setRequestAuth(null); network.mockRestore(); }
+});
+
+it('ignores a late renewal response after logout or a newer sign-in', async () => {
+  const { auth, client, server } = setUp();
+  await auth.signUp('Sam Student', 'sam@example.edu', 'password-123');
+  const cookie = await client.getCookie();
+  const session = await server.api.getSession({ headers: new Headers({ cookie }) });
+  await (await server.$context).internalAdapter.updateSession(session!.session.token, {
+    expiresAt: new Date(Date.now() + 28 * 86_400_000),
+  });
+  const reply = await server.api.getSession({ headers: new Headers({ cookie }), returnHeaders: true });
+  expect(reply.headers.get('set-cookie')).toBeTruthy();
+  await auth.signOut();
+  auth.receiveResponse!(new Response(null, { headers: reply.headers }), { headers: { Cookie: cookie } });
+  expect(await client.getCookie()).toBe('');
+  await auth.signUp('New Student', 'new@example.edu', 'password-123');
+  const newerCookie = await client.getCookie();
+  auth.receiveResponse!(new Response(null, { headers: reply.headers }), { headers: { Cookie: cookie } });
+  expect(await client.getCookie()).toBe(newerCookie);
+  await expect(whoseSession(server, newerCookie)).resolves.toBe('new@example.edu');
 });

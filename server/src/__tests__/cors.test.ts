@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { app } from '../app';
 import { resetDb } from '../data/db';
-import { signedIn, type Api } from '../testing/session';
+import { withSample, signedIn, type Api } from '../testing/session';
 
 const EXPO_WEB = 'http://localhost:8081'; // CLIENT_ORIGIN's default
 
@@ -10,7 +10,7 @@ beforeAll(async () => {
   api = await signedIn();
 });
 
-beforeEach(() => resetDb());
+beforeEach(async () => { resetDb(); await withSample(api); });
 
 // A browser (Expo Web) only lets the client read the server's answer when the
 // server says so with these headers. A phone does not check them. With login

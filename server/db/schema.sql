@@ -33,19 +33,26 @@ create unique index semester_one_row on semester ((true));
 create table courses (
   id                 text primary key,  -- e.g. 'cs262'
   code               text not null unique,
+  code_key           text not null,
   name               text not null,
   attendance_allowed int check (attendance_allowed >= 0),
   attendance_used    int check (attendance_used >= 0),
   constraint attendance_both_or_neither
-    check ((attendance_allowed is null) = (attendance_used is null))
+    check ((attendance_allowed is null) = (attendance_used is null)),
+  constraint courses_code_length check (char_length(btrim(code)) between 1 and 40 and char_length(code) <= 40),
+  constraint courses_name_length check (char_length(btrim(name)) between 1 and 200 and char_length(name) <= 200),
+  constraint courses_code_key_present check (char_length(code_key) > 0)
 );
+
+create unique index courses_code_key_unique on courses (code_key);
 
 -- ---------------------------------------------------------------------------
 -- tasks (Task). A course with tasks cannot be deleted (on delete restrict),
 -- so no work disappears without someone deciding to remove it.
 -- ---------------------------------------------------------------------------
 create table tasks (
-  id              text primary key,  -- e.g. '262-2'
+  user_id         text not null,  -- foreign key added after the login table exists
+  id              text not null,  -- e.g. '262-2', unique within this student
   course_id       text not null references courses (id) on delete restrict,
   title           text not null,
   -- Must match client/src/lib/categories.ts. Empty means not classified.
@@ -55,7 +62,8 @@ create table tasks (
   estimated_hours numeric check (estimated_hours is null or (estimated_hours > 0 and estimated_hours <= 100)),
   -- Work cannot spread back before week 1.
   spread_weeks    int not null default 1 check (spread_weeks >= 1 and spread_weeks <= due_week),
-  done            boolean not null default false
+  done            boolean not null default false,
+  primary key (user_id, id)
 );
 
 create index tasks_course_id_idx on tasks (course_id);  -- GET /tasks?courseId=
@@ -238,6 +246,116 @@ $$;
 revoke execute on function replace_grade_weights(text, jsonb) from public, anon, authenticated;
 grant execute on function replace_grade_weights(text, jsonb) to service_role;
 
+-- Login tables now exist, so tasks can reference the student who owns them.
+alter table tasks add constraint tasks_user_id_fkey
+  foreign key (user_id) references "user" (id) on delete cascade;
+
+-- Each student chooses their own weekly capacity; no row means fifteen hours.
+create table if not exists student_settings (
+  user_id         text primary key references "user" (id) on delete cascade,
+  weekly_capacity numeric not null check (weekly_capacity > 0)
+);
+
+-- A sample is copied all at once, only when the account has no courses or tasks.
+-- Lock the student row so two concurrent requests cannot both see an empty account.
+create or replace function load_sample_semester(p_user_id text, p_course_ids text[], p_tasks jsonb, p_weekly_capacity numeric)
+returns boolean
+language plpgsql
+set search_path = public
+as $$
+begin
+  perform id from "user" where id = p_user_id for update;
+  if not found then
+    raise foreign_key_violation using message = 'Student does not exist';
+  end if;
+  if exists (select 1 from enrollments where user_id = p_user_id)
+     or exists (select 1 from tasks where user_id = p_user_id) then
+    return false;
+  end if;
+
+  insert into enrollments (user_id, course_id)
+    select p_user_id, course_id from unnest(p_course_ids) as sample(course_id);
+  insert into tasks (user_id, id, course_id, title, category, due_week, estimated_hours, spread_weeks, done)
+    select p_user_id, t.id, t.course_id, t.title, t.category, t.due_week, t.estimated_hours, t.spread_weeks, t.done
+    from jsonb_to_recordset(p_tasks) as t(
+      id text, course_id text, title text, category text, due_week int,
+      estimated_hours numeric, spread_weeks int, done boolean
+    );
+  -- The server supplies DEFAULT_WEEKLY_CAPACITY; keep hours the student already chose.
+  insert into student_settings (user_id, weekly_capacity) values (p_user_id, p_weekly_capacity)
+    on conflict (user_id) do nothing;
+  return true;
+end;
+$$;
+
+-- The session-checked server may copy a sample; a public client may not.
+revoke execute on function load_sample_semester(text, text[], jsonb, numeric) from public, anon, authenticated;
+grant execute on function load_sample_semester(text, text[], jsonb, numeric) to service_role;
+
+-- Literal substring matching avoids treating user punctuation as wildcards.
+create or replace function search_course_catalog(p_user_id text, p_code_query text, p_name_query text)
+returns table (id text, code text, name text, attendance_allowed int, attendance_used int, enrolled boolean)
+language sql stable
+set search_path = public
+as $$
+  select c.id, c.code, c.name, c.attendance_allowed, c.attendance_used,
+    exists (select 1 from enrollments e where e.user_id = p_user_id and e.course_id = c.id)
+  from courses c
+  where (p_code_query <> '' and strpos(c.code_key, p_code_query) > 0)
+     or strpos(lower(c.name), lower(p_name_query)) > 0
+  order by case when p_code_query <> '' and c.code_key = p_code_query then 0
+                when p_code_query <> '' and starts_with(c.code_key, p_code_query) then 1 else 2 end,
+    c.code_key collate "C", c.id
+  limit 10;
+$$;
+
+-- A unique-index collision waits for the winner, then returns its course without
+-- enrolling this caller. A readable-id collision tries the next suffix instead.
+-- Course creation and enrollment run in the same transaction and roll back together.
+create or replace function create_catalog_course(
+  p_user_id text, p_code text, p_name text, p_code_key text, p_id_base text
+)
+returns table (created boolean, id text, code text, name text, attendance_allowed int, attendance_used int)
+language plpgsql
+set search_path = public
+as $$
+declare
+  existing courses%rowtype;
+  saved courses%rowtype;
+  candidate text := p_id_base;
+  suffix int := 2;
+begin
+  select c.* into existing from courses c where c.code_key = p_code_key;
+  if found then
+    return query select false, existing.id, existing.code, existing.name, existing.attendance_allowed, existing.attendance_used;
+    return;
+  end if;
+  loop
+    begin
+      insert into courses (id, code, name, code_key)
+        values (candidate, p_code, p_name, p_code_key) returning courses.* into saved;
+      exit;
+    exception when unique_violation then
+      select c.* into existing from courses c where c.code_key = p_code_key;
+      if found then
+        return query select false, existing.id, existing.code, existing.name, existing.attendance_allowed, existing.attendance_used;
+        return;
+      end if;
+      candidate := p_id_base || '-' || suffix;
+      suffix := suffix + 1;
+    end;
+  end loop;
+  insert into enrollments (user_id, course_id) values (p_user_id, saved.id);
+  return query select true, saved.id, saved.code, saved.name, saved.attendance_allowed, saved.attendance_used;
+end;
+$$;
+
+-- The checked server supplies the student id; public clients cannot call these.
+revoke execute on function search_course_catalog(text, text, text) from public, anon, authenticated;
+grant execute on function search_course_catalog(text, text, text) to service_role;
+revoke execute on function create_catalog_course(text, text, text, text, text) from public, anon, authenticated;
+grant execute on function create_catalog_course(text, text, text, text, text) to service_role;
+
 -- ---------------------------------------------------------------------------
 -- Row Level Security. Supabase serves every table in this schema to anyone
 -- with the project's public (publishable) key, which is not a secret. Turning
@@ -246,6 +364,7 @@ grant execute on function replace_grade_weights(text, jsonb) to service_role;
 -- connects with DATABASE_URL (the postgres role), which bypasses it too.
 -- Per-user policies are not needed yet: the server decides what a student sees.
 -- ---------------------------------------------------------------------------
+alter table student_settings enable row level security;
 alter table semester enable row level security;
 alter table courses  enable row level security;
 alter table tasks    enable row level security;
