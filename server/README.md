@@ -239,7 +239,7 @@ curl -b cookies.txt http://localhost:3000/semester
 | PATCH | `/tasks/:id` | Update `done` and/or `estimatedHours` | 200 | 400 bad body, 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
 | GET | `/ai/status` | `{ available }`: whether the server has an AI to read syllabi with | 200 | |
-| POST | `/ai/syllabus` | Syllabus text in (`{ text }`), what the AI read out: `{ assignments, weights, policies, dropped }`, every field checked. Takes about 20 seconds | 200 | 400 no text, 413 over 30,000 characters, 502 the AI failed or gave an unusable answer, 503 no AI set up |
+| POST | `/ai/syllabus` | Syllabus text in (`{ text }`), what the AI read out: `{ assignments, weights, policies, dropped }`, every field checked. Takes about 30 seconds | 200 | 400 no text, 413 over 30,000 characters, 502 the AI failed or gave an unusable answer, 503 no AI set up |
 | POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |
 | GET | `/courses/:id/reviews` | Reviews of one course | 200 | 404 |
 | POST | `/tasks` | Add reviewed syllabus assignments, all or nothing: `{ tasks: [{ courseId, title, dueWeek (1-15), estimatedHours (over 0, up to 100, or null) }] }` | 201 | 400 bad body |
@@ -301,7 +301,7 @@ AI_MODEL=nvidia-qwen3-6-35b-a3b-nvfp4
 
 - **Calvin's local AI:** make your own key at https://localai.calvin.edu (Settings > Account > API keys, then press Save). The key is a secret: only in `server/.env`, which git ignores. Never put it in the client, a test, an issue or a chat.
 - **Any OpenAI-style service works.** Change the three settings, not the code.
-- **It is slow:** one syllabus takes about 20 seconds, so the app shows a waiting message.
+- **It is slow:** one syllabus takes about 30 seconds, so the app shows a waiting message.
 - **The model never has the last word.** Every field of its answer is checked, and a week outside 1 to 15 or hours outside 0 to 100 are left blank for the student to fill in.
 - **Tests use a fake model.** No test calls a real service or needs a key.
 

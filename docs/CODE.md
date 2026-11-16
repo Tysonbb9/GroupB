@@ -126,6 +126,8 @@ US-24: processing what the student hands over. Three steps, each pure, and nothi
 | `applyCrowdEstimates` | fills tasks that have **no** estimate from `crowdEstimate`, matching on course and title (ignoring case and spacing). A student's own estimate is never replaced |
 | `processInputs` | scans each syllabus, adds only assignments the semester does not already have (so processing twice cannot double the workload), applies crowd estimates, then runs `weeklyLoad` and `detectCrunch` over the result |
 
+`scanLine` removes leading separators and calendar date lists such as "Sept 29, Oct 1" from scanner titles without changing the week or inventing an empty title. This cleanup is only for the simple scanner, not AI readings.
+
 A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called through `extractSyllabusText` in `lib/api.ts`), and that text is what `scanSyllabus` reads. Reading photos and scanned PDFs, and matching reports to assignments any way other than course and title, are later work.
 
 ### `src/lib/review.ts`
@@ -133,6 +135,10 @@ A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called
 US-30. `toDraft` turns a scanned assignment into the text in its edit boxes, and `checkDraft` checks one reviewed assignment: a title, a whole-number week from 1 to 15, and hours that `parseEstimate` accepts (blank means no estimate). It returns the first problem as a message the student can read.
 
 `fromReading` (issue #145) does the same for an assignment the AI read. A week or hours the AI did not find stay blank, never guessed: a blank week is a problem the student has to fill in (`checkDraft` refuses it), and blank hours are allowed.
+
+`courseMentioned` matches whole course codes with spaces, hyphens or no gap, ignoring case. It warns only when exactly one other course is mentioned and the chosen course is not.
+
+`isDuplicate` checks the chosen course, a trimmed case-insensitive title and a nonblank matching week against existing semester tasks. Its hint updates as the student edits and never blocks Add or skips a task.
 
 ### `src/lib/pick-pdf.ts`
 
@@ -182,7 +188,7 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `addReview` posts how long a finished assignment took to POST /courses/:id/reviews (US-23) and returns the stored review, or rejects with the server's message.
 
-`getAiStatus()` asks `GET /ai/status` whether the server has an AI (issue #145). It never throws: any problem counts as "no", so the app uses its simple scanner. `readSyllabusWithAi(text)` posts the text to `POST /ai/syllabus` and returns what the AI read, already checked by the server (`AiReading`). It takes about 20 seconds, and it rejects with the server's own message when it refuses.
+`getAiStatus()` asks `GET /ai/status` whether the server has an AI (issue #145). It never throws: any problem counts as "no", so the app uses its simple scanner. `readSyllabusWithAi(text)` posts the text to `POST /ai/syllabus` and returns what the AI read, already checked by the server (`AiReading`). It takes about 30 seconds, and it rejects with the server's own message when it refuses.
 
 Every request goes through one helper, `send`, which adds the session (US-20) and turns an unreachable server into `Could not reach the server at <address>`. The session registers itself with `setRequestAuth` while the app is signed in with the server: on a phone that adds the saved cookie by hand with `credentials: 'omit'`, and on the web it lets the browser send its own cookie with `credentials: 'include'`. When the server answers `401`, `send` tells the session, which goes back to Log in, and rejects with `SESSION_ENDED_MESSAGE`. With nothing registered (sample-data mode and most tests), requests go out as they did before accounts.
 
@@ -352,7 +358,7 @@ The student picks one of their courses, pastes or types the syllabus text, and p
 
 **Choose PDF** (US-29) opens the file picker (`lib/pick-pdf.ts`), sends the PDF to `POST /syllabus/text` with `extractSyllabusText`, puts the text that comes back in the text box, and scans it like pasted text. When the server cannot read the PDF (scanned, locked, too large), its message is shown above the text box, so the student can paste the text instead.
 
-**Reading with AI** (issue #145). When `getAiStatus` says the server has an AI, **Find assignments** sends the text to `readSyllabusWithAi` instead of `scanSyllabus` (a pasted text and a PDF's text alike). The screen says "Reading your syllabus. This takes about 20 seconds." and disables the button while it waits. The answer fills the same boxes through `fromReading`, so reviewing and adding are unchanged. A week the AI did not find is left blank, highlighted and explained, and the assignment cannot be added until it is filled in. The grade weights and policies it found are listed under the assignments as "not saved yet", since saving them waits on the course tables (#144). Every Find or PDF is a numbered run, and an answer or failure for an older run (another course chosen, a newer Find or PDF started) is dropped, so a reading never fills the boxes of the wrong course or overwrites a newer one; Add is disabled while a reading is pending. When the server reports `dropped` items, the screen warns that the list may be incomplete. If the AI fails for any reason, the simple scanner runs and a short note says so, so a student always gets a result. With no AI on the server nothing changes.
+**Reading with AI** (issue #145). When `getAiStatus` says the server has an AI, **Find assignments** sends the text to `readSyllabusWithAi` instead of `scanSyllabus` (a pasted text and a PDF's text alike). The screen says "Reading your syllabus. This takes about 30 seconds." and disables the button while it waits. The answer fills the same boxes through `fromReading`, so reviewing and adding are unchanged. A week the AI did not find is left blank, highlighted and explained, and the assignment cannot be added until it is filled in. The grade weights and policies it found are listed under the assignments as "not saved yet", since saving them waits on the course tables (#144). Every Find or PDF is a numbered run (a PDF takes its number when the picker returns, and is dropped if anything newer happened while the picker was open; only the PDF that set "Reading the PDF" may clear it), and an answer or failure for an older run (another course chosen, a newer Find or PDF started) is dropped, so a reading never fills the boxes of the wrong course or overwrites a newer one; Add is disabled while a reading is pending. When the server reports `dropped` items, the screen warns that the list may be incomplete. If the AI fails for any reason, the simple scanner runs and a short note says so, so a student always gets a result. With no AI on the server nothing changes.
 
 ### `src/theme.ts`
 
@@ -426,7 +432,7 @@ Login on the server (US-21), with [Better Auth](https://better-auth.com). `docs/
 
 One module talks to a language model, and everything else goes through it, so tests hand in a fake one. It uses the OpenAI-style chat-completions API, so changing provider is a change to `server/.env` (`AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`, listed in `.env.example` with no values). With any of the three missing there is no model and the app works as before.
 
-- **`model.ts`:** `createModelClient()` returns a `ModelClient` (`complete(prompt)`) or `null`. It understands both a plain JSON answer and the streamed answer Calvin's service always sends, even with `stream: false`. A body that starts with `{` is plain; anything else is read as Server-Sent Events (comment lines and `event:` lines ignored, an event's several `data:` lines joined, pieces joined in order), so a leading `: keep-alive` line does not matter. Reading the body is inside the same error boundary as the request. A failure becomes a `ModelError` with a message safe to show a student, never one that holds the address or the key. One answer can take about 20 seconds, so the wait is 60 seconds.
+- **`model.ts`:** `createModelClient()` returns a `ModelClient` (`complete(prompt)`) or `null`. It understands both a plain JSON answer and the streamed answer Calvin's service always sends, even with `stream: false`. A body that starts with `{` is plain; anything else is read as Server-Sent Events (comment lines and `event:` lines ignored, an event's several `data:` lines joined, pieces joined in order), so a leading `: keep-alive` line does not matter. Reading the body is inside the same error boundary as the request. A failure becomes a `ModelError` with a message safe to show a student, never one that holds the address or the key. One answer can take about 30 seconds, so the wait is 60 seconds.
 - **`syllabus-reading.ts`:** `buildPrompt` asks for JSON in a fixed shape and tells the model that the syllabus text is data, not instructions. `parseReading` checks every field and throws away what does not fit: a week outside 1 to 15, or hours outside 0 to 100, become blank (the student fills them in); an assignment with no title, or a weight that is not a label and a percentage from 0 to 100, is dropped and counted, and so is anything past the caps of 100 assignments and 30 weights, so `dropped` says how much of the answer was lost. The root of the answer must be an object: a list holding one is refused. The model's own "unsure" flag is ignored, because it was wrong for undated quizzes in testing.
 - **`routes.ts`:** `aiRouter(model)` gives `GET /ai/status` (`{ available }`) and `POST /ai/syllabus` (`{ text }` in, the checked reading out; 400 for no text, 413 over 30,000 characters, 502 when the model fails or its answer cannot be used, 503 with no model). `app.ts` mounts it after the session check, so both routes need a signed-in student.
 
@@ -451,7 +457,7 @@ The server does not require these scripts when running with
 
 ## Tests
 
-876 tests across forty-three test suites.
+907 tests across forty-three test suites.
 
 ```bash
 npm test                      # all of them
@@ -464,7 +470,7 @@ npx jest --watch              # while you work
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
-| `src/lib/inputs.test.ts` | 287 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, and hostile or oversized input |
+| `src/lib/inputs.test.ts` | 296 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, hostile or oversized input, and calendar date prefixes with normal titles preserved |
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
@@ -492,13 +498,13 @@ npx jest --watch              # while you work
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Courses screen in place of the old one-line text |
 | `src/__tests__/syllabus-text.test.tsx` | 7 |  US-28: choosing a course, the assignments found shown in edit boxes with their week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |
 | `src/__tests__/undo-done.test.tsx` | 7 | US-31: the Completed line and its count, opening and closing it, moving a task there and back, the hours returning to this week and the forecast, the line going away after the last undo, and nothing drawn when no task is done. Queries by role and name, so the open and checked states are tested too |
-| `src/lib/review.test.ts` | 21 | US-30: `toDraft`, `fromReading` (issue #145: the boxes for an assignment the AI read, with a week or hours it did not find left blank), and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number |
+| `src/lib/review.test.ts` | 36 | US-30: `toDraft`, `fromReading` (issue #145: the boxes for an assignment the AI read, with a week or hours it did not find left blank), and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number; whole-course-code warnings and same-course/title/week duplicate hints |
 | `src/lib/add-tasks-api.test.ts` | 5 | `addTasks`: what it posts, the saved tasks it returns, the server's message on a refusal, an unreachable server, a reply that is not a list |
 | `src/__tests__/review-before-adding.test.tsx` | 8 | US-30: editing and removing found assignments, messages for a bad week, bad hours or a blank title, the forecast unchanged while reviewing, adding on confirm, and a failed save |
 | `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
 | `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
 | `src/lib/ai-api.test.ts` | 16 | Issue #145: `getAiStatus` (true only when the server says available, false and never throwing for an error, a wrong shape, bad JSON or no server) and `readSyllabusWithAi` (the JSON it posts, the server's message on a refusal, six wrong shapes rejected, the unreachable-server message) |
-| `src/__tests__/ai-syllabus.test.tsx` | 17 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, weights and policies shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped, no adding while a newer reading is pending, and a warning when the server dropped items |
+| `src/__tests__/ai-syllabus.test.tsx` | 24 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, weights and policies shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, a warning when the server dropped items, a non-blocking wrong-course warning cleared on a course switch, and duplicate hints that update on edits and allow Add or Remove |
 | `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
 | `src/lib/capacity.test.ts` | 15 | US-32: `parseWeeklyHours` reading whole hours from 1 to 80, and refusing blank, 0, 81, decimals, negatives and words |
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |
