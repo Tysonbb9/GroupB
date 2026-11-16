@@ -1,3 +1,4 @@
+import type { NewCourse, CatalogCourse, CourseCreation } from './course-catalog';
 import type {
   CheckinAnswer,
   Course,
@@ -43,21 +44,29 @@ export type NewReview = {
 };
 
 export interface Store {
-  getSemester(): Promise<Semester>;
-  /** Changes the semester's settings and returns the semester with them. */
-  updateSemester(updates: SemesterUpdates): Promise<Semester>;
+  getSemester(userId: string): Promise<Semester>;
+  /** Copies the sample only into an empty account; null means it already has data. */
+  loadSample(userId: string): Promise<Semester | null>;
+  /** Changes the student's settings and returns the semester with them. */
+  updateSemester(userId: string, updates: SemesterUpdates): Promise<Semester>;
 
-  listCourses(): Promise<Course[]>;
-  getCourse(id: string): Promise<Course | null>;
+  searchCatalog(userId: string, query: string): Promise<CatalogCourse[]>;
+  /** Joining twice changes nothing; an unknown catalog id returns null. */
+  enroll(userId: string, courseId: string): Promise<Course | null>;
+  /** A duplicate returns the existing course without enrolling the caller. */
+  createCourse(userId: string, course: NewCourse): Promise<CourseCreation>;
+  listCourses(userId: string): Promise<Course[]>;
+  getCourse(userId: string, id: string): Promise<Course | null>;
 
-  listTasks(filters: TaskFilters): Promise<Task[]>;
-  getTask(id: string): Promise<Task | null>;
+  listTasks(userId: string, filters: TaskFilters): Promise<Task[]>;
+  getTask(userId: string, id: string): Promise<Task | null>;
   updateTask(
+    userId: string,
     id: string,
     updates: TaskUpdates
   ): Promise<Task | null>;
   /** Adds every task or none (US-30), and returns them with their new ids. */
-  addTasks(tasks: NewTask[]): Promise<Task[]>;
+  addTasks(userId: string, tasks: NewTask[]): Promise<Task[]>;
 
   addReview(review: NewReview): Promise<Review>;
   listReviews(courseId: string): Promise<Review[]>;

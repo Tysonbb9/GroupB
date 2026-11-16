@@ -1,3 +1,4 @@
+import { courseInput, MAX_COURSE_CODE, MAX_COURSE_NAME } from './data/course-catalog';
 import express from 'express';
 import { toNodeHandler, fromNodeHeaders } from 'better-auth/node';
 import { auth, CLIENT_ORIGIN } from './auth';
@@ -12,7 +13,13 @@ import { checkinRouter } from './ai/checkin-routes';
 export const app = express();
 const store = createStore();
 
+/** The model (#145), or null with no AI_* settings. Shared by every AI route. */
 const model = createModelClient();
+
+/** Authentication has already checked this session before any student route runs. */
+function studentId(res: express.Response): string {
+  return res.locals.session.user.id;
+}
 
 
 /**
@@ -76,8 +83,18 @@ app.use('/checkin', checkinRouter(store, model));
  * courses and tasks.
  */
 app.get('/semester', async (_req, res) => {
-  const semester = await store.getSemester();
+  const semester = await store.getSemester(studentId(res));
   res.json(semester);
+});
+
+// A sample is an explicit first step, not a shared semester for every login.
+app.post('/semester/sample', async (_req, res) => {
+  const semester = await store.loadSample(studentId(res));
+  if (!semester) {
+    res.status(409).json({ error: 'Your semester already has courses or tasks' });
+    return;
+  }
+  res.status(201).json(semester);
 });
 
 /**
@@ -101,12 +118,45 @@ app.patch('/semester', async (req, res) => {
     return;
   }
 
-  const semester = await store.updateSemester({ weeklyCapacity });
+  const semester = await store.updateSemester(studentId(res), { weeklyCapacity });
   res.json(semester);
 });
 
+// Suggestions are explicit choices; finding a course never joins it automatically.
+app.get('/catalog', async (req, res) => {
+  const query = req.query.q;
+  if (typeof query !== 'string' || !query.trim() || query.includes('\0')) {
+    res.status(400).json({ error: 'q must be a non-empty course code or name' });
+    return;
+  }
+  res.json(await store.searchCatalog(studentId(res), query.trim()));
+});
+
+app.post('/courses/:id/enroll', async (req, res) => {
+  const course = await store.enroll(studentId(res), req.params.id);
+  if (!course) {
+    res.status(404).json({ error: 'Course not found' });
+    return;
+  }
+  res.json(course);
+});
+
+app.post('/courses', async (req, res) => {
+  const input = courseInput(req.body);
+  if (!input) {
+    res.status(400).json({ error: `code and name must be non-empty text, at most ${MAX_COURSE_CODE} and ${MAX_COURSE_NAME} characters respectively` });
+    return;
+  }
+  const result = await store.createCourse(studentId(res), input);
+  if (!result.created) {
+    res.status(409).json({ error: 'A course with this code already exists. Choose it to join.', course: result.course });
+    return;
+  }
+  res.status(201).json(result.course);
+});
+
 app.get('/courses', async (_req, res) => {
-  const courses = await store.listCourses();
+  const courses = await store.listCourses(studentId(res));
   res.json(courses);
 });
 
@@ -115,7 +165,7 @@ app.get('/courses', async (_req, res) => {
  * Returns one course, or 404 if the id is unknown.
  */
 app.get('/courses/:id', async (req, res) => {
-  const course = await store.getCourse(req.params.id);
+  const course = await store.getCourse(studentId(res), req.params.id);
   if (!course) {
     res.status(404).json({ error: 'Course not found' });
     return; // stop here, or Express tries to send a second response
@@ -128,7 +178,7 @@ app.get('/courses/:id', async (req, res) => {
  * Returns one task, or 404 if the id is unknown.
  */
 app.get('/tasks/:id', async (req, res) => {
-  const task = await store.getTask(req.params.id);
+  const task = await store.getTask(studentId(res), req.params.id);
   if (!task) {
     res.status(404).json({ error: 'Task not found' });
     return;
@@ -172,7 +222,7 @@ app.get('/tasks', async (req, res) => {
     doneValue = done === 'true';
   }
 
-  const tasks = await store.listTasks({
+  const tasks = await store.listTasks(studentId(res), {
     courseId: typeof courseId === 'string' ? courseId : undefined,
     week: weekNumber,
     done: doneValue,
@@ -187,7 +237,7 @@ app.get('/tasks', async (req, res) => {
  * Returns the updated task, 400 if a field is invalid, 404 if the id is unknown.
  */
 app.patch('/tasks/:id', async (req, res) => {
-  const task = await store.getTask(req.params.id);
+  const task = await store.getTask(studentId(res), req.params.id);
   if (!task) {
     res.status(404).json({ error: 'Task not found' });
     return;
@@ -210,7 +260,7 @@ app.patch('/tasks/:id', async (req, res) => {
     return;
   }
 
-  const updatedTask = await store.updateTask(req.params.id, {
+  const updatedTask = await store.updateTask(studentId(res), req.params.id, {
     done,
     estimatedHours,
   });
@@ -225,7 +275,7 @@ app.patch('/tasks/:id', async (req, res) => {
  * is invalid, 404 if the course is unknown.
  */
 app.post('/courses/:id/reviews', async (req, res) => {
-  const course = await store.getCourse(req.params.id);
+  const course = await store.getCourse(studentId(res), req.params.id);
   if (!course) {
     res.status(404).json({ error: 'Course not found' });
     return;
@@ -264,7 +314,7 @@ app.post('/courses/:id/reviews', async (req, res) => {
  * Returns every review of one course, or 404 if the course is unknown.
  */
 app.get('/courses/:id/reviews', async (req, res) => {
-  const course = await store.getCourse(req.params.id);
+  const course = await store.getCourse(studentId(res), req.params.id);
   if (!course) {
     res.status(404).json({ error: 'Course not found' });
     return;
@@ -287,7 +337,7 @@ app.post('/tasks', async (req, res) => {
     return;
   }
 
-  const courseIds = new Set((await store.listCourses()).map((course) => course.id));
+  const courseIds = new Set((await store.listCourses(studentId(res))).map((course) => course.id));
 
   // Check every task before adding any (same idea as PATCH /tasks/:id).
   for (const [i, t] of tasks.entries()) {
@@ -319,6 +369,7 @@ app.post('/tasks', async (req, res) => {
 
   // Only now, with everything checked, change the data.
   const added = await store.addTasks(
+    studentId(res),
     tasks.map((t) => ({
       courseId: t.courseId,
       title: t.title.trim(),

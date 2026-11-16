@@ -30,7 +30,7 @@ export function checkinRouter(store: Store, model: ModelClient | null) {
     }
 
     const userId: string = res.locals.session.user.id;
-    const semester = await store.getSemester();
+    const semester = await store.getSemester(userId);
     const checkins = await Promise.all(semester.courses.map((c) => store.getCheckin(userId, c.id)));
     const snapshot = buildSnapshot(semester, checkins, new Date());
     if (snapshot.courses.length === 0) {
@@ -65,6 +65,7 @@ export function checkinRouter(store: Store, model: ModelClient | null) {
   });
 
   router.post('/', async (req, res) => {
+    const userId: string = res.locals.session.user.id;
     const { courseId, answer, changes } = req.body ?? {};
 
     if (!ANSWERS.includes(answer)) {
@@ -72,7 +73,7 @@ export function checkinRouter(store: Store, model: ModelClient | null) {
       return;
     }
 
-    const course = typeof courseId === 'string' ? await store.getCourse(courseId) : null;
+    const course = typeof courseId === 'string' ? await store.getCourse(userId, courseId) : null;
     if (!course) {
       res.status(404).json({ error: 'Course not found' });
       return;
@@ -92,7 +93,7 @@ export function checkinRouter(store: Store, model: ModelClient | null) {
       // Check every change before saving any (same idea as POST /tasks).
       for (const [i, c] of changes.entries()) {
         const n = i + 1;
-        const task = typeof c?.taskId === 'string' ? await store.getTask(c.taskId) : null;
+        const task = typeof c?.taskId === 'string' ? await store.getTask(userId, c.taskId) : null;
         if (!task || task.courseId !== course.id || task.done) {
           res.status(400).json({ error: `Change ${n}: taskId must be an open task of ${course.code}` });
           return;
@@ -111,9 +112,8 @@ export function checkinRouter(store: Store, model: ModelClient | null) {
 
     const tasks = [];
     for (const u of updates) {
-      tasks.push(await store.updateTask(u.taskId, { dueWeek: u.dueWeek, estimatedHours: u.estimatedHours }));
+      tasks.push(await store.updateTask(userId, u.taskId, { dueWeek: u.dueWeek, estimatedHours: u.estimatedHours }));
     }
-    const userId: string = res.locals.session.user.id;
     const checkin = await store.saveCheckin(userId, course.id, answer);
 
     res.json({ checkin, tasks });

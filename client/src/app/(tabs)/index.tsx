@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CheckinCard } from '../../components/CheckinCard';
+import { EmptySemesterScreen } from '../../components/EmptyState';
 import { LoadPill } from '../../components/LoadPill';
 import { LogOutButton } from '../../components/LogOutButton';
 import { ScreenHeader } from '../../components/ScreenHeader';
@@ -38,10 +39,12 @@ export default function SemesterScreen() {
   // #155: the one check-in question, if the server has one to ask.
   const [question, setQuestion] = useState<CheckinQuestion | null>(null);
 
-  // Ask the server once. With sample data (tests, the fixture switch) there is
-  // no server, so no question. A failure only hides the card.
+  // Ask the server once, and again when the student's courses change (a new
+  // account loading the sample semester). With sample data (tests, the fixture
+  // switch) there is no server, so no question. A failure only hides the card.
+  const courseCount = semester.courses.length;
   useEffect(() => {
-    if (!fromServer) return;
+    if (!fromServer || courseCount === 0) return;
     let cancelled = false;
     fetchCheckinQuestion()
       .then((q) => {
@@ -51,9 +54,13 @@ export default function SemesterScreen() {
     return () => {
       cancelled = true;
     };
-  }, [fromServer]);
+  }, [fromServer, courseCount]);
   // No week is open until a bar is tapped, so the screen starts uncluttered.
   const [openWeek, setOpenWeek] = useState<number | null>(null);
+
+  if (semester.courses.length === 0) {
+    return <EmptySemesterScreen title="Forecast" message="Add courses and their syllabi to see your weekly workload." />;
+  }
 
   const loads = weeklyLoad(semester.tasks);
   const thisWeekHours = hoursInWeek(loads, semester.currentWeek);

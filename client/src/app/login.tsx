@@ -13,7 +13,10 @@
  *   account) a password under the server's 8 characters are caught here,
  *   before asking the server.
  * - Anything the server refuses shows the server's own message, such as
- *   "Invalid email or password".
+ *   "Invalid email or password". It is drawn in red at the top of the form,
+ *   above every field, and the keyboard closes when it arrives, so it is never
+ *   hidden behind the keyboard on a phone, even when a field is tapped again
+ *   (issue #157).
  * - In sample-data mode (no server) any email and password open the app,
  *   and a note under the form says so.
  *
@@ -21,7 +24,7 @@
  */
 
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSession } from '../state/session';
 import { theme } from '../theme';
 
@@ -95,6 +98,7 @@ export default function LoginScreen() {
     const problem = formProblem(mode, trimmedName, trimmedEmail, password);
     if (problem !== null) {
       setMessage(problem);
+      Keyboard.dismiss(); // so the message is not hidden behind the keyboard
       return;
     }
     setBusy(true);
@@ -104,13 +108,22 @@ export default function LoginScreen() {
         ? await session.signIn(trimmedEmail, password)
         : await session.signUp(trimmedName, trimmedEmail, password);
     setBusy(false);
-    if (refusal !== null) setMessage(refusal);
+    if (refusal !== null) {
+      setMessage(refusal);
+      Keyboard.dismiss();
+    }
   };
 
   const notice = noticeRead ? null : session.notice;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
+    >
       <View style={styles.intro}>
         <Text style={styles.brand}>CRUNCH WEEK</Text>
         <Text style={styles.title}>{wording.title}</Text>
@@ -124,6 +137,14 @@ export default function LoginScreen() {
       ) : null}
 
       <View style={styles.card}>
+        {/* At the top of the form, above every field: the field being typed in always
+            stays above the keyboard, so the message does too (issue #157). */}
+        {message ? (
+          <Text testID="login-message" accessibilityLiveRegion="polite" style={styles.error}>
+            {message}
+          </Text>
+        ) : null}
+
         {mode === 'signUp' ? (
           <View style={styles.field}>
             <Text style={styles.label}>Your name</Text>
@@ -197,12 +218,6 @@ export default function LoginScreen() {
           <Text style={styles.buttonText}>{busy ? wording.busy : wording.submit}</Text>
         </Pressable>
 
-        {message ? (
-          <Text testID="login-message" accessibilityLiveRegion="polite" style={styles.message}>
-            {message}
-          </Text>
-        ) : null}
-
         <Pressable
           testID="switch-mode"
           accessibilityRole="button"
@@ -273,5 +288,6 @@ const styles = StyleSheet.create({
   buttonText: { color: theme.surface, fontSize: 15, fontWeight: '700' },
   switchButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   message: { color: theme.accent, fontSize: 13, lineHeight: 19 },
+  error: { color: theme.heavy, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   note: { color: theme.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
 });

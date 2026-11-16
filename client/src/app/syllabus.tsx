@@ -1,5 +1,7 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { EmptyAction, EmptyState } from '../components/EmptyState';
 import { addTasks, AiReading, extractSyllabusText, getAiStatus, readSyllabusWithAi } from '../lib/api';
 import { scanSyllabus } from '../lib/inputs';
 import { pickPdf } from '../lib/pick-pdf';
@@ -27,8 +29,10 @@ import { theme } from '../theme';
  * the course tables (#144).
  */
 export default function SyllabusScreen() {
+  const router = useRouter();
   const { semester, addTasks: addToSemester } = useSemester();
-  const [courseId, setCourseId] = useState(semester.courses[0]?.id ?? '');
+  const [chosenCourseId, setCourseId] = useState(semester.courses[0]?.id ?? '');
+  const courseId = chosenCourseId || semester.courses[0]?.id || '';
   const [text, setText] = useState('');
   /** The assignments being reviewed. null until Find assignments is pressed. */
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
@@ -55,6 +59,7 @@ export default function SyllabusScreen() {
   const [aiNote, setAiNote] = useState<string | null>(null);
 
   useEffect(() => {
+    if (semester.courses.length === 0) return;
     let current = true;
     getAiStatus().then((available) => {
       if (current) setAiAvailable(available);
@@ -62,7 +67,7 @@ export default function SyllabusScreen() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [semester.courses.length]);
 
   /**
    * Which Find (or PDF) is the current one. A reading can take 30 seconds, and
@@ -213,6 +218,14 @@ export default function SyllabusScreen() {
       setSaving(false);
     }
   };
+
+  if (semester.courses.length === 0) {
+    return <ScrollView contentContainerStyle={styles.page}>
+      <EmptyState title="Add a course first" message="A syllabus needs a course, so start with one on Courses.">
+        <EmptyAction label="Go to Courses" onPress={() => router.push('/courses')} />
+      </EmptyState>
+    </ScrollView>;
+  }
 
   return (
     <ScrollView

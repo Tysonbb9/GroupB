@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorView, LoadingView } from '../components/ServerStatus';
-import { fetchSemester, saveWeeklyCapacity } from '../lib/api';
+import { fetchSemester, loadSampleSemester, saveWeeklyCapacity } from '../lib/api';
 import { Semester, Task } from '../lib/types';
 
 /**
@@ -17,6 +17,10 @@ type SemesterStore = {
   fromServer: boolean;
   /** Puts in tasks the server has just changed, matched by id (#155). */
   replaceTasks: (tasks: Task[]) => void;
+  canLoadSample: boolean;
+  loadingSample: boolean;
+  sampleError: string | null;
+  loadSample: () => Promise<void>;
   toggleDone: (taskId: string) => void;
   /** Sets a task's estimated hours; null clears it. */
   setEstimate: (taskId: string, hours: number | null) => void;
@@ -93,7 +97,7 @@ function SemesterFromServer({ children }: { children: React.ReactNode }) {
     return error === null ? <LoadingView /> : <ErrorView message={error} onRetry={retry} />;
   }
   return (
-    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity} fromServer>
+    <SemesterState initial={semester} saveCapacity={saveWeeklyCapacity} fetchSample={loadSampleSemester} fromServer>
       {children}
     </SemesterState>
   );
@@ -105,13 +109,18 @@ function SemesterState({
   initial,
   saveCapacity,
   fromServer,
+  fetchSample,
 }: {
   children: React.ReactNode;
   initial: Semester;
   saveCapacity: SaveCapacity;
   fromServer: boolean;
+  fetchSample?: () => Promise<Semester>;
 }) {
   const [semester, setSemester] = useState<Semester>(initial);
+  const [loadingSample, setLoadingSample] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
+  const samplePending = useRef(false);
 
   const value = useMemo<SemesterStore>(
     () => {
@@ -131,6 +140,23 @@ function SemesterState({
             ...current,
             tasks: current.tasks.map((t) => changed.find((c) => c.id === t.id) ?? t),
           })),
+        canLoadSample: fetchSample !== undefined,
+        loadingSample,
+        sampleError,
+        loadSample: async () => {
+          if (!fetchSample || samplePending.current) return;
+          samplePending.current = true;
+          setLoadingSample(true);
+          setSampleError(null);
+          try {
+            setSemester(await fetchSample());
+          } catch (error) {
+            setSampleError((error as Error).message);
+          } finally {
+            samplePending.current = false;
+            setLoadingSample(false);
+          }
+        },
         toggleDone: (taskId: string) =>
           updateTask(taskId, (task) => ({ done: !task.done })),
         setEstimate: (taskId: string, hours: number | null) =>
@@ -144,7 +170,7 @@ function SemesterState({
         },
       };
     },
-    [semester, saveCapacity, fromServer]
+    [semester, saveCapacity, fetchSample, loadingSample, sampleError, fromServer]
   );
 
   return (
