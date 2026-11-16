@@ -586,3 +586,32 @@ Email and password are the only way to sign in: no email check and no forgotten-
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
 
 The 28 course-catalog route tests and 7 Supabase request tests cover search, joining and creation. The course-catalog route tests exercise normalized spellings, name search, enrollment flags and isolation, explicit idempotent joining, new creation, duplicate409 with no enrollment, simultaneous creates, readable-ID collisions, ten-result ranking, input boundaries and session requirements. supabase-course-catalog.test.ts checks actual outgoing request shapes with a local fetch stand-in, including literal parameter data, idempotent upsert and one transactional create call. sql-files.test.ts checks schema/migration agreement, uniqueness handling and private function permissions. These checks do not execute a hosted PostgreSQL migration.
+
+## Finding and adding courses
+
+The signed-in route `src/app/add-course.tsx` opens from **Add a course** on
+Courses. It waits 250 ms after typing before calling `searchCatalog(q)` in
+`src/lib/api.ts`. Changing the query clears old matches immediately; answers,
+failures and completion signals from earlier searches are ignored. Leaving the
+screen also invalidates pending work.
+
+`enrollInCourse(id)` saves an explicit enrollment. `createCourse({code,name})`
+returns `{created:true,course}` for a new course or
+`{created:false,course}` for a duplicate code (409). A duplicate is shown with
+a Join action and does not change the semester by itself. All three calls use
+the shared authenticated request path, validate course fields, and preserve
+the server's failure message.
+
+After a successful enrollment or creation, `addCourse(course)` in
+`src/state/semester-store.tsx` adds it by id without duplicates. Courses,
+Forecast and the syllabus selector share that provider, so no reload is needed.
+The route returns to its caller after success. Search and save have separate
+busy states; repeated save taps cannot start another request. Sample-data mode
+hides the entry button and explains why the route needs the server.
+
+`src/__tests__/add-course.test.tsx` contains 19 tests covering the three code
+spellings sent to search, debouncing, stale successes and failures, clearing a
+query, enrollment, duplicate-safe state, live Courses and syllabus updates,
+creation, explicit joining after 409, refused requests, retry, network failure,
+malformed responses, busy states, leaving during a save, fixture mode and the
+entry point. These tests use a stand-in fetch; they do not require a database.
