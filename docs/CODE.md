@@ -257,7 +257,7 @@ Who is signed in (US-20), in a React context: `checking` (still looking for a sa
 
 The bar chart. Fifteen bars, height proportional to projected hours, colour from `loadColor` in `theme.ts`, and a dashed line at the student's capacity so "over the line" is literal.
 
-Each bar is a button with `testID="week-bar-N"` and an accessibility label naming its week and hours. Tapping it selects that week (`onSelectWeek`). The selected week's bar is outlined, starting with the current week, and the current week's axis number is in the accent colour. The next week over capacity (`wallWeek`) is numbered in the warning colour.
+Each bar is a button with `testID="week-bar-N"` and an accessibility label naming its week and hours. Tapping it selects that week (`onSelectWeek`). The selected week's bar is outlined, starting with the current week, and the current week's axis number is in the accent colour, with "Now" (`testID="week-now"`) under it so colour is not the only signal (US-46). The next week over capacity (`wallWeek`) is numbered in the warning colour.
 
 Under the bars, one line names the capacity ("Dashed line is your 15 hours a week"). When the screen passes `onSaveCapacity`, as Forecast does, that line is a `CapacityEditor`, so the student can change it.
 
@@ -318,7 +318,7 @@ The courses on the Courses tab, one card each: code and name, absences left (a s
 
 ### `src/components/ScreenHeader.tsx`, `LoadPill.tsx`
 
-Every tab draws its own header with `ScreenHeader`: a small line placing it in the semester ("Fall 2026 · Week 3 of 15"), a large title, and whatever belongs beside it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
+Every tab draws its own header with `ScreenHeader`: a small line naming the semester ("Fall 2026"), a large title, and whatever belongs beside it. Given `week`, it shows `WeekChip` under the title, "Week 3 of 15" from `semester.currentWeek` and `WEEKS_IN_SEMESTER` (US-46); every tab passes it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
 
 ### `src/components/SummaryRow.tsx`
 

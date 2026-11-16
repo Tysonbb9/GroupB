@@ -131,7 +131,7 @@ wall, and what should I start.
 
 | Region | Content | Why it is here |
 |---|---|---|
-| Header | The term and week ("Fall 2026 · Week 3 of 15"), the title, the load pill, and Log out | Says how this week sits in one word before any number |
+| Header | The term ("Fall 2026"), the title, a **Week 3 of 15** chip under it (US-46), the load pill, and Log out | Says which week it is at a glance, and how this week sits in one word before any number |
 | Week figures and strip | Hours landing this week against hours available, the next wall, and 15 bars with a dashed capacity line | The signature view. The only place the scale of a whole semester is visible |
 | Week detail | That week's assignments and hours, shown only after a bar is tapped | Details on demand, so the screen starts uncluttered |
 | Action card | The one thing to start, then why, then **Plan this week** | Turns the forecast into something the student can act on today |
@@ -152,9 +152,17 @@ The dashed line sits at the student's weekly capacity, which makes "over the lin
 literal rather than a colour the user has to learn.
 
 The selected week's bar is outlined: the current week until another bar is tapped.
-The current week's axis number is always in the accent colour, and the next week over
-capacity is marked on the axis in the warning colour, so the two weeks that matter
-are findable without counting.
+The current week's axis number is always in the accent colour, with **Now** written
+under it (US-46), so it does not rely on colour alone. The next week over capacity is
+marked on the axis in the warning colour, so the two weeks that matter are findable
+without counting.
+
+The same **Week 3 of 15** chip sits under the title on This week and Courses too, so
+every tab says which week it is. Professor Norman missed the old small grey line above
+the title (#161).
+
+<img src="ui/screenshots/us-46-forecast-before.png" alt="Forecast before: the week was only a small grey line above the title, and week 3 on the strip was marked only by colour" width="200">
+<img src="ui/screenshots/us-46-forecast-after.png" alt="Forecast after: a Week 3 of 15 chip under the title, and Now under week 3 on the strip" width="200">
 
 Under the strip, one line says what the dashed line is: "Dashed line is your 15 hours
 a week", with **Change** beside it.
