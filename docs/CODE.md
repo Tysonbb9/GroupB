@@ -190,6 +190,8 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `getAiStatus()` asks `GET /ai/status` whether the server has an AI (issue #145). It never throws: any problem counts as "no", so the app uses its simple scanner. `readSyllabusWithAi(text)` posts the text to `POST /ai/syllabus` and returns what the AI read, already checked by the server (`AiReading`). It takes about 30 seconds, and it rejects with the server's own message when it refuses.
 
+`fetchCheckinQuestion()` asks `GET /checkin` for the check-in question on the Forecast tab (#155) and returns `{ courseId, code, text, reason }`, or `null` when there is nothing to ask (no AI on the server, or every course was answered recently). `answerCheckin(courseId, answer, changes?)` posts the student's answer (`on-schedule`, `changed` or `none-of-these`) to `POST /checkin`, with the new weeks and hours for `changed`, and returns the tasks as the server saved them. Both reject with the server's message when it refuses. Tests: `src/lib/checkin-api.test.ts`.
+
 Every request goes through one helper, `send`, which adds the session (US-20) and turns an unreachable server into `Could not reach the server at <address>`. The session registers itself with `setRequestAuth` while the app is signed in with the server: on a phone that adds the saved cookie by hand with `credentials: 'omit'`, and on the web it lets the browser send its own cookie with `credentials: 'include'`. When the server answers `401`, `send` tells the session, which goes back to Log in, and rejects with `SESSION_ENDED_MESSAGE`. With nothing registered (sample-data mode and most tests), requests go out as they did before accounts.
 
 ### `src/lib/auth.ts`, `src/lib/auth-client.ts`
@@ -234,6 +236,8 @@ No state library. If you know `useState` and `useContext`, you know this file.
 For now `toggleDone` and `setEstimate` change the semester in memory only. Saving them back to the server is a later step.
 
 `addTasks` appends tasks the server has already saved (US-30).
+
+`fromServer` is true when the semester came from the server and false with `initial` (tests and the fixture switch), so a screen only calls the server when there is one (#155). `replaceTasks(tasks)` puts in tasks the server has just changed, matched by id, so the forecast redraws from what was saved.
 
 `setWeeklyCapacity(hours)` changes the hours the student has each week (US-32). It keeps them first and only then changes the semester, so the forecast never shows hours that were not kept; if keeping them fails, it rejects and nothing changes. Where they are kept depends on where the semester came from: from the server, `saveWeeklyCapacity` saves them there; with `initial` (tests and the fixture switch), they stay on the device.
 
@@ -289,6 +293,11 @@ The finished work on the This week screen (US-31). It draws one "Completed (n)" 
 
 US-23. The card This week shows when a task is ticked done: "How long did it take you?" with an hours box, Save, and Skip. The hours are checked with `parseEstimate` (more than 0, up to 100) before anything is sent, then stored with `addReview`, which the server saves in the `reviews` table. A thank-you replaces the box once saved; the server's message is shown if saving fails.
 
+### `src/components/CheckinCard.tsx`
+
+#155, AI screen 2 (`docs/ui/ai-screens.html`). One question on the Forecast tab, "Is CS 262 still on schedule?", with the AI's one-line reason, and two buttons. **Yes, still accurate** saves the answer. **Something changed** turns the card into a week box and an hours box for each of the course's open tasks, filled in with what the app has now. **Save** checks every row with `checkDraft` (the US-30 check) and sends only the rows that changed, and the forecast redraws from the saved tasks. **None of these** saves that answer. The card hides once the server has the answer, and stays with the server's message if saving fails.
+
+
 ### `src/components/CategoryTile.tsx`
 
 The two-letter tile, coloured by category through `categoryColor` in `theme.ts`. The letters mean colour is never the only signal.
@@ -340,6 +349,8 @@ Every file imports Ionicons from `@expo/vector-icons/Ionicons`, not from `@expo/
 Route: `/`
 
 One focus: the header (with the load label and the log-out icon), the week figures and week strip, and the wall card with its **Plan this week** button. A week's assignments (`WeekDetail`) open when its bar is tapped and close on a second tap. Below, two rows open the Courses tab: **Heads up** (how many notices in the next three weeks) and **Course spikes** (the course with the heaviest single week).
+
+When the semester comes from the server, the screen asks `fetchCheckinQuestion` once and shows `CheckinCard` above the figures if there is a question (#155). With sample data, no AI on the server, or any failure, there is no card and the screen is as before.
 
 It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size and clearer than caching.
 
@@ -435,7 +446,7 @@ The order of what runs on each request matters (US-21, #44):
 
 ### `server/src/rules.ts`
 
-Rules that code checks, shared by the routes (#144). `gradeWeightsProblem` returns the message to show, or null: each grade weight is named and worth more than 0% and at most 100%, and together they add up to 100%, which the database cannot check because it spans rows. `MAX_WEEKLY_CAPACITY` (80) lives here, used by `PATCH /semester`; the database's `week_hours` uses the same limit. Tests: `rules.test.ts`.
+Rules that code checks, shared by the routes (#144). `gradeWeightsProblem` returns the message to show, or null: each grade weight is named and worth more than 0% and at most 100%, and together they add up to 100%, which the database cannot check because it spans rows. `MAX_WEEKLY_CAPACITY` (80) lives here, used by `PATCH /semester`; the database's `week_hours` uses the same limit. `MAX_HOURS` (100) and `isValidHours` (more than 0 and up to 100) moved here from `app.ts` (#155), so both `app.ts` and the check-in route use the same rule. Tests: `rules.test.ts`.
 
 ### `server/src/auth.ts`
 
@@ -454,7 +465,12 @@ One module talks to a language model, and everything else goes through it, so te
 - **`syllabus-reading.ts`:** `buildPrompt` asks for JSON in a fixed shape and tells the model that the syllabus text is data, not instructions. `parseReading` checks every field and throws away what does not fit: a week outside 1 to 15, or hours outside 0 to 100, become blank (the student fills them in); an assignment with no title, or a weight that is not a label and a percentage from 0 to 100, is dropped and counted, and so is anything past the caps of 100 assignments and 30 weights, so `dropped` says how much of the answer was lost. The root of the answer must be an object: a list holding one is refused. The model's own "unsure" flag is ignored, because it was wrong for undated quizzes in testing.
 - **`routes.ts`:** `aiRouter(model)` gives `GET /ai/status` (`{ available }`) and `POST /ai/syllabus` (`{ text }` in, the checked reading out; 400 for no text, 413 over 30,000 characters, 502 when the model fails or its answer cannot be used, 503 with no model). `app.ts` mounts it after the session check, so both routes need a signed-in student.
 
-The weights and policies are returned but not saved yet (#144). The check-in question (#155) and the reminder (#156) build on `ModelClient`.
+The weights and policies are returned but not saved yet (#144). The reminder (#156) will build on `ModelClient` too.
+
+- **`checkin.ts`** (#155): `buildSnapshot` builds what the AI is shown: the current week, and each course with its open tasks from this week on and when the student last answered about it. It leaves out courses with nothing open and courses answered in the last 7 days (`RECENTLY_CONFIRMED_DAYS`), so "Yes" means "don't ask again for a while". `checkModelAnswer` checks the AI's answer: the course must be one from the snapshot or nothing is asked, and a reason that is blank, over 200 characters or has a digit in it is dropped, because the AI never produces a number. The question's words come from code, not the AI.
+- **`checkin-routes.ts`** (#155): `checkinRouter(store, model)` gives `GET /checkin` (`{ question }` or `{ question: null }`; never an error, since the card is optional, and any AI failure or answer that is not JSON just means no question) and `POST /checkin` (`{ courseId, answer, changes? }`; 400 for a bad answer, a bad change or changes with the wrong answer, 404 for an unknown course; for `changed`, every change is checked before any is saved, then `store.updateTask` gets the new `dueWeek` and `estimatedHours`, and `store.saveCheckin` records the answer and its time). `app.ts` makes the model once with `createModelClient()` and hands the same one to `aiRouter` and `checkinRouter`.
+
+`updateTask` in both stores can now change `dueWeek` too, for the check-in's "Something changed". `PATCH /tasks/:id` does not send it, so that route is unchanged.
 
 ### Supabase SQL Scripts
 
@@ -478,7 +494,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 958 tests across 47 suites. Server: 665 passing tests across 29 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 950 tests across 48 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -488,8 +504,7 @@ npx jest --watch              # while you work
 
 | File | Count | Covers |
 |------|-------|--------|
-| `src/__tests__/empty-semester.test.tsx` | 11 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses, direct course navigation and fixture isolation |
-| `src/__tests__/add-course.test.tsx` | 19 | catalog search, stale answers, joining, creation, explicit duplicate enrollment, shared updates, busy states, errors and fixture mode |
+| `src/__tests__/empty-semester.test.tsx` | 8 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses and fixture isolation |
 | `src/__tests__/load-sample-api.test.ts` | 5 | sample POST, conflict refetch, server message, invalid data and expired session |
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
@@ -535,11 +550,14 @@ npx jest --watch              # while you work
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |
 | `src/__tests__/weekly-capacity.test.tsx` | 15 | US-32: Change and the box with the current hours, the forecast and This week redrawn after Save (pill, wall, crunch, "/ 20 hrs"), refused values, nothing moving while typing, Cancel, saving on the server first, a failed save keeping the old hours, and the same hours not saved again |
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
+| `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
+| `src/__tests__/checkin-question.test.tsx` | 8 | #155, AI screen 2: the question and reason above the figures, no card with no question, Yes, the week and hours boxes for the course's open tasks, Save sending only what changed and the forecast redrawing, a bad week refused, None of these, a failed save keeping the card |
 
 
 
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 665 passing in 29 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL file reader normalizes CRLF to LF before checking structure, so Windows and Linux use the same strict patterns. Two cases cover LF and CRLF input and verify that a missing commit is still rejected. The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 693 passing in 31 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
+The check-in question (#155) is covered by `checkin.test.ts` (the snapshot and the check on the AI's answer) and `checkin-routes.test.ts` (both routes with a fake AI: no AI means no question, a foreign course dropped, an AI that fails or answers with non-JSON, no repeat after answering, saving changes all or nothing, 400s, 404, and 401 without login).
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
 
 `ai-model.test.ts`, `ai-syllabus-reading.test.ts` and `ai-routes.test.ts` cover issue #145 with a fake model, so no service is called and no key is needed: reading a streamed or a plain answer, what the client sends and that errors never include the key or the address, the checks on every field of the AI's answer (weeks outside 1 to 15 and hours outside 0 to 100 become blank, bad titles and weights are dropped), and the routes (400, 413, 502 and 503, and 401 without a session).
@@ -587,37 +605,3 @@ Email and password are the only way to sign in: no email check and no forgotten-
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
 
 The 28 course-catalog route tests and 7 Supabase request tests cover search, joining and creation. The course-catalog route tests exercise normalized spellings, name search, enrollment flags and isolation, explicit idempotent joining, new creation, duplicate409 with no enrollment, simultaneous creates, readable-ID collisions, ten-result ranking, input boundaries and session requirements. supabase-course-catalog.test.ts checks actual outgoing request shapes with a local fetch stand-in, including literal parameter data, idempotent upsert and one transactional create call. sql-files.test.ts checks schema/migration agreement, uniqueness handling and private function permissions. These checks do not execute a hosted PostgreSQL migration.
-
-## Finding and adding courses
-
-The signed-in route `src/app/add-course.tsx` opens from **Add a course** on
-Courses. It waits 250 ms after typing before calling `searchCatalog(q)` in
-`src/lib/api.ts`. Changing the query clears old matches immediately; answers,
-failures and completion signals from earlier searches are ignored. Leaving the
-screen also invalidates pending work.
-
-`enrollInCourse(id)` saves an explicit enrollment. `createCourse({code,name})`
-returns `{created:true,course}` for a new course or
-`{created:false,course}` for a duplicate code (409). A duplicate is shown with
-a Join action and does not change the semester by itself. All three calls use
-the shared authenticated request path, validate course fields, and preserve
-the server's failure message.
-
-After a successful enrollment or creation, `addCourse(course)` in
-`src/state/semester-store.tsx` adds it by id without duplicates. Courses,
-Forecast and the syllabus selector share that provider, so no reload is needed.
-The route returns to its caller after success. Search and save have separate
-busy states; repeated save taps cannot start another request. Sample-data mode
-hides the entry button and explains why the route needs the server.
-
-`src/__tests__/add-course.test.tsx` contains 19 tests covering the three code
-spellings sent to search, debouncing, stale successes and failures, clearing a
-query, enrollment, duplicate-safe state, live Courses and syllabus updates,
-creation, explicit joining after 409, refused requests, retry, network failure,
-malformed responses, busy states, leaving during a save, fixture mode and the
-entry point. These tests use a stand-in fetch; they do not require a database.
-
-Empty Forecast, This week and Courses tabs offer **Add a course** beside the
-sample-semester action. It opens the same protected route and is disabled while
-a sample is loading. The empty syllabus screen links directly there as well.
-Both empty-state entry points hide the action in sample-data mode.

@@ -7,27 +7,20 @@ import { syllabusRouter } from './syllabus/routes';
 import { createModelClient } from './ai/model';
 import { aiRouter } from './ai/routes';
 import { DatabaseError } from './data/database-error';
-import { MAX_WEEKLY_CAPACITY } from './rules';
+import { isValidHours, MAX_WEEKLY_CAPACITY } from './rules';
+import { checkinRouter } from './ai/checkin-routes';
 
 export const app = express();
 const store = createStore();
+
+/** The model (#145), or null with no AI_* settings. Shared by every AI route. */
+const model = createModelClient();
 
 /** Authentication has already checked this session before any student route runs. */
 function studentId(res: express.Response): string {
   return res.locals.session.user.id;
 }
 
-/**
- * The most hours a task estimate or a review can have. Same limit as the
- * client's MAX_ESTIMATE_HOURS and the database's CHECK, so a value the API
- * accepts can always be saved.
- */
-const MAX_HOURS = 100;
-
-/** True when value is a number more than 0 and up to MAX_HOURS. */
-function isValidHours(value: unknown): value is number {
-  return typeof value === 'number' && value > 0 && value <= MAX_HOURS;
-}
 
 /**
  * CORS. A browser (the Expo Web version of the client) refuses to let a page
@@ -79,7 +72,10 @@ app.use('/syllabus', syllabusRouter);
 
 // GET /ai/status and POST /ai/syllabus: a model reads a syllabus (issue #145).
 // With no AI_* settings there is no model, and the phone keeps its scanner.
-app.use('/ai', aiRouter(createModelClient()));
+app.use('/ai', aiRouter(model));
+app.use('/checkin', checkinRouter(store, model));
+
+
 
 /**
  * GET /semester

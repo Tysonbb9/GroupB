@@ -94,6 +94,7 @@ async updateTask(userId: string, id: string, updates: TaskUpdates) {
   if (!task) return null;
   if (updates.done !== undefined) task.done = updates.done;
   if (updates.estimatedHours !== undefined) task.estimatedHours = updates.estimatedHours;
+  if (updates.dueWeek !== undefined) task.dueWeek = updates.dueWeek;
   return this.getTask(userId, id);
 }
 
