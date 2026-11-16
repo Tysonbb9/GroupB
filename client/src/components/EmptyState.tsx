@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,11 +33,14 @@ export function EmptyAction({ label, onPress, busy = false }: {
 
 /** All empty tabs use the same pending request and error from the shared semester. */
 export function EmptySemesterScreen({ title, message }: { title: string; message: string }) {
+  const router = useRouter();
   const { semester, canLoadSample, loadSample, loadingSample, sampleError } = useSemester();
   return <SafeAreaView edges={['top']} style={styles.screen}>
     <ScrollView contentContainerStyle={styles.page}>
       <ScreenHeader title={title} eyebrow={semester.label} right={<LogOutButton />} />
       <EmptyState title="No courses yet" message={message}>
+        {process.env.EXPO_PUBLIC_USE_FIXTURE !== '1' && <EmptyAction
+          label="Add a course" busy={loadingSample} onPress={() => router.push('/add-course')} />}
         {canLoadSample && <EmptyAction
           label={loadingSample ? 'Loading sample semester' : 'Try a sample semester'}
           busy={loadingSample} onPress={() => { void loadSample(); }} />}

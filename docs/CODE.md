@@ -478,7 +478,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 944 tests across 46 suites. Server: 623 passing tests across 27 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 958 tests across 47 suites. Server: 665 passing tests across 29 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -488,7 +488,8 @@ npx jest --watch              # while you work
 
 | File | Count | Covers |
 |------|-------|--------|
-| `src/__tests__/empty-semester.test.tsx` | 8 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses and fixture isolation |
+| `src/__tests__/empty-semester.test.tsx` | 11 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses, direct course navigation and fixture isolation |
+| `src/__tests__/add-course.test.tsx` | 19 | catalog search, stale answers, joining, creation, explicit duplicate enrollment, shared updates, busy states, errors and fixture mode |
 | `src/__tests__/load-sample-api.test.ts` | 5 | sample POST, conflict refetch, server message, invalid data and expired session |
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
@@ -538,7 +539,7 @@ npx jest --watch              # while you work
 
 
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 623 passing in 27 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 665 passing in 29 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL file reader normalizes CRLF to LF before checking structure, so Windows and Linux use the same strict patterns. Two cases cover LF and CRLF input and verify that a missing commit is still rejected. The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
 
 `ai-model.test.ts`, `ai-syllabus-reading.test.ts` and `ai-routes.test.ts` cover issue #145 with a fake model, so no service is called and no key is needed: reading a streamed or a plain answer, what the client sends and that errors never include the key or the address, the checks on every field of the AI's answer (weeks outside 1 to 15 and hours outside 0 to 100 become blank, bad titles and weights are dropped), and the routes (400, 413, 502 and 503, and 401 without a session).
@@ -586,3 +587,37 @@ Email and password are the only way to sign in: no email check and no forgotten-
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
 
 The 28 course-catalog route tests and 7 Supabase request tests cover search, joining and creation. The course-catalog route tests exercise normalized spellings, name search, enrollment flags and isolation, explicit idempotent joining, new creation, duplicate409 with no enrollment, simultaneous creates, readable-ID collisions, ten-result ranking, input boundaries and session requirements. supabase-course-catalog.test.ts checks actual outgoing request shapes with a local fetch stand-in, including literal parameter data, idempotent upsert and one transactional create call. sql-files.test.ts checks schema/migration agreement, uniqueness handling and private function permissions. These checks do not execute a hosted PostgreSQL migration.
+
+## Finding and adding courses
+
+The signed-in route `src/app/add-course.tsx` opens from **Add a course** on
+Courses. It waits 250 ms after typing before calling `searchCatalog(q)` in
+`src/lib/api.ts`. Changing the query clears old matches immediately; answers,
+failures and completion signals from earlier searches are ignored. Leaving the
+screen also invalidates pending work.
+
+`enrollInCourse(id)` saves an explicit enrollment. `createCourse({code,name})`
+returns `{created:true,course}` for a new course or
+`{created:false,course}` for a duplicate code (409). A duplicate is shown with
+a Join action and does not change the semester by itself. All three calls use
+the shared authenticated request path, validate course fields, and preserve
+the server's failure message.
+
+After a successful enrollment or creation, `addCourse(course)` in
+`src/state/semester-store.tsx` adds it by id without duplicates. Courses,
+Forecast and the syllabus selector share that provider, so no reload is needed.
+The route returns to its caller after success. Search and save have separate
+busy states; repeated save taps cannot start another request. Sample-data mode
+hides the entry button and explains why the route needs the server.
+
+`src/__tests__/add-course.test.tsx` contains 19 tests covering the three code
+spellings sent to search, debouncing, stale successes and failures, clearing a
+query, enrollment, duplicate-safe state, live Courses and syllabus updates,
+creation, explicit joining after 409, refused requests, retry, network failure,
+malformed responses, busy states, leaving during a save, fixture mode and the
+entry point. These tests use a stand-in fetch; they do not require a database.
+
+Empty Forecast, This week and Courses tabs offer **Add a course** beside the
+sample-semester action. It opens the same protected route and is disabled while
+a sample is loading. The empty syllabus screen links directly there as well.
+Both empty-state entry points hide the action in sample-data mode.

@@ -49,6 +49,7 @@ function RootNavigator() {
       <Stack.Protected guard={signedIn}>
         {/* The tabs draw their own headers, so the stack's is hidden there. */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="add-course" options={{ title: 'Add a course', headerBackTitle: 'Back' }} />
         {/* The back button says Back, not the name of the screen before it, which was "(tabs)" (issue #163). */}
         <Stack.Screen name="syllabus" options={{ title: 'Add a Syllabus', headerBackTitle: 'Back' }} />
       </Stack.Protected>

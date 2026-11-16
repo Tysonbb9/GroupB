@@ -32,6 +32,7 @@ it('loads the sample into all tabs and prevents repeated taps while waiting', as
   expect(screen.getAllByRole('button', { name: 'Loading sample semester' }).every((button) => button.props.accessibilityState.disabled)).toBe(true);
   fireEvent.press(screen.getAllByRole('button', { name: 'Loading sample semester' })[1]);
   expect(mockFetch).toHaveBeenCalledTimes(2);
+  expect(screen.getAllByRole('button', { name: 'Add a course' }).every((button) => button.props.accessibilityState.disabled)).toBe(true);
   await act(async () => finish(reply(201, wallSemester)));
   expect(screen.queryByText('No courses yet')).toBeNull();
   expect(screen.getAllByText('CS 262').length).toBeGreaterThan(0);
@@ -56,12 +57,30 @@ it('explains that a course comes before a syllabus without an empty picker', () 
   render(<SemesterProvider initial={empty}><Syllabus /></SemesterProvider>);
   expect(screen.getByText('Add a course first')).toBeTruthy();
   expect(screen.queryByTestId('syllabus-input')).toBeNull();
-  fireEvent.press(screen.getByRole('button', { name: 'Go to Courses' }));
-  expect(mockPush).toHaveBeenCalledWith('/courses');
+  fireEvent.press(screen.getByRole('button', { name: 'Add a course' }));
+  expect(mockPush).toHaveBeenCalledWith('/add-course');
   expect(mockFetch).not.toHaveBeenCalled();
 });
 it('keeps fixture mode on the device', () => {
   render(<SemesterProvider initial={empty}><Courses /></SemesterProvider>);
   expect(screen.queryByRole('button', { name: 'Try a sample semester' })).toBeNull();
   expect(mockFetch).not.toHaveBeenCalled();
+});
+
+it('opens Add a course from an empty Courses tab beside the sample action', async () => {
+  mockFetch.mockResolvedValue(reply(200, empty));
+  render(<SemesterProvider><Courses /></SemesterProvider>);
+  fireEvent.press(await screen.findByRole('button', { name: 'Add a course' }));
+  expect(mockPush).toHaveBeenCalledWith('/add-course');
+  expect(screen.getByRole('button', { name: 'Try a sample semester' })).toBeTruthy();
+});
+it.each([Courses, Syllabus])('hides course creation in an empty fixture screen', (Screen) => {
+  process.env.EXPO_PUBLIC_USE_FIXTURE = '1';
+  try {
+    render(<SemesterProvider initial={empty}><Screen /></SemesterProvider>);
+    expect(screen.queryByRole('button', { name: 'Add a course' })).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
+  } finally {
+    delete process.env.EXPO_PUBLIC_USE_FIXTURE;
+  }
 });

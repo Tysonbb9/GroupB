@@ -221,8 +221,10 @@ export default function SyllabusScreen() {
 
   if (semester.courses.length === 0) {
     return <ScrollView contentContainerStyle={styles.page}>
-      <EmptyState title="Add a course first" message="A syllabus needs a course, so start with one on Courses.">
-        <EmptyAction label="Go to Courses" onPress={() => router.push('/courses')} />
+      <EmptyState title="Add a course first" message="A syllabus needs a course. Add one to start building your semester.">
+        {process.env.EXPO_PUBLIC_USE_FIXTURE !== '1' && (
+          <EmptyAction label="Add a course" onPress={() => router.push('/add-course')} />
+        )}
       </EmptyState>
     </ScrollView>;
   }
