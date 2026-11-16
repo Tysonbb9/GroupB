@@ -86,6 +86,7 @@ export type RequestAuth = {
   options: () => Promise<RequestInit>;
   /** Called when the server answers 401: the student has to log in again. */
   onSessionEnded: () => void;
+  onResponse?: (response: Response, sent: RequestInit) => void;
 };
 
 let requestAuth: RequestAuth | null = null;
@@ -120,6 +121,7 @@ async function send(path: string, init: RequestInit & { headers?: Record<string,
     auth.onSessionEnded();
     throw new Error(SESSION_ENDED_MESSAGE);
   }
+  auth?.onResponse?.(response, extra);
   return response;
 }
 

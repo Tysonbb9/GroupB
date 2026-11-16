@@ -1,4 +1,4 @@
-import { expoClient } from '@better-auth/expo/client';
+import { expoClient, getCookie, getSetCookie, hasBetterAuthCookies, storageAdapter } from '@better-auth/expo/client';
 import { createAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -32,11 +32,24 @@ export function createCrunchWeekAuthClient(
   storage: SessionStorage,
   fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 ) {
-  return createAuthClient({
+  const cookies = storageAdapter(storage);
+  const client = createAuthClient({
     baseURL,
     fetchOptions: fetchImpl ? { customFetchImpl: fetchImpl } : undefined,
     plugins: [expoClient({ scheme: SCHEME, storagePrefix: STORAGE_PREFIX, storage })],
   });
+  return {
+    signIn: client.signIn, signUp: client.signUp, signOut: client.signOut,
+    getSession: client.getSession, getCookie: client.getCookie,
+    receiveCookie: (header: string, sentCookie: string) => {
+      if (!sentCookie || !hasBetterAuthCookies(header, 'better-auth')) return;
+      const key = `${STORAGE_PREFIX}_cookie`, current = cookies.getItem(key);
+      // Check and write together, so a late response cannot undo logout or
+      // replace a newer sign-in. Expo owns parsing, expiry and storage chunks.
+      if (getCookie(current) !== sentCookie) return;
+      cookies.setItem(key, getSetCookie(header, current ?? undefined));
+    },
+  };
 }
 
 /**
