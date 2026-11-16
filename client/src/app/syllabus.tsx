@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { addTasks, AiReading, extractSyllabusText, getAiStatus, readSyllabusWithAi } from '../lib/api';
 import { scanSyllabus } from '../lib/inputs';
 import { pickPdf } from '../lib/pick-pdf';
-import { checkDraft, Draft, fromReading, toDraft } from '../lib/review';
+import { checkDraft, courseMentioned, Draft, fromReading, isDuplicate, toDraft } from '../lib/review';
 import { useSemester } from '../state/semester-store';
 import { theme } from '../theme';
 
@@ -32,6 +32,7 @@ export default function SyllabusScreen() {
   const [text, setText] = useState('');
   /** The assignments being reviewed. null until Find assignments is pressed. */
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
+  const [resultText, setResultText] = useState('');
   const [skipped, setSkipped] = useState<string[]>([]);
   /** One message per draft, or null when that draft is fine. */
   const [errors, setErrors] = useState<(string | null)[]>([]);
@@ -42,10 +43,11 @@ export default function SyllabusScreen() {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const course = semester.courses.find((c) => c.id === courseId);
+  const mentionedCourse = courseMentioned(resultText, semester.courses, courseId);
 
   /** Whether the server has an AI to read syllabi with. False until it says so. */
   const [aiAvailable, setAiAvailable] = useState(false);
-  /** The AI is reading right now (about 20 seconds). */
+  /** The AI is reading right now (about 30 seconds). */
   const [aiBusy, setAiBusy] = useState(false);
   /** What the AI read, kept for the weights and policies. null after a scanner run. */
   const [aiReading, setAiReading] = useState<AiReading | null>(null);
@@ -63,7 +65,7 @@ export default function SyllabusScreen() {
   }, []);
 
   /**
-   * Which Find (or PDF) is the current one. A reading can take 20 seconds, and
+   * Which Find (or PDF) is the current one. A reading can take 30 seconds, and
    * the student may pick another course, another PDF or press Find again
    * meanwhile. Every such action starts a new run, and an answer that arrives
    * for an older run, a result or a failure, is dropped: it must not fill the
@@ -90,20 +92,26 @@ export default function SyllabusScreen() {
       try {
         const answer = await readSyllabusWithAi(syllabusText);
         if (stale()) return;
+        setResultText(syllabusText);
         setDrafts(answer.assignments.map(fromReading));
         setSkipped([]);
         setAiReading(answer);
         return;
-      } catch {
+      } catch (e) {
         if (stale()) return;
         // Whatever went wrong, the student still gets a result from the scanner.
-        setAiNote('Reading with AI did not work this time, so the simple scanner was used instead.');
+        // The reason is the server's own message, written for a student.
+        const reason = (e as Error).message?.trim();
+        setAiNote(
+          `Reading with AI did not work this time${reason ? ` (${reason})` : ''}, so the simple scanner was used instead.`
+        );
       } finally {
         if (!stale()) setAiBusy(false);
       }
     }
 
     const result = scanSyllabus(syllabusText, forCourseId);
+    setResultText(syllabusText);
     setDrafts(result.tasks.map(toDraft));
     setSkipped(result.skipped);
     setAiReading(null);
@@ -111,19 +119,37 @@ export default function SyllabusScreen() {
 
   const find = () => findIn(text, startRun(), courseId);
 
+  /**
+   * Which PDF run holds the "Reading the PDF" state. Only that run may clear
+   * it, so an older PDF finishing its AI wait cannot clear the state of a
+   * newer PDF still being extracted.
+   */
+  const readingOwner = useRef(0);
+
   const choosePdf = async () => {
     setPdfError(null);
+    // What the student was looking at when the picker opened. The picker can
+    // stay open a long time, so the course is the one chosen now, and the file
+    // is dropped if anything newer (another course, another Find) happened
+    // while it was open. Cancelling changes nothing, so a reading already in
+    // progress carries on.
+    const openedAt = latestRun.current;
+    const forCourseId = courseId;
     const pdf = await pickPdf();
     if (pdf === null) return; // the student cancelled
+    if (latestRun.current !== openedAt) return;
 
     const run = startRun();
-    const forCourseId = courseId;
+    readingOwner.current = run;
+    const release = () => {
+      if (readingOwner.current === run) setReading(false);
+    };
     setReading(true);
     try {
       const extracted = await extractSyllabusText(pdf);
       if (run !== latestRun.current) return; // the course changed, or a newer run began
       setText(extracted.text); // so the student can see, and fix, what was read
-      setReading(false); // the PDF is read. The AI wait, if any, has its own message
+      release(); // the PDF is read. The AI wait, if any, has its own message
       await findIn(extracted.text, run, forCourseId);
     } catch (e) {
       if (run !== latestRun.current) return;
@@ -131,7 +157,7 @@ export default function SyllabusScreen() {
       // text instead" for a scanned PDF. The text box below is that option.
       setPdfError((e as Error).message);
     } finally {
-      setReading(false);
+      release();
     }
   };
 
@@ -189,7 +215,12 @@ export default function SyllabusScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView
+      contentContainerStyle={styles.page}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       <Text style={styles.heading}>Course</Text>
       <View style={styles.row}>
         {semester.courses.map((c) => (
@@ -227,6 +258,7 @@ export default function SyllabusScreen() {
         testID="syllabus-input"
         accessibilityLabel="Syllabus text"
         multiline
+        scrollEnabled
         value={text}
         onChangeText={setText}
         placeholder={'Week 4: Lab report (3 hours)\nWeek 7: Midterm 1 (8 hours)'}
@@ -247,7 +279,7 @@ export default function SyllabusScreen() {
 
       {aiBusy && (
         <Text testID="syllabus-ai-wait" accessibilityLiveRegion="polite" style={styles.faint}>
-          Reading your syllabus. This takes about 20 seconds.
+          Reading your syllabus. This takes about 30 seconds.
         </Text>
       )}
 
@@ -262,6 +294,12 @@ export default function SyllabusScreen() {
           <Text style={styles.heading}>
             Found {drafts.length} {drafts.length === 1 ? 'assignment' : 'assignments'} for {course?.code}
           </Text>
+
+          {mentionedCourse !== null && (
+            <Text testID="syllabus-course-warning" style={styles.faint}>
+              {`This syllabus mentions ${mentionedCourse}, but ${course?.code} is chosen. Check the course before adding.`}
+            </Text>
+          )}
 
           {aiReading !== null && aiReading.dropped > 0 && (
             <Text testID="syllabus-ai-partial" style={styles.error}>
@@ -306,6 +344,11 @@ export default function SyllabusScreen() {
                   <Text style={styles.link}>Remove</Text>
                 </Pressable>
               </View>
+              {isDuplicate(draft, semester.tasks, courseId) && (
+                <Text testID={`draft-duplicate-hint-${i}`} style={styles.faint}>
+                  {`Already in your semester for ${course?.code}, week ${Number(draft.week)}.`}
+                </Text>
+              )}
               {draft.week.trim() === '' && !errors[i] && (
                 <Text testID={`draft-week-hint-${i}`} style={styles.faint}>
                   The syllabus does not say which week. Enter it before adding.
@@ -373,7 +416,7 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderColor: theme.rule, borderRadius: theme.radius, padding: theme.space.xs },
   chipOn: { borderColor: theme.accent },
   text: { color: theme.ink },
-  input: { minHeight: 160, backgroundColor: theme.surface, borderWidth:1, borderColor: theme.rule, borderRadius: 14, color: theme.ink, fontSize: 15, lineHeight: 21, padding: theme.space.md, textAlignVertical: 'top',},
+  input: { height: 180, backgroundColor: theme.surface, borderWidth:1, borderColor: theme.rule, borderRadius: 14, color: theme.ink, fontSize: 15, lineHeight: 21, padding: theme.space.md, textAlignVertical: 'top',},
   button: { backgroundColor: theme.accent, borderRadius: 999, paddingVertical: 14, alignItems: 'center' },
   buttonText: { color: theme.surface, fontSize: 15, fontWeight: '700' },
   buttonOff: { opacity: 0.6 },
