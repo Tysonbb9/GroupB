@@ -76,6 +76,11 @@ export default function CoursesScreen() {
         />
 
         <SectionTitle icon="school" title="Your courses" note="Bars show each course's hours by week" />
+        {process.env.EXPO_PUBLIC_USE_FIXTURE !== '1' && (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/add-course')} style={styles.add}>
+            <Text style={styles.addText}>Add a course</Text>
+          </Pressable>
+        )}
         <CourseCards semester={semester} summaries={summaries} />
 
         {notices.length > 0 && (
