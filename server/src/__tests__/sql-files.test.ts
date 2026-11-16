@@ -35,6 +35,25 @@ function tablesIn(sql: string): string[] {
   return [...sql.matchAll(/create table (?:if not exists )?("?\w+"?) \(/g)].map((m) => m[1]);
 }
 
+describe('SQL file line endings', () => {
+  it.each(['\n', '\r\n'])('reads %j line endings without weakening transaction checks', (ending) => {
+    const migration = '-- A migration.\nbegin;\nselect 1;\ncommit;\n';
+    const transaction = /^(--.*\n|\s)*begin;[\s\S]*commit;$/;
+    const fileRead = jest.spyOn(fs, 'readFileSync');
+    try {
+      fileRead.mockReturnValueOnce(migration.replace(/\n/g, ending));
+      const complete = read('migration_144_course_tables.sql');
+      expect(complete).toBe(migration);
+      expect(complete.trim()).toMatch(transaction);
+
+      fileRead.mockReturnValueOnce(migration.replace('commit;\n', '').replace(/\n/g, ending));
+      expect(read('migration_144_course_tables.sql').trim()).not.toMatch(transaction);
+    } finally {
+      fileRead.mockRestore();
+    }
+  });
+});
+
 describe('migration_144_course_tables.sql (#144)', () => {
   it.each(NEW_TABLES)('creates %s, safe to run twice', (table) => {
     expect(migration144).toMatch(new RegExp(`create table if not exists ${table} \\(`));

@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Semester, Task } from './types';
+import { Course, Semester, Task } from './types';
 
 /**
  * Talking to the server. Everything the app knows about the outside world
@@ -446,5 +446,61 @@ export async function answerCheckin(
     throw new Error('The server sent something that is not a check-in answer');
   }
   return json.tasks as Task[];
+}
+
+
+
+/** A shared course, with the current student's enrollment status. */
+export type CatalogCourse = Course & { enrolled: boolean };
+
+function isCourse(value: unknown): value is Course {
+  return isObject(value) && typeof value.id === 'string' && typeof value.code === 'string' &&
+    typeof value.name === 'string' && (value.attendance === null ||
+      (isObject(value.attendance) && typeof value.attendance.allowed === 'number' &&
+        typeof value.attendance.used === 'number'));
+}
+
+/** GET /catalog. Searching never joins a course. */
+export async function searchCatalog(q: string): Promise<CatalogCourse[]> {
+  const response = await send('/catalog?q=' + encodeURIComponent(q));
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!Array.isArray(json) || !json.every((course) => isObject(course) && typeof course.enrolled === 'boolean' && isCourse(course))) {
+    throw new Error('The server sent invalid course data');
+  }
+  return json as CatalogCourse[];
+}
+
+/** POST /courses/:id/enroll. A repeated enrollment returns the same course. */
+export async function enrollInCourse(id: string): Promise<Course> {
+  const response = await send('/courses/' + encodeURIComponent(id) + '/enroll', { method: 'POST' });
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isCourse(json)) throw new Error('The server sent invalid course data');
+  return json;
+}
+
+/** POST /courses. An existing code requires a separate, explicit enrollment. */
+export async function createCourse(input: { code: string; name: string }): Promise<
+  { created: true; course: Course } | { created: false; course: Course }
+> {
+  const response = await send('/courses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  });
+  if (response.status === 409) {
+    const json: unknown = await response.json();
+    if (!isObject(json) || !isCourse(json.course)) throw new Error('The server sent invalid course data');
+    return { created: false, course: json.course };
+  }
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isCourse(json)) throw new Error('The server sent invalid course data');
+  return { created: true, course: json };
 }
 

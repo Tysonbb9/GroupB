@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorView, LoadingView } from '../components/ServerStatus';
 import { fetchSemester, loadSampleSemester, saveWeeklyCapacity } from '../lib/api';
-import { Semester, Task } from '../lib/types';
+import { Course, Semester, Task } from '../lib/types';
 
 /**
  * Holds the one semester the app knows about, so both screens see the same
@@ -21,6 +21,8 @@ type SemesterStore = {
   loadingSample: boolean;
   sampleError: string | null;
   loadSample: () => Promise<void>;
+  /** Adds a course the server has already enrolled. */
+  addCourse: (course: Course) => void;
   toggleDone: (taskId: string) => void;
   /** Sets a task's estimated hours; null clears it. */
   setEstimate: (taskId: string, hours: number | null) => void;
@@ -157,6 +159,8 @@ function SemesterState({
             setLoadingSample(false);
           }
         },
+        addCourse: (course: Course) => setSemester((current) => current.courses.some((item) => item.id === course.id)
+          ? current : { ...current, courses: [...current.courses, course] }),
         toggleDone: (taskId: string) =>
           updateTask(taskId, (task) => ({ done: !task.done })),
         setEstimate: (taskId: string, hours: number | null) =>
