@@ -246,6 +246,7 @@ curl -b cookies.txt http://localhost:3000/semester
 | PATCH | `/tasks/:id` | Update any of `done`, `estimatedHours` and `dueWeek` (1 to 15); a bad field changes nothing | 200 | 400 bad body or none of those fields (TP-28), 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
 | GET | `/ai/status` | `{ available }`: whether the server has an AI to read syllabi with | 200 | |
+| POST | `/reminders` | One reminder within code's limits (#156): at most 2 a day, never twice about one assignment. `{ reminder }` with the course, assignment, one line and `countToday`, or `{ reminder: null }`. Always null with no AI set up. It records the reminder it gives | 200 | |
 | POST | `/ai/syllabus` | Syllabus text in (`{ text }`), what the AI read out: `{ assignments, weights, policies, dropped }`, every field checked. Takes about 30 seconds | 200 | 400 no text, 413 over 30,000 characters, 502 the AI failed or gave an unusable answer, 503 no AI set up |
 | POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |
 | GET | `/courses/:id/reviews` | Reviews of one course | 200 | 404 |

@@ -439,6 +439,53 @@ export type CheckinChange = { taskId: string; dueWeek: number; estimatedHours: n
  * there is none (no model key on the server, or nothing to ask). Rejects with
  * a message the user can read.
  */
+/** A reminder the server handed out (#156, AI screen 3), within code's limits. */
+export type Reminder = {
+  taskId: string;
+  courseId: string;
+  /** e.g. "CS 262". */
+  code: string;
+  /** The assignment, e.g. "Prototype demo". */
+  title: string;
+  /** One action and one number, e.g. "Start it this week: 6 hours, due week 4." */
+  text: string;
+  /** How many reminders today, this one included, and the most there can be: "1 of 2 today". */
+  countToday: number;
+  maxPerDay: number;
+};
+
+/**
+ * POST /reminders (#156). Asks for a reminder now; the server records the
+ * one it gives, so the limits count it. null when there is none to show:
+ * no AI set up, the day's limit reached, or nothing due soon. Rejects with a
+ * message the user can read.
+ */
+export async function fetchReminder(): Promise<Reminder | null> {
+  const response = await send('/reminders', { method: 'POST' });
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isObject(json) || !('reminder' in json)) {
+    throw new Error('The server sent something that is not a reminder');
+  }
+  const r = json.reminder;
+  if (r === null) return null;
+  if (
+    !isObject(r) ||
+    typeof r.taskId !== 'string' ||
+    typeof r.code !== 'string' ||
+    typeof r.title !== 'string' ||
+    typeof r.text !== 'string' ||
+    typeof r.countToday !== 'number' ||
+    typeof r.maxPerDay !== 'number'
+  ) {
+    throw new Error('The server sent something that is not a reminder');
+  }
+  return r as Reminder;
+}
+
 export async function fetchCheckinQuestion(): Promise<CheckinQuestion | null> {
   const response = await send('/checkin');
   if (!response.ok) {

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CheckinCard } from '../../components/CheckinCard';
+import { ReminderCard } from '../../components/ReminderCard';
 import { EmptySemesterScreen } from '../../components/EmptyState';
 import { LoadPill } from '../../components/LoadPill';
 import { LogOutButton } from '../../components/LogOutButton';
@@ -12,7 +13,7 @@ import { WallCard } from '../../components/WallCard';
 import { WeekDetail } from '../../components/WeekDetail';
 import { WeekFigures } from '../../components/WeekFigures';
 import { WeekStrip } from '../../components/WeekStrip';
-import { CheckinQuestion, fetchCheckinQuestion } from '../../lib/api';
+import { CheckinQuestion, fetchCheckinQuestion, fetchReminder, Reminder } from '../../lib/api';
 import { courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
 import {
   assignmentsInWeek,
@@ -49,6 +50,23 @@ export default function SemesterScreen() {
     fetchCheckinQuestion()
       .then((q) => {
         if (!cancelled) setQuestion(q);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fromServer, courseCount]);
+  // #156: a reminder, if the server's limits allow one now. Asked for once
+  // when Forecast opens, like the check-in question; the server records the
+  // one it gives, so asking again would use up the day's limit. A failure
+  // only hides the card.
+  const [reminder, setReminder] = useState<Reminder | null>(null);
+  useEffect(() => {
+    if (!fromServer || courseCount === 0) return;
+    let cancelled = false;
+    fetchReminder()
+      .then((r) => {
+        if (!cancelled) setReminder(r);
       })
       .catch(() => {});
     return () => {
@@ -95,6 +113,17 @@ export default function SemesterScreen() {
             </>
           }
         />
+
+        {reminder !== null && (
+          <ReminderCard
+            reminder={reminder}
+            onOpen={() => {
+              setReminder(null);
+              router.push('/week');
+            }}
+            onDismiss={() => setReminder(null)}
+          />
+        )}
 
         {question !== null && (
           <CheckinCard
