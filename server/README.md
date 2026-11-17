@@ -243,7 +243,7 @@ curl -b cookies.txt http://localhost:3000/semester
 | GET | `/tasks` | All tasks. Filters: `?courseId=`, `?week=`, `?done=true\|false` | 200 | 400 bad `week` or `done` |
 | GET | `/tasks/:id` | One task | 200 | 404 |
 | PATCH | `/semester` | Set the weekly capacity: `{ weeklyCapacity }`, a whole number of hours from 1 to 80. Returns the whole semester | 200 | 400 bad body |
-| PATCH | `/tasks/:id` | Update `done` and/or `estimatedHours` | 200 | 400 bad body, 404 |
+| PATCH | `/tasks/:id` | Update any of `done`, `estimatedHours`, `title` (not blank) and `dueWeek` (1 to 15); a bad field changes nothing | 200 | 400 bad body, 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
 | GET | `/ai/status` | `{ available }`: whether the server has an AI to read syllabi with | 200 | |
 | POST | `/ai/syllabus` | Syllabus text in (`{ text }`), what the AI read out: `{ assignments, weights, policies, dropped }`, every field checked. Takes about 30 seconds | 200 | 400 no text, 413 over 30,000 characters, 502 the AI failed or gave an unusable answer, 503 no AI set up |

@@ -7,7 +7,7 @@ import { syllabusRouter } from './syllabus/routes';
 import { createModelClient } from './ai/model';
 import { aiRouter } from './ai/routes';
 import { DatabaseError } from './data/database-error';
-import { isValidHours, MAX_WEEKLY_CAPACITY } from './rules';
+import { isValidHours, MAX_WEEKLY_CAPACITY, WEEKS_IN_SEMESTER } from './rules';
 import { checkinRouter } from './ai/checkin-routes';
 
 export const app = express();
@@ -233,7 +233,9 @@ app.get('/tasks', async (req, res) => {
 
 /**
  * PATCH /tasks/:id
- * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null }.
+ * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null,
+ *         title?: string (not blank), dueWeek?: whole number from 1 to 15 }.
+ * Title and due week can be corrected on the task's details (US-44).
  * Returns the updated task, 400 if a field is invalid, 404 if the id is unknown.
  */
 app.patch('/tasks/:id', async (req, res) => {
@@ -243,7 +245,7 @@ app.patch('/tasks/:id', async (req, res) => {
     return;
   }
 
-  const { done, estimatedHours } = req.body ?? {};
+  const { done, estimatedHours, title, dueWeek } = req.body ?? {};
 
   // Check every field before changing anything, so a bad request
   // never leaves a task half-updated.
@@ -259,10 +261,23 @@ app.patch('/tasks/:id', async (req, res) => {
     res.status(400).json({ error: 'estimatedHours must be a number more than 0 and up to 100, or null' });
     return;
   }
+  if (title !== undefined && (typeof title !== 'string' || title.trim() === '')) {
+    res.status(400).json({ error: 'title must name the assignment' });
+    return;
+  }
+  if (
+    dueWeek !== undefined &&
+    (!Number.isInteger(dueWeek) || dueWeek < 1 || dueWeek > WEEKS_IN_SEMESTER)
+  ) {
+    res.status(400).json({ error: `dueWeek must be a whole number from 1 to ${WEEKS_IN_SEMESTER}` });
+    return;
+  }
 
   const updatedTask = await store.updateTask(studentId(res), req.params.id, {
     done,
     estimatedHours,
+    title: title === undefined ? undefined : title.trim(),
+    dueWeek,
   });
 
   res.json(updatedTask);

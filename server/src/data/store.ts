@@ -22,6 +22,8 @@ export type TaskUpdates = {
   done?: boolean;
   estimatedHours?: number | null;
   dueWeek?: number;
+  /** Already trimmed and not empty: the route checks it (US-44). */
+  title?: string;
 };
 
 export type SemesterUpdates = {
