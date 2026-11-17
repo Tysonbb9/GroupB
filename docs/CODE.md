@@ -334,6 +334,16 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 
 `LogOutButton` is the log-out icon beside the Forecast title, and `LogOutLink` is the same action as a line of text, for the loading and error screens. Both call `signOut()`, and the root layout takes the student back to Log in. Both draw nothing when there is no session around the screen.
 
+### `src/components/DraftCard.tsx`
+
+Issue #146: the editable assignment card used by the syllabus review screen. It
+keeps the existing field test IDs, labels and edit/remove callbacks, with a wrapping
+title, visible Week and Hours labels, 44-pixel controls and an accessible ready or
+needs-review icon. `DraftNotice` gives hints and errors the same icon-and-words
+layout. `DraftBlocker` derives a singular or plural missing-week/fixing summary from
+`checkDraft`, hiding it when nothing is invalid. It does not change the Add action,
+block duplicates or save any data.
+
 ### `src/components/Figure.tsx`, `SectionHeader.tsx`
 
 `Figure` is one large number with a small label; `WeekFigures` and the This week screen both use it. `SectionHeader` is the small-caps heading with a rule that starts each group.
@@ -388,6 +398,12 @@ Two forms on one screen: **Log in** (email and password) and **Create account** 
 Route: `/syllabus`, reached from the **+ Syllabus** button on the Courses tab (US-28).
 
 The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Each assignment found is shown as boxes for its title, due week and hours, with a Remove link (US-30). Add to semester checks every one with checkDraft (lib/review.ts) and shows a message on each bad one. When all are valid it saves them with POST /tasks and only then adds them to the semester, so the forecast never changes while the student is still reviewing.
+
+Issue #146 gives the results a soft accent review banner, an ASSIGNMENTS section
+header and count, a course context line, and extracted `DraftCard` rows. A summary
+under Add explains invalid drafts using the existing checks. The extras use GRADE
+WEIGHTS and POLICIES headers with labels left and values right, retaining the
+not-saved notice. Intake, scanner, AI run fencing and saving are unchanged.
 
 **Choose PDF** (US-29) opens the file picker (`lib/pick-pdf.ts`), sends the PDF to `POST /syllabus/text` with `extractSyllabusText`, puts the text that comes back in the text box, and scans it like pasted text. When the server cannot read the PDF (scanned, locked, too large), its message is shown above the text box, so the student can paste the text instead.
 
@@ -502,7 +518,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 980 tests across 50 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 995 tests across 51 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -552,7 +568,8 @@ npx jest --watch              # while you work
 | `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
 | `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
 | `src/lib/ai-api.test.ts` | 16 | Issue #145: `getAiStatus` (true only when the server says available, false and never throwing for an error, a wrong shape, bad JSON or no server) and `readSyllabusWithAi` (the JSON it posts, the server's message on a refusal, six wrong shapes rejected, the unreachable-server message) |
-| `src/__tests__/ai-syllabus.test.tsx` | 24 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, weights and policies shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, a warning when the server dropped items, a non-blocking wrong-course warning cleared on a course switch, and duplicate hints that update on edits and allow Add or Remove |
+| `src/__tests__/draft-card.test.tsx` | 15 | Issue #146: titles kept on one line (Return finishes editing, pasted line breaks become spaces); good, missing-week, duplicate, error, long-title and invalid-value states; labelled editing and Remove; accessible status; singular/plural blockers, mixed invalid inputs and hidden valid/empty summaries |
+| `src/__tests__/ai-syllabus.test.tsx` | 24 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, the review banner/count and live blocker summary, grade-weight/policy section labels and paired values shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, a warning when the server dropped items, a non-blocking wrong-course warning cleared on a course switch, and duplicate hints that update on edits and allow Add or Remove |
 | `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
 | `src/lib/capacity.test.ts` | 15 | US-32: `parseWeeklyHours` reading whole hours from 1 to 80, and refusing blank, 0, 81, decimals, negatives and words |
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |

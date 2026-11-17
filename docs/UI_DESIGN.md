@@ -322,9 +322,21 @@ Log in screen.
 
 Reached from **+ Syllabus**. The student picks a course, then uploads the syllabus as
 a PDF (US-29) or pastes its text (US-28), and **Find assignments** lists what was
-found. Each found assignment can be fixed (its title, week and hours) or removed
-before **Add to semester** saves them (US-30), so a misread line never reaches the
-forecast.
+found. A soft accent banner introduces the review: **What we found. Check it before
+it reaches your forecast.** An ASSIGNMENTS section header carries the found count,
+with the chosen course on the context line below. Each assignment sits in a rounded
+surface card with an editable title, visibly labelled Week and Hours fields and a
+quiet Remove action. Fields and Remove have at least 44-pixel touch targets. A check
+marks a valid draft; a warning marks one that needs review. The status has a screen
+reader label, and hints and errors pair an icon with words. A duplicate is a review
+hint and never blocks adding.
+
+Below **Add to semester**, a short line names missing weeks or other invalid drafts;
+it disappears when the drafts pass the existing checks. Add still validates and
+saves in the same way (US-30), so reviewing never changes the forecast. The
+**Also found in the syllabus** card groups GRADE WEIGHTS and POLICIES into
+label-and-value rows. It keeps the notice **For your information. These are not
+saved yet.** Saving these extras is outside this screen's scope.
 
 ### Loading and error
 
@@ -537,6 +549,21 @@ The Semester screen, shown at its full length: everything in one scroll.
 <img src="ui/screenshots/after-forecast.png" alt="Forecast: header with the Busy pill, figures and strip, the action card, and the Heads up and Course spikes rows" width="200">
 <img src="ui/screenshots/after-week.png" alt="This week: header with the Busy pill, figures, and the work grouped as Overdue, Due this week and Next week, with ticks to mark it done" width="200">
 <img src="ui/screenshots/after-courses.png" alt="Courses: one card per course with attendance and a strip of that course's hours" width="200">
+
+### What we found screen (#146)
+
+Captured in Expo Web at 390 x 760 using untouched main `f84ed61` for the before
+image. The local server uses its memory store, a made-up account and a fake model
+that returns four assignments, four weights and two policies. No real AI service or
+saved student data is used. The after images show different scroll positions of the
+same review layout. In the good case, the missing week is filled and duplicate
+titles are edited; the warning case keeps the original reading.
+
+<img src="ui/screenshots/146-1-before.png" alt="Before: plain assignment outlines below the syllabus input, with a duplicate hint and a blank week" width="200">
+<img src="ui/screenshots/146-2-after-good.png" alt="After: What we found banner, assignment count and valid cards with checks and labelled fields" width="200">
+<img src="ui/screenshots/146-3-after-needs-attention.png" alt="After: course mismatch notice, duplicate hint and missing-week hint with warning status icons" width="200">
+<img src="ui/screenshots/146-4-after-extras.png" alt="After: grade weights and policies marked as not saved, with the Add button explaining that one assignment needs a week" width="200">
+<img src="ui/screenshots/146-6-after-long-title.png" alt="After: a long assignment title wraps without hiding its status or the Week, Hours and Remove controls" width="200">
 
 ---
 

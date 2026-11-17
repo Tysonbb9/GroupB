@@ -82,6 +82,9 @@ describe('with an AI on the server', () => {
     await pasteAndFind();
 
     expect(readMock).toHaveBeenCalledWith(SYLLABUS);
+    expect(screen.getByText('What we found. Check it before it reaches your forecast.')).toBeTruthy();
+    expect(screen.getByText('ASSIGNMENTS')).toBeTruthy();
+    expect(screen.getByText('3 FOUND')).toBeTruthy();
     expect(screen.getByTestId('draft-title-0').props.value).toBe('Prototype demo');
     expect(screen.getByTestId('draft-week-0').props.value).toBe('4');
     expect(screen.getByTestId('draft-hours-0').props.value).toBe('6');
@@ -97,6 +100,7 @@ describe('with an AI on the server', () => {
     expect(screen.getByTestId('draft-week-2').props.value).toBe('');
     expect(screen.getByTestId('draft-week-hint-2')).toBeTruthy();
     expect(screen.queryByTestId('draft-week-hint-0')).toBeNull();
+    expect(screen.getByTestId('syllabus-blocker')).toHaveTextContent('1 assignment needs a week before it can be added.');
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('syllabus-add'));
@@ -105,6 +109,7 @@ describe('with an AI on the server', () => {
 
     fireEvent.changeText(screen.getByTestId('draft-week-2'), '8');
     expect(screen.queryByTestId('draft-week-hint-2')).toBeNull();
+    expect(screen.queryByTestId('syllabus-blocker')).toBeNull();
   });
 
   it('shows the grade weights and policies it found, marked as not saved', async () => {
@@ -113,9 +118,14 @@ describe('with an AI on the server', () => {
     await pasteAndFind();
 
     expect(screen.getByTestId('syllabus-ai-extras')).toBeTruthy();
-    expect(screen.getByText('Team project: 40%')).toBeTruthy();
-    expect(screen.getByText('Exams: 30%')).toBeTruthy();
-    expect(screen.getByText('Absences allowed: 4')).toBeTruthy();
+    expect(screen.getByText('GRADE WEIGHTS')).toBeTruthy();
+    expect(screen.getByText('Team project')).toBeTruthy();
+    expect(screen.getByText('40%')).toBeTruthy();
+    expect(screen.getByText('Exams')).toBeTruthy();
+    expect(screen.getByText('30%')).toBeTruthy();
+    expect(screen.getByText('POLICIES')).toBeTruthy();
+    expect(screen.getByText('Absences allowed')).toBeTruthy();
+    expect(screen.getByText('4')).toBeTruthy();
     expect(screen.getByText('Lowest quiz dropped')).toBeTruthy();
     expect(screen.getByText('For your information. These are not saved yet.')).toBeTruthy();
   });
