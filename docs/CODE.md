@@ -257,7 +257,7 @@ Who is signed in (US-20), in a React context: `checking` (still looking for a sa
 
 The bar chart. Fifteen bars, height proportional to projected hours, colour from `loadColor` in `theme.ts`, and a dashed line at the student's capacity so "over the line" is literal.
 
-Each bar is a button with `testID="week-bar-N"` and an accessibility label naming its week and hours. Tapping it selects that week (`onSelectWeek`). The selected week's bar is outlined, starting with the current week, and the current week's axis number is in the accent colour. The next week over capacity (`wallWeek`) is numbered in the warning colour.
+Each bar is a button with `testID="week-bar-N"` and an accessibility label naming its week and hours. Tapping it selects that week (`onSelectWeek`). The selected week's bar is outlined, starting with the current week, and the current week's axis number is in the accent colour, with "Now" (`testID="week-now"`) under it so colour is not the only signal (US-46). The next week over capacity (`wallWeek`) is numbered in the warning colour.
 
 Under the bars, one line names the capacity ("Dashed line is your 15 hours a week"). When the screen passes `onSaveCapacity`, as Forecast does, that line is a `CapacityEditor`, so the student can change it.
 
@@ -318,7 +318,7 @@ The courses on the Courses tab, one card each: code and name, absences left (a s
 
 ### `src/components/ScreenHeader.tsx`, `LoadPill.tsx`
 
-Every tab draws its own header with `ScreenHeader`: a small line placing it in the semester ("Fall 2026 · Week 3 of 15"), a large title, and whatever belongs beside it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
+Every tab draws its own header with `ScreenHeader`: a small line naming the semester ("Fall 2026"), a large title, and whatever belongs beside it. Given `week`, it shows `WeekChip` under the title, "Week 3 of 15" from `semester.currentWeek` and `WEEKS_IN_SEMESTER` (US-46); every tab passes it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
 
 ### `src/components/SummaryRow.tsx`
 
@@ -555,6 +555,7 @@ npx jest --watch              # while you work
 | `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
 | `src/__tests__/checkin-question.test.tsx` | 8 | #155, AI screen 2: the question and reason above the figures, no card with no question, Yes, the week and hours boxes for the course's open tasks, Save sending only what changed and the forecast redrawing, a bad week refused, None of these, a failed save keeping the card |
 | `src/__tests__/marked-done.test.tsx` | 8 | US-45: the ticked task staying in place marked done with Undo and not yet in Completed, the hours question directly under it, the figures dropping straight away, moving to Completed on Skip and on Save then Close, Undo and the filled circle putting it back, and a second tick moving the first task on |
+| `src/__tests__/current-week.test.tsx` | 22 | US-46: the Week N of 15 chip on Forecast, This week and Courses, following `currentWeek` rather than a fixed number, the semester name kept above the title, the old line gone, and "Now" under the current week on the strip, in its own column, moving with the semester, with every week number still drawn |
 
 
 

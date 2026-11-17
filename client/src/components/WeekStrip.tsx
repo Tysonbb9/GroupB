@@ -13,9 +13,9 @@ const STRIP_HEIGHT = 110;
  * is the capacity itself, so "over the line" is literal.
  *
  * The selected week (the current week until the student taps another) is
- * outlined. The current week is numbered in the accent colour and the next
- * week over capacity in the warning colour, so the two weeks that matter can
- * be found without counting.
+ * outlined. The current week is numbered in the accent colour, with "Now"
+ * under it, and the next week over capacity in the warning colour, so the
+ * two weeks that matter can be found without counting.
  */
 export function WeekStrip({
   loads,
@@ -66,17 +66,24 @@ export function WeekStrip({
 
       <View style={styles.axis}>
         {loads.map((load) => (
-          <Text
-            key={load.week}
-            testID={`week-axis-${load.week}`}
-            style={[
-              styles.axisLabel,
-              load.week === currentWeek && styles.axisNow,
-              load.week === wallWeek && styles.axisWall,
-            ]}
-          >
-            {load.week}
-          </Text>
+          <View key={load.week} style={styles.axisColumn}>
+            <Text
+              testID={`week-axis-${load.week}`}
+              style={[
+                styles.axisLabel,
+                load.week === currentWeek && styles.axisNow,
+                load.week === wallWeek && styles.axisWall,
+              ]}
+            >
+              {load.week}
+            </Text>
+            {/* Words as well as colour, so this week can be found without telling colours apart (#161). */}
+            {load.week === currentWeek && (
+              <Text testID="week-now" style={styles.nowLabel}>
+                Now
+              </Text>
+            )}
+          </View>
         ))}
       </View>
 
@@ -109,14 +116,15 @@ const styles = StyleSheet.create({
   bar: { width: '100%', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
   barSelected: { borderWidth: 1.5, borderColor: theme.ink },
   axis: { flexDirection: 'row', marginTop: theme.space.xs },
+  axisColumn: { flex: 1, alignItems: 'center' },
   axisLabel: {
-    flex: 1,
     textAlign: 'center',
     fontSize: 9,
     color: theme.faint,
   },
   axisNow: { color: theme.accent, fontWeight: '700' },
   axisWall: { color: theme.heavy, fontWeight: '700' },
+  nowLabel: { fontSize: 9, fontWeight: '800', color: theme.accent },
   capacityNote: {
     marginTop: theme.space.sm,
     fontSize: 11,

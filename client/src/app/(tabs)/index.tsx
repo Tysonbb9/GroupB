@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CheckinCard } from '../../components/CheckinCard';
 import { EmptySemesterScreen } from '../../components/EmptyState';
@@ -85,12 +85,9 @@ export default function SemesterScreen() {
     <SafeAreaView edges={['top']} style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <ScreenHeader
-          eyebrow={
-            <>
-              <Text>{semester.label}</Text> · Week {semester.currentWeek} of 15
-            </>
-          }
+          eyebrow={semester.label}
           title="Forecast"
+          week={semester.currentWeek}
           right={
             <>
               <LoadPill hours={thisWeekHours} capacity={semester.weeklyCapacity} />

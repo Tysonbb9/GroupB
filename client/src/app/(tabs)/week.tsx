@@ -67,8 +67,9 @@ export default function WeekScreen() {
     <SafeAreaView edges={['top']} style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <ScreenHeader
-          eyebrow={`Week ${semester.currentWeek} of 15`}
+          eyebrow={semester.label}
           title="This week"
+          week={semester.currentWeek}
           right={<LoadPill hours={thisWeekHours} capacity={semester.weeklyCapacity} />}
         />
 
