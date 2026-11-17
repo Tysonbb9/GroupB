@@ -73,3 +73,8 @@ export function upcomingSpikes(
     )
     .slice(0, 3);
 }
+
+/** How many courses the notices cover. One course can have more than one notice. */
+export function busyCourseCount(notices: UpcomingSpike[]): number {
+  return new Set(notices.map((notice) => notice.course.id)).size;
+}

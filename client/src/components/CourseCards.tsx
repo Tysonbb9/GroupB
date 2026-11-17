@@ -78,15 +78,14 @@ export function CourseCards({ semester, summaries }: Props) {
             </View>
 
             {summary.peakWeek === null ? (
-              <Text style={styles.peak}>No heavy weeks</Text>
+              <Text style={styles.peak}>No standout weeks</Text>
             ) : (
               <Text
                 style={styles.peak}
-                accessibilityLabel={`${course.code} has difficulty spikes in weeks ${weekList(weeks)}, based on estimated hours`}
+                accessibilityLabel={`${course.code} is busiest in ${weeks.length === 1 ? 'week' : 'weeks'} ${weekList(weeks)}, based on estimated hours`}
               >
-                Peaks in week {summary.peakWeek} at{' '}
-                {hoursLabel(summary.peakHours).replace(' hrs', ' hours').replace(' hr', ' hour')}
-                <Text style={styles.weeks}> · weeks {weekList(weeks)}</Text>
+                Busiest in {weeks.length === 1 ? 'week' : 'weeks'} {weekList(weeks)}
+                <Text style={styles.weeks}>{` · week ${summary.peakWeek}: ${hoursLabel(summary.peakHours).replace(' hrs', ' hours').replace(' hr', ' hour')}`}</Text>
               </Text>
             )}
           </View>

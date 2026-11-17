@@ -23,7 +23,7 @@ import {
   Reminder,
 } from '../../lib/api';
 import { capacityByWeek, ownWeekHours } from '../../lib/capacity';
-import { courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
+import { busyCourseCount, courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
 import {
   assignmentsInWeek,
   crunchPeriodAt,
@@ -127,6 +127,7 @@ export default function SemesterScreen() {
     wall && recommendStart(semester.tasks, wall.week, semester.weeklyCapacity);
   const spikeSummaries = courseSpikes(semester);
   const notices = upcomingSpikes(spikeSummaries, semester.currentWeek);
+  const busyCourses = busyCourseCount(notices);
   // The course whose single heaviest week is heaviest, for the Course spikes row.
   const heaviest = spikeSummaries
     .filter((s) => s.peakWeek !== null)
@@ -228,8 +229,8 @@ export default function SemesterScreen() {
             title="Heads up"
             detail={
               notices.length === 0
-                ? `Nothing in the next ${LOOKAHEAD_WEEKS} weeks`
-                : `${notices.length} ${notices.length === 1 ? 'notice' : 'notices'} in the next ${LOOKAHEAD_WEEKS} weeks`
+                ? `Nothing coming up in the next ${LOOKAHEAD_WEEKS} weeks`
+                : `${busyCourses} ${busyCourses === 1 ? 'course gets' : 'courses get'} busy in the next ${LOOKAHEAD_WEEKS} weeks`
             }
             onPress={() => router.push('/courses')}
           />
@@ -238,11 +239,11 @@ export default function SemesterScreen() {
             testID="course-spikes-row"
             icon="pulse"
             tint={theme.heavy}
-            title="Course spikes"
+            title="Busiest weeks"
             detail={
               heaviest === null
-                ? 'No course has a heavy week'
-                : `Heaviest: ${heaviest.course.code} in week ${heaviest.peakWeek}`
+                ? 'No course stands out'
+                : `${heaviest.course.code} is busiest in week ${heaviest.peakWeek}`
             }
             onPress={() => router.push('/courses')}
           />

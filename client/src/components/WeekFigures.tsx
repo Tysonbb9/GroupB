@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { wholeHours } from '../lib/workload';
+import { loadBand, wholeHours } from '../lib/workload';
 import { theme } from '../theme';
+import { WORDS } from './LoadPill';
 import { Figure } from './Figure';
 
 type Props = {
@@ -27,16 +28,16 @@ export function WeekFigures({ hoursThisWeek, capacity, wallWeek }: Props) {
         label="This week"
         value={String(hours)}
         unit={`/ ${capacity} hrs`}
-        accessibilityLabel={`This week: ${hours} of ${capacity} hours`}
+        accessibilityLabel={`This week: ${WORDS[loadBand(hoursThisWeek, capacity)].toLowerCase()}, ${hours} of your ${capacity} allocated hours`}
       />
       <Figure
         testID="figure-next-wall"
-        label="Next wall"
+        label="Next heavy week"
         value={wallWeek === null ? 'none' : `wk ${wallWeek}`}
         color={wallWeek === null ? theme.calm : theme.heavy}
         align="right"
         accessibilityLabel={
-          wallWeek === null ? 'Next wall: none' : `Next wall: week ${wallWeek}`
+          wallWeek === null ? 'Next heavy week: none' : `Next heavy week: week ${wallWeek}`
         }
       />
     </View>

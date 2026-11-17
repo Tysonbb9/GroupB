@@ -85,16 +85,16 @@ describe('US-31: undo marking a task as done', () => {
   it("returns its hours to this week's figure and to the forecast", () => {
     renderApp();
     // Week 5 holds half the Big project; week 6 holds the other half and the Midterm.
-    expect(screen.getByLabelText('10 of 10 hours land this week')).toBeTruthy();
+    expect(screen.getByLabelText('10 of your 10 allocated hours of work this week')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
 
     markDone('proj');
-    expect(screen.getByLabelText('0 of 10 hours land this week')).toBeTruthy();
+    expect(screen.getByLabelText('0 of your 10 allocated hours of work this week')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 8 hours')).toBeTruthy();
 
     openCompleted();
     fireEvent.press(undoBox('Big project'));
-    expect(screen.getByLabelText('10 of 10 hours land this week')).toBeTruthy();
+    expect(screen.getByLabelText('10 of your 10 allocated hours of work this week')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
     // Left to do: Discussion post, Big project and Midterm.
     expect(screen.getByTestId('items-left')).toHaveTextContent(/3 items/);

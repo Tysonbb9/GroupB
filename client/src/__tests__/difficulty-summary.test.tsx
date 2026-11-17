@@ -14,13 +14,13 @@ describe('SpikeNotice', () => {
     const notice = within(screen.getByTestId('spike-notice-c1-5'));
     expect(notice.getByText('5')).toBeTruthy();
     expect(notice.getByText('CS 262')).toBeTruthy();
-    expect(notice.getByText('10 of your 10 hours')).toBeTruthy();
+    expect(notice.getByText('10 of your 10 allocated hours')).toBeTruthy();
   });
 
   it('says it in words for screen readers, not colour alone', () => {
     render(<SpikeNotice notices={notices} capacity={wallSemester.weeklyCapacity} />);
     expect(
-      screen.getByLabelText('CS 262 difficulty spike in week 5, 10 estimated hours out of 10')
+      screen.getByLabelText('CS 262 busiest week, week 5, 10 of your 10 allocated hours')
     ).toBeTruthy();
   });
 
@@ -33,14 +33,14 @@ describe('SpikeNotice', () => {
 describe('CourseCards', () => {
   it('gives each course its peak week and hours', () => {
     render(<CourseCards semester={wallSemester} summaries={summaries} />);
-    expect(within(screen.getByTestId('course-c1')).getByText(/Peaks in week 7 at 14 hours/)).toBeTruthy();
-    expect(within(screen.getByTestId('course-c2')).getByText(/Peaks in week 6 at 8 hours/)).toBeTruthy();
+    expect(within(screen.getByTestId('course-c1')).getByText(/Busiest in weeks 5, 6 and 7/)).toBeTruthy();
+    expect(within(screen.getByTestId('course-c2')).getByText(/Busiest in week 6/)).toBeTruthy();
   });
 
   it('lists the heavy weeks in words and labels, not colour alone', () => {
     render(<CourseCards semester={wallSemester} summaries={summaries} />);
     expect(screen.getByText(/weeks 5, 6 and 7/)).toBeTruthy();
-    expect(screen.getByLabelText(/CS 262 has difficulty spikes in weeks 5, 6 and 7/)).toBeTruthy();
+    expect(screen.getByLabelText(/CS 262 is busiest in weeks 5, 6 and 7/)).toBeTruthy();
   });
 
   it('says so for a course with no heavy weeks', () => {
@@ -50,6 +50,6 @@ describe('CourseCards', () => {
         summaries={courseSpikes({ ...wallSemester, tasks: [] })}
       />
     );
-    expect(within(screen.getByTestId('course-c1')).getByText('No heavy weeks')).toBeTruthy();
+    expect(within(screen.getByTestId('course-c1')).getByText('No standout weeks')).toBeTruthy();
   });
 });

@@ -3,10 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { LoadBand, loadBand } from '../lib/workload';
 import { loadColor, theme } from '../theme';
 
-const WORDS: Record<LoadBand, string> = {
-  calm: 'Fits',
+export const WORDS: Record<LoadBand, string> = {
+  calm: 'Light',
   moderate: 'Busy',
-  heavy: 'Over',
+  heavy: 'Heavy',
 };
 
 /**

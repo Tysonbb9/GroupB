@@ -95,8 +95,8 @@ describe('This week: grouped rows', () => {
   it('flags work that is not yet due but should be started now', () => {
     renderApp();
     // 25 hours against a capacity of 10 needs weeks 2 to 4.
-    expect(row('pj').getByText('start now')).toBeTruthy();
-    expect(row('rd').queryByText('start now')).toBeNull();
+    expect(row('pj').getByText('Start this week')).toBeTruthy();
+    expect(row('rd').queryByText('Start this week')).toBeNull();
   });
 
   it('says "1 hr" in the singular', () => {

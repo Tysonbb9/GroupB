@@ -31,7 +31,7 @@ export function SpikeNotice({ notices, capacity }: Props) {
             key={`${notice.course.id}-${notice.week}`}
             testID={`spike-notice-${notice.course.id}-${notice.week}`}
             accessible
-            accessibilityLabel={`${notice.course.code} difficulty spike in week ${notice.week}, ${hours} estimated hours out of ${available}`}
+            accessibilityLabel={`${notice.course.code} busiest week, week ${notice.week}, ${hours} of your ${available} allocated hours`}
             style={styles.card}
           >
             <View style={styles.week}>
@@ -41,7 +41,7 @@ export function SpikeNotice({ notices, capacity }: Props) {
             <View style={styles.body}>
               <Text style={styles.course}>{notice.course.code}</Text>
               <Text style={styles.hours}>
-                {hours} of your {available} hours
+                {hours} of your {available} allocated hours
               </Text>
               <View style={styles.track}>
                 <View style={[styles.fill, { width: `${share * 100}%`, backgroundColor: color }]} />

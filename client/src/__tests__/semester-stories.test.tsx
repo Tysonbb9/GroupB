@@ -81,7 +81,7 @@ describe('US-02: see how many hours are available each week', () => {
 
   it('labels the figure for screen readers', () => {
     renderSemester();
-    expect(screen.getByLabelText('This week: 10 of 12 hours')).toBeTruthy();
+    expect(screen.getByLabelText('This week: busy, 10 of your 12 allocated hours')).toBeTruthy();
   });
 
   it('names the weekly capacity beside the dashed line', () => {
@@ -125,7 +125,7 @@ describe('US-03: compare estimated workload against weekly capacity', () => {
     renderSemester();
     const card = screen.getByTestId('crunch-summary');
     expect(card).toHaveTextContent(/Week 5 needs 13 hours/);
-    expect(card).toHaveTextContent(/You have 12 free that week/);
+    expect(card).toHaveTextContent(/You've allocated 12/);
   });
 
   it('says so when every remaining week fits', () => {
@@ -135,7 +135,7 @@ describe('US-03: compare estimated workload against weekly capacity', () => {
     });
     expect(screen.getByTestId('figure-next-wall')).toHaveTextContent(/none/);
     expect(screen.getByTestId('crunch-summary')).toHaveTextContent(
-      /Nothing over capacity ahead/
+      /No heavy weeks ahead/
     );
   });
 

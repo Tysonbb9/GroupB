@@ -63,7 +63,7 @@ export function CapacityEditor({ capacity, onSave }: Props) {
         <Pressable
           testID="capacity-change"
           accessibilityRole="button"
-          accessibilityLabel={`Change your hours a week, now ${capacity}`}
+          accessibilityLabel={`Change the hours you set aside each week, now ${capacity}`}
           hitSlop={10}
           onPress={open}
         >
@@ -75,11 +75,11 @@ export function CapacityEditor({ capacity, onSave }: Props) {
 
   return (
     <View testID="capacity-editor" style={styles.editor}>
-      <Text style={styles.label}>Hours you have each week</Text>
+      <Text style={styles.label}>Hours you set aside each week</Text>
       <View style={styles.row}>
         <TextInput
           testID="capacity-input"
-          accessibilityLabel="Hours you have each week"
+          accessibilityLabel="Hours you set aside each week"
           value={text}
           onChangeText={(value) => {
             setText(value);

@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { startPhrase } from '../lib/tasks';
 import { CrunchWindow, WeekLoad } from '../lib/types';
 import { StartRecommendation, wholeHours } from '../lib/workload';
 import { theme } from '../theme';
@@ -42,8 +43,8 @@ export function WallCard({
           <Ionicons name="checkmark-done" size={20} color={theme.calm} />
         </View>
         <View style={styles.clearText}>
-          <Text style={styles.clearTitle}>Nothing over capacity ahead</Text>
-          <Text style={styles.clearSub}>Every remaining week fits in {capacity} hours</Text>
+          <Text style={styles.clearTitle}>No heavy weeks ahead</Text>
+          <Text style={styles.clearSub}>Every week left fits in your {capacity} hours</Text>
         </View>
       </View>
     );
@@ -51,7 +52,7 @@ export function WallCard({
 
   const why = (
     <Text style={recommendation !== null ? styles.why : styles.headline}>
-      Week {wall.week} needs {wholeHours(wall.hours)} hours. You have {capacity} free that week.
+      Week {wall.week} needs {wholeHours(wall.hours)} hours. You&apos;ve allocated {capacity}.
     </Text>
   );
 
@@ -59,13 +60,13 @@ export function WallCard({
     <View testID="crunch-summary" style={styles.card}>
       <View style={styles.eyebrowRow}>
         <Ionicons name="flag" size={13} color={ON_ACCENT_SOFT} />
-        <Text style={styles.eyebrow}>Next crunch · week {wall.week}</Text>
+        <Text style={styles.eyebrow}>Next heavy week · week {wall.week}</Text>
       </View>
 
       {recommendation !== null ? (
         <View testID="start-recommendation" style={styles.stack}>
           <Text style={styles.headline}>
-            Start {recommendation.task.title}{' '}
+            {startPhrase(recommendation.task)}{' '}
             {recommendation.startWeek <= currentWeek
               ? 'now'
               : `in week ${recommendation.startWeek}`}
@@ -77,7 +78,7 @@ export function WallCard({
           {why}
           {period !== null && period.endWeek > period.startWeek && (
             <Text testID="crunch-period" style={styles.why}>
-              Weeks {period.startWeek}–{period.endWeek} are over capacity
+              Weeks {period.startWeek} to {period.endWeek} need more than your allocated time
             </Text>
           )}
           <Pressable
@@ -96,7 +97,7 @@ export function WallCard({
           {why}
           {period !== null && period.endWeek > period.startWeek && (
             <Text testID="crunch-period" style={styles.why}>
-              Weeks {period.startWeek}–{period.endWeek} are over capacity
+              Weeks {period.startWeek} to {period.endWeek} need more than your allocated time
             </Text>
           )}
         </View>

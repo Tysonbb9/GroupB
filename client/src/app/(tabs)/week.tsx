@@ -79,10 +79,10 @@ export default function WeekScreen() {
         <View style={styles.figures}>
           <Figure
             testID="week-hours"
-            label="Landing this week"
+            label="Work this week"
             value={String(wholeHours(thisWeekHours))}
             unit={`/ ${thisWeekCapacity} hrs`}
-            accessibilityLabel={`${wholeHours(thisWeekHours)} of ${thisWeekCapacity} hours land this week`}
+            accessibilityLabel={`${wholeHours(thisWeekHours)} of your ${thisWeekCapacity} allocated hours of work this week`}
           />
           <Figure
             testID="items-left"

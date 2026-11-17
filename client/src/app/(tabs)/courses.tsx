@@ -10,7 +10,7 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { SpikeNotice } from '../../components/SpikeNotice';
 import { capacityByWeek } from '../../lib/capacity';
 import { SyllabusReminder } from '../../components/SyllabusReminder';
-import { courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
+import { busyCourseCount, courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
 import { useSemester } from '../../state/semester-store';
 import { theme } from '../../theme';
 
@@ -55,6 +55,7 @@ export default function CoursesScreen() {
 
   const summaries = courseSpikes(semester);
   const notices = upcomingSpikes(summaries, semester.currentWeek);
+  const busyCourses = busyCourseCount(notices);
 
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
@@ -91,7 +92,7 @@ export default function CoursesScreen() {
             <SectionTitle
               icon="notifications"
               title="Heads up"
-              note={`The next ${LOOKAHEAD_WEEKS} weeks · based on estimated hours`}
+              note={`${busyCourses} ${busyCourses === 1 ? 'course gets' : 'courses get'} busy in the next ${LOOKAHEAD_WEEKS} weeks`}
             />
             <SpikeNotice notices={notices} capacity={capacityByWeek(semester)} />
           </>

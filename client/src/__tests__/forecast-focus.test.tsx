@@ -5,6 +5,7 @@ import SemesterScreen from '../app/(tabs)/index';
 import WeekScreen from '../app/(tabs)/week';
 import { SemesterProvider } from '../state/semester-store';
 import { wallSemester } from '../testing/fixtures';
+import { LOOKAHEAD_WEEKS } from '../lib/difficulty';
 import { theme } from '../theme';
 
 const mockPush = jest.fn();
@@ -51,15 +52,15 @@ describe('Forecast: one focus', () => {
 
 describe('Forecast: rows that open Courses', () => {
   // wallSemester, week 3 of 15, capacity 10: CS 262 spikes in weeks 5 to 7 and
-  // MATH 251 in week 6, so weeks 5 and 6 hold three notices.
-  it('counts the heads-up notices in the next three weeks', () => {
+  // MATH 251 in week 6, so weeks 5 and 6 hold three notices from two courses.
+  it('counts the courses in the heads-up notices, each course once', () => {
     renderForecast();
-    expect(screen.getByTestId('heads-up-row')).toHaveTextContent(/3 notices in the next 3 weeks/);
+    expect(screen.getByTestId('heads-up-row')).toHaveTextContent(new RegExp(`2 courses get busy in the next ${LOOKAHEAD_WEEKS} weeks`));
   });
 
   it('names the course with the heaviest single week', () => {
     renderForecast();
-    expect(screen.getByTestId('course-spikes-row')).toHaveTextContent(/Heaviest: CS 262 in week 7/);
+    expect(screen.getByTestId('course-spikes-row')).toHaveTextContent(/CS 262 is busiest in week 7/);
   });
 
   it('says so when nothing is coming up', () => {
@@ -68,7 +69,7 @@ describe('Forecast: rows that open Courses', () => {
         <SemesterScreen />
       </SemesterProvider>
     );
-    expect(screen.getByTestId('heads-up-row')).toHaveTextContent(/Nothing in the next 3 weeks/);
+    expect(screen.getByTestId('heads-up-row')).toHaveTextContent(new RegExp(`Nothing coming up in the next ${LOOKAHEAD_WEEKS} weeks`));
   });
 
   it('opens the Courses tab from either row', () => {
@@ -97,9 +98,9 @@ describe('Headers: how this week sits, in one word', () => {
   // wallSemester: week 3 has nothing due, week 5 holds 10 of 10 hours,
   // and week 6 holds 18.
   it.each([
-    [3, 'Fits', theme.calm],
+    [3, 'Light', theme.calm],
     [5, 'Busy', theme.moderate],
-    [6, 'Over', theme.heavy],
+    [6, 'Heavy', theme.heavy],
   ])('in week %i says %s', (week, word, bandColor) => {
     render(
       <SemesterProvider initial={{ ...wallSemester, currentWeek: week }}>
@@ -107,6 +108,7 @@ describe('Headers: how this week sits, in one word', () => {
       </SemesterProvider>
     );
     expect(screen.getByTestId('load-pill')).toHaveTextContent(word);
+    expect(screen.getByLabelText(`This week: ${word.toLowerCase()}`)).toBeTruthy();
     // The dot carries the load colour; the word stays in ink so it can be read.
     expect(screen.getByTestId('load-pill-dot')).toHaveStyle({ backgroundColor: bandColor });
     expect(screen.getByText(word)).toHaveStyle({ color: theme.ink });
@@ -125,4 +127,9 @@ describe('This week: work after next week', () => {
     fireEvent.press(screen.getByTestId('later-row'));
     expect(mockPush).toHaveBeenCalledWith('/');
   });
+});
+
+it('names one course getting busy in the Heads up detail', () => {
+  render(<SemesterProvider initial={{ ...wallSemester, tasks: [{ id: 'one', courseId: 'c1', title: 'One project', dueWeek: 4, estimatedHours: 8, done: false }] }}><SemesterScreen /></SemesterProvider>);
+  expect(screen.getByTestId('heads-up-row')).toHaveTextContent(new RegExp(`1 course gets busy in the next ${LOOKAHEAD_WEEKS} weeks`));
 });

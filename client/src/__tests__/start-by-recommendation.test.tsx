@@ -23,14 +23,14 @@ describe('US-15: a suggested week for starting a larger assignment', () => {
     // Big project puts 10 hours into week 6 against the Midterm's 8, and its
     // work already begins in week 5.
     expect(screen.getByTestId('start-recommendation')).toHaveTextContent(
-      /Start Big project in week 5\./
+      /Start working on Big project in week 5\./
     );
   });
 
   it('says to start now when the recommended week has already arrived', () => {
     renderSemester({ ...wallSemester, currentWeek: 5 });
     expect(screen.getByTestId('start-recommendation')).toHaveTextContent(
-      /Start Big project now\./
+      /Start working on Big project now\./
     );
   });
 
@@ -54,7 +54,7 @@ describe('US-04 and US-05: consecutive over-capacity weeks read as one crunch pe
   it('names the whole heavy stretch, not just its first week', () => {
     renderSemester();
     expect(screen.getByTestId('crunch-period')).toHaveTextContent(
-      /Weeks 6–7 are over capacity/
+      /Weeks 6 to 7 need more than your allocated time/
     );
   });
 

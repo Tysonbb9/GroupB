@@ -92,7 +92,7 @@ describe('one semester behind every screen', () => {
       </SemesterProvider>
     );
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
-    const midtermNotice = () => screen.queryAllByLabelText(/^MATH 251 difficulty spike in week 6/);
+    const midtermNotice = () => screen.queryAllByLabelText(/^MATH 251 busiest week, week 6,/);
     expect(midtermNotice()).toHaveLength(1);
 
     fireEvent.press(screen.getByRole('checkbox', { name: 'Mark Midterm done' }));
@@ -114,10 +114,10 @@ describe('one semester behind every screen', () => {
     expect(nextWall()).toHaveTextContent(/wk 7/);
     expect(screen.getByText('Dashed line is your 10 hours a week')).toBeTruthy();
     // The notices on Courses measure week 6 against its own 20 hours.
-    const week6 = screen.queryAllByLabelText(/difficulty spike in week 6, \d+ estimated hours out of 20$/);
-    const week5 = screen.queryAllByLabelText(/difficulty spike in week 5, \d+ estimated hours out of 10$/);
+    const week6 = screen.queryAllByLabelText(/busiest week, week 6, \d+ of your 20 allocated hours$/);
+    const week5 = screen.queryAllByLabelText(/busiest week, week 5, \d+ of your 10 allocated hours$/);
     expect(week6.length + week5.length).toBeGreaterThan(0);
-    expect(screen.queryAllByLabelText(/difficulty spike in week 6, \d+ estimated hours out of 10$/)).toHaveLength(0);
+    expect(screen.queryAllByLabelText(/busiest week, week 6, \d+ of your 10 allocated hours$/)).toHaveLength(0);
   });
 
   it('a first estimate on This week puts the work on the Forecast and in its details', async () => {
