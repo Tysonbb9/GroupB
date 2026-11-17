@@ -10,6 +10,9 @@ import type { GradeWeight } from './types';
 /** Most hours a week a student can say they have. Same as the client's MAX_WEEKLY_HOURS. */
 export const MAX_WEEKLY_CAPACITY = 80;
 
+/** Weeks in a semester. Fixed for now, like the phone's WEEKS_IN_SEMESTER. */
+export const WEEKS_IN_SEMESTER = 15;
+
 /**
  * The most hours a task estimate or a review can have. Same limit as the
  * client's MAX_ESTIMATE_HOURS and the database's CHECK, so a value the API
