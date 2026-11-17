@@ -78,14 +78,14 @@ describe("a tapped week shows that week's hours", () => {
   it('says the week uses the weekly number until it has its own', () => {
     renderForecast();
     openWeek(6);
-    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You have 10 hours in week 6, your weekly number/);
+    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You set aside 10 hours in week 6, your weekly number/);
     expect(screen.queryByTestId('own-week-hours-clear')).toBeNull();
   });
 
   it('says when the week has its own hours, with a way back to the weekly number', () => {
     renderForecast({ ...wallSemester, weekHours: [{ week: 6, hours: 25 }] });
     openWeek(6);
-    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You have 25 hours in week 6, set for this week only/);
+    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You set aside 25 hours in week 6, set for this week only/);
     expect(screen.getByTestId('own-week-hours-clear')).toHaveTextContent(/Use my weekly hours/);
   });
 
@@ -100,13 +100,13 @@ describe("a tapped week shows that week's hours", () => {
 describe('setting one week its own hours', () => {
   it('moves the wall when the week now fits', async () => {
     renderForecast();
-    expect(screen.getByLabelText('Next wall: week 6')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 6')).toBeTruthy();
 
     openWeek(6);
     await changeTo('20');
 
-    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You have 20 hours in week 6, set for this week only/);
-    expect(screen.getByLabelText('Next wall: week 7')).toBeTruthy();
+    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You set aside 20 hours in week 6, set for this week only/);
+    expect(screen.getByLabelText('Next heavy week: week 7')).toBeTruthy();
   });
 
   it('changes that week only, not the weekly number', async () => {
@@ -116,7 +116,7 @@ describe('setting one week its own hours', () => {
     expect(screen.getByText('Dashed line is your 10 hours a week')).toBeTruthy();
     openWeek(6); // close it
     openWeek(5);
-    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You have 10 hours in week 5, your weekly number/);
+    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You set aside 10 hours in week 5, your weekly number/);
   });
 
   it('steps the dashed line at that week', async () => {
@@ -143,7 +143,7 @@ describe('setting one week its own hours', () => {
     renderForecast();
     openWeek(6);
     await changeTo('25');
-    expect(screen.getByLabelText('Week 6, 18 hours, you have 25 that week')).toBeTruthy();
+    expect(screen.getByLabelText('Week 6, 18 hours, you set aside 25 that week')).toBeTruthy();
     expect(screen.getByLabelText('Week 5, 10 hours')).toBeTruthy();
   });
 
@@ -151,20 +151,20 @@ describe('setting one week its own hours', () => {
     renderForecast();
     openWeek(5);
     await changeTo('8');
-    expect(screen.getByLabelText('Next wall: week 5')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 5')).toBeTruthy();
   });
 
   it("uses this week's own hours in the figures and the pill", async () => {
     // Week 3 has 0 hours of work in the fixture, so give it some first.
     renderForecast({ ...wallSemester, currentWeek: 5 });
-    expect(screen.getByLabelText('This week: 10 of 10 hours')).toBeTruthy();
+    expect(screen.getByLabelText('This week: busy, 10 of your 10 allocated hours')).toBeTruthy();
     expect(screen.getByLabelText('This week: busy')).toBeTruthy();
 
     openWeek(5);
     await changeTo('8');
 
-    expect(screen.getByLabelText('This week: 10 of 8 hours')).toBeTruthy();
-    expect(screen.getByLabelText('This week: over')).toBeTruthy();
+    expect(screen.getByLabelText('This week: heavy, 10 of your 8 allocated hours')).toBeTruthy();
+    expect(screen.getByLabelText('This week: heavy')).toBeTruthy();
   });
 
   it.each(['0', '81', '2.5', 'abc', ''])('refuses %p and changes nothing', async (text) => {
@@ -172,7 +172,7 @@ describe('setting one week its own hours', () => {
     openWeek(6);
     await changeTo(text);
     expect(screen.getByTestId('own-week-hours-problem')).toHaveTextContent(/Enter whole hours from 1 to 80\./);
-    expect(screen.getByLabelText('Next wall: week 6')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 6')).toBeTruthy();
   });
 
   it('typing the weekly number leaves the week without hours of its own', async () => {
@@ -188,19 +188,19 @@ describe('setting one week its own hours', () => {
     fireEvent.press(screen.getByTestId('own-week-hours-change'));
     fireEvent.changeText(screen.getByTestId('own-week-hours-input'), '30');
     fireEvent.press(screen.getByTestId('own-week-hours-cancel'));
-    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You have 10 hours in week 6/);
+    expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/You set aside 10 hours in week 6/);
   });
 });
 
 describe('going back to the weekly number', () => {
   it('Use my weekly hours clears the week, and the wall comes back', async () => {
     renderForecast({ ...wallSemester, weekHours: [{ week: 6, hours: 25 }] });
-    expect(screen.getByLabelText('Next wall: week 7')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 7')).toBeTruthy();
     openWeek(6);
     fireEvent.press(screen.getByTestId('own-week-hours-clear'));
     await act(async () => {});
     expect(screen.getByTestId('own-week-hours')).toHaveTextContent(/your weekly number/);
-    expect(screen.getByLabelText('Next wall: week 6')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 6')).toBeTruthy();
   });
 });
 
@@ -213,7 +213,7 @@ describe('saving on the server', () => {
 
     expect(await screen.findByText(/set for this week only/)).toBeTruthy();
     expect(mockSaveWeekHours).toHaveBeenCalledWith(6, 20);
-    expect(screen.getByLabelText('Next wall: week 7')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 7')).toBeTruthy();
   });
 
   it('sends null to go back to the weekly number', async () => {
@@ -235,7 +235,7 @@ describe('saving on the server', () => {
     expect(await screen.findByTestId('own-week-hours-problem')).toHaveTextContent(
       'Could not save. Week 6 still has 10 hours.'
     );
-    expect(screen.getByLabelText('Next wall: week 6')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 6')).toBeTruthy();
   });
 
   it('does not call the server when nothing would change', async () => {
@@ -247,7 +247,7 @@ describe('saving on the server', () => {
 
   it("uses the weeks the server sent with the semester", async () => {
     await renderForecastFromServer({ ...wallSemester, weekHours: [{ week: 6, hours: 20 }] });
-    expect(screen.getByLabelText('Next wall: week 7')).toBeTruthy();
+    expect(screen.getByLabelText('Next heavy week: week 7')).toBeTruthy();
   });
 });
 
@@ -267,7 +267,7 @@ describe('the other tabs use each week its own hours', () => {
         <CoursesScreen />
       </SemesterProvider>
     );
-    expect(screen.getAllByLabelText(/difficulty spike in week 6, \d+ estimated hours out of 20$/).length).toBeGreaterThan(0);
-    expect(screen.queryAllByLabelText(/difficulty spike in week 6, \d+ estimated hours out of 10$/)).toHaveLength(0);
+    expect(screen.getAllByLabelText(/busiest week, week 6, \d+ of your 20 allocated hours$/).length).toBeGreaterThan(0);
+    expect(screen.queryAllByLabelText(/busiest week, week 6, \d+ of your 10 allocated hours$/)).toHaveLength(0);
   });
 });

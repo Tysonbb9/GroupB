@@ -67,7 +67,7 @@ export function WeekStrip({
               accessibilityLabel={
                 capacityOf(load.week) === capacity
                   ? `Week ${load.week}, ${wholeHours(load.hours)} hours`
-                  : `Week ${load.week}, ${wholeHours(load.hours)} hours, you have ${capacityOf(load.week)} that week`
+                  : `Week ${load.week}, ${wholeHours(load.hours)} hours, you set aside ${capacityOf(load.week)} that week`
               }
               accessibilityState={{ selected: load.week === selectedWeek }}
               onPress={() => onSelectWeek(load.week)}

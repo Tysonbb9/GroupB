@@ -84,7 +84,7 @@ export function TaskRow({
             ) : (
               <EstimateEditor taskId={task.id} title={task.title} onSave={onEstimate} />
             )}
-            {startNow && <Text style={[styles.metaText, styles.startNow]}>start now</Text>}
+            {startNow && <Text style={[styles.metaText, styles.startNow]}>Start this week</Text>}
           </View>
           {markedDone && (
             <View style={styles.meta}>

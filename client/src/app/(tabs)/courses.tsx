@@ -91,7 +91,7 @@ export default function CoursesScreen() {
             <SectionTitle
               icon="notifications"
               title="Heads up"
-              note={`The next ${LOOKAHEAD_WEEKS} weeks · based on estimated hours`}
+              note={`${notices.length} ${notices.length === 1 ? 'course gets' : 'courses get'} busy in the next ${LOOKAHEAD_WEEKS} weeks`}
             />
             <SpikeNotice notices={notices} capacity={capacityByWeek(semester)} />
           </>

@@ -88,6 +88,8 @@ describe('Week screen', () => {
 
   it('reports how many hours land this week', () => {
     renderWith(<WeekScreen />);
+    expect(screen.getByText('Work this week')).toBeTruthy();
+    expect(screen.getByLabelText('4 of your 10 allocated hours of work this week')).toBeTruthy();
     // Only the 4-hour vision statement is due in week 3.
     expect(screen.getByTestId('week-hours')).toHaveTextContent(/4 \/ 10 hrs/);
   });
@@ -130,7 +132,7 @@ describe('the two screens together', () => {
     fireEvent.press(screen.getByTestId('done-wall'));
 
     expect(screen.getByTestId('crunch-summary')).toHaveTextContent(
-      /Nothing over capacity ahead/
+      /No heavy weeks ahead/
     );
   });
 });

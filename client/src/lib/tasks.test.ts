@@ -5,6 +5,7 @@ import {
   groupThisWeek,
   rankThisWeek,
   startsNow,
+  startPhrase,
 } from './tasks';
 import { Course, Semester, Task } from './types';
 
@@ -236,5 +237,17 @@ describe('startsNow', () => {
 
   it('cannot flag work with no estimate', () => {
     expect(startsNow(task({ dueWeek: 6, estimatedHours: null }), 4, 15)).toBe(false);
+  });
+});
+
+
+describe('startPhrase', () => {
+  it.each([
+    ['exam', 'Start studying for Midterm'],
+    ['reading', 'Start reading Midterm'],
+    ['project', 'Start working on Midterm'],
+    [undefined, 'Start working on Midterm'],
+  ] as const)('uses the task kind %s', (category, phrase) => {
+    expect(startPhrase({ title: 'Midterm', category })).toBe(phrase);
   });
 });

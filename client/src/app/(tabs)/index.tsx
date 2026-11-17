@@ -228,8 +228,8 @@ export default function SemesterScreen() {
             title="Heads up"
             detail={
               notices.length === 0
-                ? `Nothing in the next ${LOOKAHEAD_WEEKS} weeks`
-                : `${notices.length} ${notices.length === 1 ? 'notice' : 'notices'} in the next ${LOOKAHEAD_WEEKS} weeks`
+                ? `Nothing coming up in the next ${LOOKAHEAD_WEEKS} weeks`
+                : `${notices.length} ${notices.length === 1 ? 'course gets' : 'courses get'} busy in the next ${LOOKAHEAD_WEEKS} weeks`
             }
             onPress={() => router.push('/courses')}
           />
@@ -238,11 +238,11 @@ export default function SemesterScreen() {
             testID="course-spikes-row"
             icon="pulse"
             tint={theme.heavy}
-            title="Course spikes"
+            title="Busiest weeks"
             detail={
               heaviest === null
-                ? 'No course has a heavy week'
-                : `Heaviest: ${heaviest.course.code} in week ${heaviest.peakWeek}`
+                ? 'No course stands out'
+                : `${heaviest.course.code} is busiest in week ${heaviest.peakWeek}`
             }
             onPress={() => router.push('/courses')}
           />

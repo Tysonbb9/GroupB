@@ -60,7 +60,7 @@ describe('US-32: changing the hours a week', () => {
   it('says what the dashed line is, with a way to change it', () => {
     renderScreens(atWeek5);
     expect(screen.getByText('Dashed line is your 10 hours a week')).toBeTruthy();
-    expect(screen.getByLabelText('Change your hours a week, now 10')).toBeTruthy();
+    expect(screen.getByLabelText('Change the hours you set aside each week, now 10')).toBeTruthy();
   });
 
   it('opens with the current hours filled in', () => {
@@ -79,9 +79,9 @@ describe('US-32: changing the hours a week', () => {
 
     expect(await screen.findByText('Dashed line is your 20 hours a week')).toBeTruthy();
     expect(screen.queryByTestId('capacity-editor')).toBeNull();
-    expectBothPills('Fits');
+    expectBothPills('Light');
     expect(screen.getByTestId('figure-next-wall')).toHaveTextContent(/none/);
-    expect(screen.getByText('Nothing over capacity ahead')).toBeTruthy();
+    expect(screen.getByText('No heavy weeks ahead')).toBeTruthy();
   });
 
   it('shortens the crunch when a week is still over the new hours', async () => {
@@ -148,7 +148,7 @@ describe('US-32: the hours are kept on the server', () => {
 
     expect(await screen.findByText('Dashed line is your 20 hours a week')).toBeTruthy();
     expect(mockSave).toHaveBeenCalledWith(20);
-    expectBothPills('Fits');
+    expectBothPills('Light');
   });
 
   it('keeps the old hours, and says so, when the save fails', async () => {

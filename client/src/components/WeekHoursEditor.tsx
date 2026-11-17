@@ -61,13 +61,13 @@ export function WeekHoursEditor({ week, weeklyCapacity, ownHours, onSave }: Prop
       <View testID="own-week-hours" style={styles.line}>
         <Text style={styles.note} accessibilityLiveRegion="polite">
           {ownHours === null
-            ? `You have ${hours} hours in week ${week}, your weekly number`
-            : `You have ${hours} hours in week ${week}, set for this week only`}
+            ? `You set aside ${hours} hours in week ${week}, your weekly number`
+            : `You set aside ${hours} hours in week ${week}, set for this week only`}
         </Text>
         <Pressable
           testID="own-week-hours-change"
           accessibilityRole="button"
-          accessibilityLabel={`Change the hours you have in week ${week}, now ${hours}`}
+          accessibilityLabel={`Change the hours you set aside in week ${week}, now ${hours}`}
           hitSlop={10}
           onPress={() => {
             setText(String(hours));
@@ -101,11 +101,11 @@ export function WeekHoursEditor({ week, weeklyCapacity, ownHours, onSave }: Prop
 
   return (
     <View testID="own-week-hours-editor" style={styles.editor}>
-      <Text style={styles.label}>Hours you have in week {week}</Text>
+      <Text style={styles.label}>Hours you set aside in week {week}</Text>
       <View style={styles.row}>
         <TextInput
           testID="own-week-hours-input"
-          accessibilityLabel={`Hours you have in week ${week}`}
+          accessibilityLabel={`Hours you set aside in week ${week}`}
           value={text}
           onChangeText={(value) => {
             setText(value);
