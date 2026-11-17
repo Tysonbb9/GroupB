@@ -192,6 +192,17 @@ already selected so typing replaces them.
 <img src="ui/screenshots/us-32-3-after.png" alt="Forecast at 20 hours a week: Fits, the line higher, fewer red weeks, and You have 20 free that week" width="200">
 <img src="ui/screenshots/us-32-4-save-failed.png" alt="The box after a failed save: Could not save. Your hours are still 20." width="200">
 
+**One week's own hours (#148).** Some weeks differ: 10 hours this week, 20 next. Tapping
+a week's bar shows, under its assignments, "You have 15 hours in week 6, your weekly
+number" with **Change**. Saving other hours gives that week its own: the dashed line
+steps at that week, its bar is coloured against them, and the wall, the crunch, the
+action card and the notices on Courses use them. "…set for this week only" then shows
+**Use my weekly hours** to go back. The weekly number itself does not change, and the
+same rules apply: whole hours, 1 to 80, saved first, and a failed save changes nothing.
+
+<img src="ui/screenshots/148-week-before.png" alt="Week 6 tapped: 27 hours of work against the weekly 15, so week 6 is the next wall, with You have 15 hours in week 6, your weekly number, and Change" width="200">
+<img src="ui/screenshots/148-week-after.png" alt="Week 6 given 30 hours: the dashed line steps up at week 6, its bar is no longer red, the next wall is week 7, and Use my weekly hours appears" width="200">
+
 ### The action card
 
 It leads with the action, not the problem: **"Start Midterm 1 in week 5."** Under it,

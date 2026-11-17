@@ -10,13 +10,15 @@ type Props = {
   hours: number;
   assignments: WeekAssignment[];
   courses: Course[];
+  /** Drawn under the assignments: the week's own hours (#148), on Forecast. */
+  footer?: React.ReactNode;
 };
 
 /**
  * Which assignments make up one week of the strip. Tapping a bar shows this,
  * so a tall bar can be traced back to the work that built it.
  */
-export function WeekDetail({ week, hours, assignments, courses }: Props) {
+export function WeekDetail({ week, hours, assignments, courses, footer }: Props) {
   const courseCode = (id: string) =>
     courses.find((course) => course.id === id)?.code ?? '';
 
@@ -39,6 +41,7 @@ export function WeekDetail({ week, hours, assignments, courses }: Props) {
           </View>
         ))
       )}
+      {footer}
     </View>
   );
 }

@@ -8,6 +8,7 @@ import { createModelClient } from './ai/model';
 import { aiRouter } from './ai/routes';
 import { DatabaseError } from './data/database-error';
 import { isValidHours, MAX_WEEKLY_CAPACITY, WEEKS_IN_SEMESTER } from './rules';
+import type { Semester, WeekHours } from './types';
 import { checkinRouter } from './ai/checkin-routes';
 import { reminderRouter } from './ai/reminder-routes';
 
@@ -81,23 +82,33 @@ app.use('/reminders', reminderRouter(store, model));
 
 
 /**
+ * The semester as every /semester route returns it: with the weeks whose
+ * hours the student set on their own (#148), so the phone never has to ask
+ * twice.
+ */
+async function withWeekHours(userId: string, semester: Semester): Promise<Semester & { weekHours: WeekHours[] }> {
+  return { ...semester, weekHours: await store.listWeekHours(userId) };
+}
+
+/**
  * GET /semester
  * Returns the whole semester: label, current week, weekly capacity,
- * courses and tasks.
+ * the weeks with their own hours (#148), courses and tasks.
  */
 app.get('/semester', async (_req, res) => {
-  const semester = await store.getSemester(studentId(res));
-  res.json(semester);
+  const userId = studentId(res);
+  res.json(await withWeekHours(userId, await store.getSemester(userId)));
 });
 
 // A sample is an explicit first step, not a shared semester for every login.
 app.post('/semester/sample', async (_req, res) => {
-  const semester = await store.loadSample(studentId(res));
+  const userId = studentId(res);
+  const semester = await store.loadSample(userId);
   if (!semester) {
     res.status(409).json({ error: 'Your semester already has courses or tasks' });
     return;
   }
-  res.status(201).json(semester);
+  res.status(201).json(await withWeekHours(userId, semester));
 });
 
 /**
@@ -121,8 +132,38 @@ app.patch('/semester', async (req, res) => {
     return;
   }
 
-  const semester = await store.updateSemester(studentId(res), { weeklyCapacity });
-  res.json(semester);
+  const userId = studentId(res);
+  const semester = await store.updateSemester(userId, { weeklyCapacity });
+  res.json(await withWeekHours(userId, semester));
+});
+
+/**
+ * PATCH /semester/weeks/:week (#148)
+ * Body: { hours: a whole number from 1 to 80, or null }.
+ * Gives one week its own hours, replacing the weekly number that week, or
+ * clears them with null so the weekly number applies again. Returns every
+ * week that has its own hours, in order. 400 for a week outside 1 to 15 or
+ * hours outside the weekly limits (US-32).
+ */
+app.patch('/semester/weeks/:week', async (req, res) => {
+  const week = Number(req.params.week);
+  if (!/^\d+$/.test(req.params.week) || week < 1 || week > WEEKS_IN_SEMESTER) {
+    res.status(400).json({ error: `week must be a whole number from 1 to ${WEEKS_IN_SEMESTER}` });
+    return;
+  }
+
+  const { hours } = req.body ?? {};
+  if (
+    hours !== null &&
+    (typeof hours !== 'number' || !Number.isInteger(hours) || hours < 1 || hours > MAX_WEEKLY_CAPACITY)
+  ) {
+    res.status(400).json({
+      error: `hours must be a whole number of hours from 1 to ${MAX_WEEKLY_CAPACITY}, or null`,
+    });
+    return;
+  }
+
+  res.json(await store.setWeekHours(studentId(res), week, hours));
 });
 
 // Suggestions are explicit choices; finding a course never joins it automatically.
@@ -277,13 +318,6 @@ app.patch('/tasks/:id', async (req, res) => {
     (!Number.isInteger(dueWeek) || dueWeek < 1 || dueWeek > WEEKS_IN_SEMESTER)
   ) {
     res.status(400).json({ error: `dueWeek must be a whole number from 1 to ${WEEKS_IN_SEMESTER}` });
-    return;
-  }
-
-  if (done === undefined && estimatedHours === undefined) {
-    res.status(400).json({
-      error: 'Nothing to update: send done or estimatedHours',
-    });
     return;
   }
 

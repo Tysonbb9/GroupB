@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorView, LoadingView } from '../components/ServerStatus';
-import { fetchSemester, loadSampleSemester, saveWeeklyCapacity, TaskChange, updateTask } from '../lib/api';
-import { Course, Semester, Task } from '../lib/types';
+import { fetchSemester, loadSampleSemester, saveWeekHours, saveWeeklyCapacity, TaskChange, updateTask } from '../lib/api';
+import { Course, Semester, Task, WeekHours } from '../lib/types';
 
 /**
  * Holds the one semester the app knows about, so both screens see the same
@@ -36,6 +36,12 @@ type SemesterStore = {
    * everywhere. Rejects, changing nothing, when they could not be saved.
    */
   setWeeklyCapacity: (hours: number) => Promise<void>;
+  /**
+   * Gives one week its own hours (#148), or clears them with null so the
+   * weekly number applies again. Saves first, then uses them everywhere.
+   * Rejects, changing nothing, when they could not be saved.
+   */
+  setWeekHours: (week: number, hours: number | null) => Promise<void>;
 };
 
 const SemesterContext = createContext<SemesterStore | null>(null);
@@ -61,6 +67,18 @@ const saveTaskOnServer: SaveTask = async (taskId, change) => {
   return { dueWeek, estimatedHours };
 };
 
+/** Keeps one week's own hours somewhere, and returns every week that has some. */
+type SaveWeek = (current: WeekHours[], week: number, hours: number | null) => Promise<WeekHours[]>;
+
+/** Like keepOnDevice: with no server, the weeks' own hours stay on this device. */
+const keepWeekOnDevice: SaveWeek = async (current, week, hours) =>
+  [...current.filter((w) => w.week !== week), ...(hours === null ? [] : [{ week, hours }])].sort(
+    (a, b) => a.week - b.week
+  );
+
+/** With the server, PATCH /semester/weeks/:week keeps them and says what it holds. */
+const saveWeekOnServer: SaveWeek = (_current, week, hours) => saveWeekHours(week, hours);
+
 /**
  * What the app is given at the top. With no `initial`, the semester is
  * fetched from the server, behind a loading screen and an error screen with
@@ -80,6 +98,7 @@ export function SemesterProvider({
         initial={initial}
         saveCapacity={keepOnDevice}
         persistTask={keepTaskOnDevice}
+        saveWeek={keepWeekOnDevice}
         fromServer={false}
       >
         {children}
@@ -123,6 +142,7 @@ function SemesterFromServer({ children }: { children: React.ReactNode }) {
       initial={semester}
       saveCapacity={saveWeeklyCapacity}
       persistTask={saveTaskOnServer}
+      saveWeek={saveWeekOnServer}
       fetchSample={loadSampleSemester}
       fromServer
     >
@@ -137,6 +157,7 @@ function SemesterState({
   initial,
   saveCapacity,
   persistTask,
+  saveWeek,
   fromServer,
   fetchSample,
 }: {
@@ -144,6 +165,7 @@ function SemesterState({
   initial: Semester;
   saveCapacity: SaveCapacity;
   persistTask: SaveTask;
+  saveWeek: SaveWeek;
   fromServer: boolean;
   fetchSample?: () => Promise<Semester>;
 }) {
@@ -203,9 +225,14 @@ function SemesterState({
           const kept = await saveCapacity(hours);
           setSemester((current) => ({ ...current, weeklyCapacity: kept }));
         },
+        // Saved first too, so a week's line only moves to hours that were kept.
+        setWeekHours: async (week: number, hours: number | null) => {
+          const kept = await saveWeek(semester.weekHours ?? [], week, hours);
+          setSemester((current) => ({ ...current, weekHours: kept }));
+        },
       };
     },
-    [semester, saveCapacity, persistTask, fetchSample, loadingSample, sampleError, fromServer]
+    [semester, saveCapacity, persistTask, saveWeek, fetchSample, loadingSample, sampleError, fromServer]
   );
 
   return (

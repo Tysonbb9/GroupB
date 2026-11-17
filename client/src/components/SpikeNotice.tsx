@@ -1,12 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { UpcomingSpike } from '../lib/difficulty';
-import { wholeHours } from '../lib/workload';
+import { Capacity, capacityIn, wholeHours } from '../lib/workload';
 import { loadColor, theme } from '../theme';
 
 type Props = {
   notices: UpcomingSpike[];
-  capacity: number;
+  /** The hours the student has: the same every week, or each week's own (#148). */
+  capacity: Capacity;
 };
 
 /**
@@ -21,15 +22,16 @@ export function SpikeNotice({ notices, capacity }: Props) {
     <View testID="spike-notices" style={styles.list}>
       {notices.map((notice) => {
         const hours = wholeHours(notice.hours);
-        const share = Math.min(1, notice.hours / capacity);
-        const color = loadColor(notice.hours, capacity);
+        const available = capacityIn(capacity, notice.week);
+        const share = Math.min(1, notice.hours / available);
+        const color = loadColor(notice.hours, available);
 
         return (
           <View
             key={`${notice.course.id}-${notice.week}`}
             testID={`spike-notice-${notice.course.id}-${notice.week}`}
             accessible
-            accessibilityLabel={`${notice.course.code} difficulty spike in week ${notice.week}, ${hours} estimated hours out of ${capacity}`}
+            accessibilityLabel={`${notice.course.code} difficulty spike in week ${notice.week}, ${hours} estimated hours out of ${available}`}
             style={styles.card}
           >
             <View style={styles.week}>
@@ -39,7 +41,7 @@ export function SpikeNotice({ notices, capacity }: Props) {
             <View style={styles.body}>
               <Text style={styles.course}>{notice.course.code}</Text>
               <Text style={styles.hours}>
-                {hours} of your {capacity} hours
+                {hours} of your {available} hours
               </Text>
               <View style={styles.track}>
                 <View style={[styles.fill, { width: `${share * 100}%`, backgroundColor: color }]} />

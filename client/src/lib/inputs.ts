@@ -1,5 +1,6 @@
 import { MAX_ESTIMATE_HOURS, parseEstimate } from './estimate';
 import { CrunchWindow, Semester, Task, WeekLoad, WEEKS_IN_SEMESTER } from './types';
+import { capacityByWeek } from './capacity';
 import { detectCrunch, weeklyLoad } from './workload';
 
 /**
@@ -240,7 +241,7 @@ export function processInputs(semester: Semester, inputs: Inputs = {}): Processe
     skipped,
     unknownCourses,
     loads,
-    crunch: detectCrunch(loads, semester.weeklyCapacity),
+    crunch: detectCrunch(loads, capacityByWeek(semester)),
   };
 }
 

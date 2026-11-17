@@ -25,8 +25,10 @@ export function WeekStrip({
   wallWeek,
   onSelectWeek,
   onSaveCapacity,
+  capacityOf = () => capacity,
 }: {
   loads: WeekLoad[];
+  /** The student's weekly number: the line, unless a week has its own hours. */
   capacity: number;
   currentWeek: number;
   selectedWeek: number;
@@ -34,28 +36,46 @@ export function WeekStrip({
   onSelectWeek: (week: number) => void;
   /** When given, the line under the strip can change the capacity (US-32). */
   onSaveCapacity?: (hours: number) => Promise<void>;
+  /** The hours in each week, where some weeks have their own (#148). Defaults to `capacity`. */
+  capacityOf?: (week: number) => number;
 }) {
-  const peak = Math.max(capacity, ...loads.map((l) => l.hours));
+  const peak = Math.max(capacity, ...loads.map((l) => Math.max(l.hours, capacityOf(l.week))));
 
   return (
     <View>
       <View style={styles.strip}>
-        <View
-          style={[styles.capacityLine, { bottom: (capacity / peak) * STRIP_HEIGHT }]}
-        />
+        {/* One piece of dashed line per week, so it steps at a week with its own hours (#148). */}
+        {loads.map((load, i) => (
+          <View
+            key={`line-${load.week}`}
+            testID={`capacity-line-${load.week}`}
+            style={[
+              styles.capacityLine,
+              {
+                left: `${(i / loads.length) * 100}%`,
+                width: `${100 / loads.length}%`,
+                bottom: (capacityOf(load.week) / peak) * STRIP_HEIGHT,
+              },
+            ]}
+          />
+        ))}
         {loads.map((load) => (
           <View key={load.week} style={styles.column}>
             <Pressable
               testID={`week-bar-${load.week}`}
               accessibilityRole="button"
-              accessibilityLabel={`Week ${load.week}, ${wholeHours(load.hours)} hours`}
+              accessibilityLabel={
+                capacityOf(load.week) === capacity
+                  ? `Week ${load.week}, ${wholeHours(load.hours)} hours`
+                  : `Week ${load.week}, ${wholeHours(load.hours)} hours, you have ${capacityOf(load.week)} that week`
+              }
               accessibilityState={{ selected: load.week === selectedWeek }}
               onPress={() => onSelectWeek(load.week)}
               style={[
                 styles.bar,
                 {
                   height: Math.max(2, (load.hours / peak) * STRIP_HEIGHT),
-                  backgroundColor: loadColor(load.hours, capacity),
+                  backgroundColor: loadColor(load.hours, capacityOf(load.week)),
                 },
                 load.week === selectedWeek && styles.barSelected,
               ]}
@@ -106,8 +126,6 @@ const styles = StyleSheet.create({
   },
   capacityLine: {
     position: 'absolute',
-    left: 0,
-    right: 0,
     borderTopWidth: 1,
     borderTopColor: theme.faint,
     borderStyle: 'dashed',

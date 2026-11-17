@@ -64,19 +64,30 @@ export function workSpan(
 }
 
 /**
+ * The hours the student has for school: one number for every week, or each
+ * week's own (#148, from capacityByWeek in capacity.ts).
+ */
+export type Capacity = number | ((week: number) => number);
+
+/** The hours the student has in one week. */
+export function capacityIn(capacity: Capacity, week: number): number {
+  return typeof capacity === 'number' ? capacity : capacity(week);
+}
+
+/**
  * Find the runs of weeks where projected work is more than the student
  * actually has time for. Weeks exactly at capacity are fine; it is only
  * a crunch when the work does not fit.
  */
 export function detectCrunch(
   loads: WeekLoad[],
-  weeklyCapacity: number
+  capacity: Capacity
 ): CrunchWindow[] {
   const windows: CrunchWindow[] = [];
   let current: CrunchWindow | null = null;
 
   for (const load of loads) {
-    const over = load.hours > weeklyCapacity;
+    const over = load.hours > capacityIn(capacity, load.week);
 
     if (over && current === null) {
       current = {
@@ -137,11 +148,11 @@ export function hoursInWeek(loads: WeekLoad[], week: number): number {
  */
 export function nextWall(
   loads: WeekLoad[],
-  weeklyCapacity: number,
+  capacity: Capacity,
   fromWeek: number
 ): WeekLoad | null {
   return (
-    loads.find((load) => load.week >= fromWeek && load.hours > weeklyCapacity) ??
+    loads.find((load) => load.week >= fromWeek && load.hours > capacityIn(capacity, load.week)) ??
     null
   );
 }
@@ -221,11 +232,11 @@ export function recommendStart(
  */
 export function crunchPeriodAt(
   loads: WeekLoad[],
-  weeklyCapacity: number,
+  capacity: Capacity,
   week: number
 ): CrunchWindow | null {
   return (
-    detectCrunch(loads, weeklyCapacity).find(
+    detectCrunch(loads, capacity).find(
       (window) => window.startWeek <= week && week <= window.endWeek
     ) ?? null
   );

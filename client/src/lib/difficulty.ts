@@ -1,7 +1,11 @@
+import { capacityByWeek } from './capacity';
 import { Course, Semester } from './types';
 import { weeklyLoad } from './workload';
 
-/** A course creates a spike when it needs more than 30% of weekly capacity. */
+/**
+ * A course creates a spike when it needs more than 30% of the hours the
+ * student has that week (a week's own hours where they set some, #148).
+ */
 export const SPIKE_SHARE = 0.3;
 
 /** Include the current week and the following three weeks in heads-up notices. */
@@ -29,12 +33,12 @@ export type UpcomingSpike = CourseSpike & {
  * multi-week work is spread in exactly the same way as the semester chart.
  */
 export function courseSpikes(semester: Semester): CourseSpikeSummary[] {
-  const threshold = semester.weeklyCapacity * SPIKE_SHARE;
+  const capacity = capacityByWeek(semester);
 
   return semester.courses.map((course) => {
     const courseTasks = semester.tasks.filter((task) => task.courseId === course.id);
     const spikes = weeklyLoad(courseTasks)
-      .filter((load) => load.hours > threshold)
+      .filter((load) => load.hours > capacity(load.week) * SPIKE_SHARE)
       .map(({ week, hours }) => ({ week, hours }));
     const peak = spikes.reduce<CourseSpike | null>(
       (highest, spike) =>
