@@ -220,7 +220,7 @@ The app no longer reads this file by default. It is kept as the offline option b
 
 ### `src/state/semester-store.tsx`
 
-Plain React context holding the one semester, plus `toggleDone(taskId)` and `setEstimate(taskId, hours)`. Both go through one `updateTask` helper, and both change the forecast because the forecast is computed from the tasks.
+Plain React context holding the one semester, plus `toggleDone(taskId)` and `saveTask(taskId, change)` (US-44). Both go through one `changeTask` helper, and both change the forecast because the forecast is computed from the tasks. `saveTask` saves a task's hours, title or due week first (on the server, PATCH /tasks/:id through `updateTask` in `api.ts`; with no server, on the device) and then uses what was kept; if the save rejects, nothing changes. It replaced `setEstimate`, which only changed the phone's copy, so **Add estimate** on a row is now saved on the server too.
 
 It exists for one reason: marking a task done on the week screen has to change the forecast on the semester screen. Two screens, one source of truth.
 
@@ -275,7 +275,7 @@ The assignments behind the selected week, each with the hours it puts into that 
 
 ### `src/components/EstimateEditor.tsx`
 
-An **Add estimate** link for a task that has no estimate. Saving runs the text through `parseEstimate`; invalid text shows an error and saves nothing. Once a task has an estimate the link goes away. A task with no estimate stays in the list and contributes nothing to the forecast until it has one.
+An **Add estimate** link for a task that has no estimate. Saving runs the text through `parseEstimate`; invalid text shows an error and saves nothing. Otherwise it waits for `onSave` (the store's `saveTask`, US-44): the box closes when it resolves, and if it rejects the box stays open with the hours typed and "Could not save. Try again." Once a task has an estimate the link goes away. A task with no estimate stays in the list and contributes nothing to the forecast until it has one.
 
 ### `src/components/CapacityEditor.tsx`, `src/lib/capacity.ts`
 
@@ -284,6 +284,12 @@ US-32. The line under the week strip with **Change** beside it. Change opens a b
 ### `src/components/TaskRow.tsx`
 
 One assignment as a row on the This week screen: category tile, title, details (course, hours or "Add estimate", "Was week N", "start now") and a circle with a faint tick, so it reads as the thing to tap. The circle has `accessibilityRole="checkbox"` and a label naming the work it completes.
+
+US-44: given `onOpen`, tapping the tile or the words opens the task's details (`app/task/[id].tsx`), and a › after the title says so. The bigger area is `accessible={false}`, so screen readers reach the same action through the title (a button named "Midterm, MATH 251") and can still reach **Add estimate** and **Undo** on their own. The tick circle is outside it.
+
+### `src/app/task/[id].tsx`, `src/lib/task-edit.ts`
+
+US-44 (#159). An assignment's details: its title, course, due week (with "overdue" when it is past and not done), the weeks a long task is worked on, its kind, whether it is done, and its hours. One card changes the title, due week and hours with one **Save**. `checkTaskEdit` (`lib/task-edit.ts`) checks them with the server's rules (a title that is not blank, week 1 to 15, hours more than 0 and up to 100 or blank) and returns only the fields that changed, so nothing is sent when nothing changed. Saving goes through the store's `saveTask`; if it fails, the screen says "Could not save, so nothing has changed." with the reason. The course and kind are not editable.
 
 US-45: with `markedDone`, the row stays where it is but looks finished: the title is struck through, the circle is filled, "Marked done" and an **Undo** link show under the details, and tapping the circle or Undo calls `onUndo`.
 
@@ -472,7 +478,7 @@ The weights and policies are returned but not saved yet (#144). The reminder (#1
 - **`checkin.ts`** (#155): `buildSnapshot` builds what the AI is shown: the current week, and each course with its open tasks from this week on and when the student last answered about it. It leaves out courses with nothing open and courses answered in the last 7 days (`RECENTLY_CONFIRMED_DAYS`), so "Yes" means "don't ask again for a while". `checkModelAnswer` checks the AI's answer: the course must be one from the snapshot or nothing is asked, and a reason that is blank, over 200 characters or has a digit in it is dropped, because the AI never produces a number. The question's words come from code, not the AI.
 - **`checkin-routes.ts`** (#155): `checkinRouter(store, model)` gives `GET /checkin` (`{ question }` or `{ question: null }`; never an error, since the card is optional, and any AI failure or answer that is not JSON just means no question) and `POST /checkin` (`{ courseId, answer, changes? }`; 400 for a bad answer, a bad change or changes with the wrong answer, 404 for an unknown course; for `changed`, every change is checked before any is saved, then `store.updateTask` gets the new `dueWeek` and `estimatedHours`, and `store.saveCheckin` records the answer and its time). `app.ts` makes the model once with `createModelClient()` and hands the same one to `aiRouter` and `checkinRouter`.
 
-`updateTask` in both stores can now change `dueWeek` too, for the check-in's "Something changed". `PATCH /tasks/:id` does not send it, so that route is unchanged.
+`updateTask` in both stores can now change `dueWeek` too, for the check-in's "Something changed". US-44 (#159) adds `title`, and `PATCH /tasks/:id` now accepts both: a `title` that is not blank (trimmed) and a `dueWeek` from 1 to 15, checked with the other fields before anything changes. The Supabase store used to return before adding `due_week` when nothing else changed, so a change of week on its own (the check-in card) was never saved; every field is now gathered first. Tests: `server/src/__tests__/task-details.test.ts`.
 
 ### Supabase SQL Scripts
 
@@ -554,6 +560,9 @@ npx jest --watch              # while you work
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
 | `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
 | `src/__tests__/checkin-question.test.tsx` | 8 | #155, AI screen 2: the question and reason above the figures, no card with no question, Yes, the week and hours boxes for the course's open tasks, Save sending only what changed and the forecast redrawing, a bad week refused, None of these, a failed save keeping the card |
+| `src/__tests__/task-detail.test.tsx` | 49 | US-44: the row opening the details by its id and through the title for a screen reader, the tick and Add estimate still working on their own; what the details show (title, course, due, overdue, worked on, kind, status, hours, a missing task); changing the hours, title and due week with refusals and nothing saved when a box is wrong; saving on the server first, only what changed, what the server kept, a failed save changing nothing, Saving… and no double save; Add estimate on the row saved on the server, and kept open when it fails |
+| `src/lib/task-edit.test.ts` | 26 | US-44: `editTextFor` and `checkTaskEdit`: only the changed fields, trimming, blank hours clearing, and the title, week and hours limits |
+| `src/lib/update-task-api.test.ts` | 12 | `updateTask`: a JSON PATCH to /tasks/:id with only the given fields, a new title and week, null to clear hours, an id kept inside its part of the address, the server's message, a missing task, an unreachable server, and replies that are not that task |
 | `src/__tests__/marked-done.test.tsx` | 8 | US-45: the ticked task staying in place marked done with Undo and not yet in Completed, the hours question directly under it, the figures dropping straight away, moving to Completed on Skip and on Save then Close, Undo and the filled circle putting it back, and a second tick moving the first task on |
 
 

@@ -249,6 +249,20 @@ assignment, or square cards in two columns. Rows shipped. A heavy week is when t
 list is longest, and cards would halve the number of items visible without
 scrolling.
 
+### An assignment's details (US-44)
+
+Tapping an assignment's tile or words opens its details; a › after the title says it
+opens. The tick circle still only marks it done. The details show the title, the
+course, the due week ("overdue" when it has passed), the weeks a long task is worked
+on, its kind, whether it is done, and its hours. One card corrects the **title**,
+**due week** and **hours** with one **Save**: the same rules as the server, only what
+changed is sent, it is saved before the forecast changes, and a failed save changes
+nothing and says why. **Add estimate** on a row is saved on the server the same way.
+The course and kind are not editable here.
+
+<img src="ui/screenshots/us-44-week-rows.png" alt="This week: each assignment with a › after its title, showing it opens" width="200">
+<img src="ui/screenshots/us-44-details-saved.png" alt="Problem set 1's details after changing its title and moving it to week 4: Saved. Your forecast uses these details now." width="200">
+
 ### Marking work done
 
 A circle with a tick inside, not a labelled button. The tick says what tapping does,
