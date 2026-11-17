@@ -658,6 +658,7 @@ The splash plugin displays its image at width 120 on `#1F5C6B`. The approved she
 
 The master colour and monochrome symbols, every platform SVG and the generator are in `docs/ui/logo/`. To rebuild from that folder in PowerShell without adding a repository dependency:
 
+
 ```powershell
 npm install --prefix "$env:TEMP\crunch-week-logo-renderer" --no-save --package-lock=false @resvg/resvg-js@2.6.2
 $env:NODE_PATH = "$env:TEMP\crunch-week-logo-renderer\node_modules"
@@ -665,3 +666,19 @@ node .\build.js
 ```
 
 Generated files go to the ignored `out/` folder beside the script. Its six platform PNGs can be copied to `client/assets/images/`. Preview rendering uses system fonts, so text on the sheet can vary on another machine. The shorter `npx -p @resvg/resvg-js@2.6.2 node build.js` command did not resolve the package here; the temporary install above was verified instead.
+
+
+## First run (US-47)
+
+A new account sees a short welcome once, right after Create account succeeds. It is a full screen over the tabs, with no header: a "Step 1 of 3" line, Skip at the top right on steps 1 and 2, and one card per step.
+
+| Step | Heading | What it does |
+|---|---|---|
+| 1 | Plan your weeks before they get heavy | Two sentences: the app adds up the hours assignments need, week by week, and shows the student's heavy weeks (the ones that need more than their allocated time) and when to start. Next. |
+| 2 | How many hours do you set aside for schoolwork each week? | The student's allocated time, in the weekly hours box from US-32, filled with the current hours: whole hours, 1 to 80 (the same rule and messages as the Change box on Forecast). Save and continue keeps them; the same number just moves on; a failed save stays on the step and says the hours have not changed. |
+| 3 | Add your first course | A course comes first, then its syllabus, so the button is Add a course (the empty screens use the same order). Later closes the welcome. A line says where to find it again. |
+
+- **Skip and Later** close the welcome and go back to where the student was, which after sign-up is Forecast's empty screen.
+- **Reopening:** a ? icon beside Log out on Forecast and on the empty screens (accessibility label "How Crunch Week works") opens the same three steps. The app has no Settings screen yet, so Help lives in the header.
+- **Once:** it opens only after Create account, never after Log in or when a kept session opens the app. The app remembers it in the session, not on the phone: an account is only created once, so there is nothing to look up later. If a later version also shows it to students who signed up elsewhere, a per-account flag can move to the server with the tables (#127).
+- **Words:** the welcome uses the terms in "Words we use" (§9, US-43): **allocated time** and **heavy week**, and "Hours you set aside each week" for the hours box, the same label as the Change box on Forecast.
