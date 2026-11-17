@@ -186,6 +186,8 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `saveWeeklyCapacity(hours)` sends new weekly hours to PATCH /semester (US-32) and returns the hours the server kept, or rejects with the server's message. Its tests are in `src/lib/save-capacity-api.test.ts`.
 
+`saveWeekHours(week, hours)` gives one week its own hours, or clears them with `null`, through PATCH /semester/weeks/:week (#148), and returns every week the server holds with its own hours. Its tests are in `src/lib/save-week-hours-api.test.ts`.
+
 `addReview` posts how long a finished assignment took to POST /courses/:id/reviews (US-23) and returns the stored review, or rejects with the server's message.
 
 `getAiStatus()` asks `GET /ai/status` whether the server has an AI (issue #145). It never throws: any problem counts as "no", so the app uses its simple scanner. `readSyllabusWithAi(text)` posts the text to `POST /ai/syllabus` and returns what the AI read, already checked by the server (`AiReading`). It takes about 30 seconds, and it rejects with the server's own message when it refuses.
@@ -271,13 +273,19 @@ The one place on Forecast that tells the student what to do, and the only solid-
 
 ### `src/components/WeekDetail.tsx`
 
-The assignments behind the selected week, each with the hours it puts into that week. It answers "why is this bar tall?".
+The assignments behind the selected week, each with the hours it puts into that week. It answers "why is this bar tall?". Forecast passes a `footer`: the `WeekHoursEditor` for that week (#148).
+
+### `src/components/WeekHoursEditor.tsx`
+
+#148, the follow-up to US-32. Under a tapped week's assignments: "You have 15 hours in week 6, your weekly number" with **Change**, or "…set for this week only" with **Use my weekly hours** too. Change opens a box with the week's hours; Save checks them with `parseWeeklyHours` (whole hours, 1 to 80). Typing the weekly number clears the week's own hours instead of saving a copy of it, and hours that would change nothing are not saved. It calls `onSave` (the store's `setWeekHours`), which saves first; if that rejects, it says "Could not save. Week 6 still has 15 hours." and nothing moves.
 
 ### `src/components/EstimateEditor.tsx`
 
 An **Add estimate** link for a task that has no estimate. Saving runs the text through `parseEstimate`; invalid text shows an error and saves nothing. Once a task has an estimate the link goes away. A task with no estimate stays in the list and contributes nothing to the forecast until it has one.
 
 ### `src/components/CapacityEditor.tsx`, `src/lib/capacity.ts`
+
+`capacityByWeek(semester)` (#148) returns the hours the student has in each week: a week's own hours (`semester.weekHours`) where they set some, the weekly number everywhere else. `ownWeekHours(semester, week)` is a week's own hours or null. The calculations take a `Capacity` (`lib/workload.ts`): one number for every week, or a function of the week, read with `capacityIn`. `detectCrunch`, `nextWall`, `crunchPeriodAt` and `courseSpikes` use each week's own hours, and so do the strip's line and bar colours, the load pill and "/ N hrs" for this week, the action card's "You have N free that week" and the notices on Courses. `plannedStart` (when to begin a long task) still uses the weekly number, as a steady rate. Tests: `src/lib/week-hours.test.ts` and `src/__tests__/week-hours.test.tsx`.
 
 US-32. The line under the week strip with **Change** beside it. Change opens a box with the current hours, and **Save** runs the text through `parseWeeklyHours` (`lib/capacity.ts`): whole hours from `MIN_WEEKLY_HOURS` (1) to `MAX_WEEKLY_HOURS` (80), the same range PATCH /semester accepts. Invalid text shows a message and keeps nothing; the same hours again just close the box. Otherwise it calls `onSave` (the store's `setWeeklyCapacity`) and closes when that resolves. If it rejects, the box stays open with "Could not save. Your hours are still N." Nothing on screen moves until Save.
 
@@ -446,6 +454,8 @@ The order of what runs on each request matters (US-21, #44):
 
 `PATCH /semester` (US-32) takes `{ weeklyCapacity }`, a whole number of hours from 1 to 80, and returns the whole semester with it. Anything else is a 400 with a JSON error, and nothing changes. Its tests are in `server/src/__tests__/weekly-capacity.test.ts` (test plan row TP-36).
 
+`PATCH /semester/weeks/:week` (#148) takes `{ hours }`, a whole number from 1 to 80 or `null`, and gives that week its own hours (or clears them) in `week_hours`, through the store's `setWeekHours`. It returns every week with its own hours, in order. A week outside 1 to 15, or other hours, is a 400 and nothing changes. `GET /semester`, `PATCH /semester` and `POST /semester/sample` include `weekHours` (`withWeekHours` in `app.ts`), so the phone gets them with the semester. It is a PATCH, not a PUT, because the web app's CORS answer allows only GET, POST and PATCH. Tests: `server/src/__tests__/week-hours.test.ts`.
+
 ### `server/src/rules.ts`
 
 Rules that code checks, shared by the routes (#144). `gradeWeightsProblem` returns the message to show, or null: each grade weight is named and worth more than 0% and at most 100%, and together they add up to 100%, which the database cannot check because it spans rows. `MAX_WEEKLY_CAPACITY` (80) lives here, used by `PATCH /semester`; the database's `week_hours` uses the same limit. `MAX_HOURS` (100) and `isValidHours` (more than 0 and up to 100) moved here from `app.ts` (#155), so both `app.ts` and the check-in route use the same rule. Tests: `rules.test.ts`.
@@ -550,6 +560,9 @@ npx jest --watch              # while you work
 | `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
 | `src/lib/capacity.test.ts` | 15 | US-32: `parseWeeklyHours` reading whole hours from 1 to 80, and refusing blank, 0, 81, decimals, negatives and words |
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |
+| `src/lib/save-week-hours-api.test.ts` | 8 | `saveWeekHours`: a JSON PATCH to /semester/weeks/:week, null to clear, the weeks it returns, the server's message on a refusal, an unreachable server, replies that are not a list of weeks |
+| `src/lib/week-hours.test.ts` | 12 | #148: `capacityByWeek`, `ownWeekHours` and `capacityIn`; the wall and the crunch moving when a week gets more or fewer hours, a week exactly at its own hours fitting, the same answers as before with no weeks of their own, and spikes measured against a week's own hours |
+| `src/__tests__/week-hours.test.tsx` | 25 | #148: the tapped week's hours and Change; setting a week moving the wall, stepping the dashed line, recolouring that bar and its screen reader label, the pill and figures for this week; refused values; the weekly number clearing the week; Cancel; Use my weekly hours; saving on the server first, null to clear, a failed save keeping the old hours, nothing saved when nothing changes; This week and the Courses notices using the week's hours |
 | `src/__tests__/weekly-capacity.test.tsx` | 15 | US-32: Change and the box with the current hours, the forecast and This week redrawn after Save (pill, wall, crunch, "/ 20 hrs"), refused values, nothing moving while typing, Cancel, saving on the server first, a failed save keeping the old hours, and the same hours not saved again |
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
 | `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |

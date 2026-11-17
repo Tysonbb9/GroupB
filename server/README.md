@@ -236,13 +236,14 @@ curl -b cookies.txt http://localhost:3000/semester
 | GET | `/catalog?q=TEXT` | Search shared codes and names, ranked exact code then code prefix then other matches; at most 10, each with enrolled | 200 | 400 for missing, blank or unusable q |
 | POST | `/courses/:id/enroll` | Join a catalog course; joining again is unchanged | 200 with the course | 404 for an unknown catalog id |
 | POST | `/courses` | Trim code and name, create a new course and enroll the caller | 201 with the course | 400 for invalid text; 409 with error and existing course for a duplicate code |
-| GET | `/semester` | Shared calendar with this student's capacity, enrolled courses and tasks; new accounts are empty with capacity 15 | 200 | |
+| GET | `/semester` | Shared calendar with this student's capacity, weeks with their own hours (`weekHours`), enrolled courses and tasks; new accounts are empty with capacity 15 | 200 | |
 | POST | `/semester/sample` | Enroll in five sample courses, copy 36 tasks; use capacity 15 only when unset | 201 with the whole semester | 409 if any enrollment or task already exists |
 | GET | `/courses` | All courses | 200 | |
 | GET | `/courses/:id` | One course | 200 | 404 |
 | GET | `/tasks` | All tasks. Filters: `?courseId=`, `?week=`, `?done=true\|false` | 200 | 400 bad `week` or `done` |
 | GET | `/tasks/:id` | One task | 200 | 404 |
 | PATCH | `/semester` | Set the weekly capacity: `{ weeklyCapacity }`, a whole number of hours from 1 to 80. Returns the whole semester | 200 | 400 bad body |
+| PATCH | `/semester/weeks/:week` | Give one week its own hours (#148): `{ hours }`, a whole number from 1 to 80, or `null` to use the weekly number again. Returns every week with its own hours. `GET /semester` includes them as `weekHours` | 200 | 400 bad week or body |
 | PATCH | `/tasks/:id` | Update `done` and/or `estimatedHours` | 200 | 400 bad body, 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
 | GET | `/ai/status` | `{ available }`: whether the server has an AI to read syllabi with | 200 | |

@@ -511,7 +511,7 @@ Text ids keep the API contract byte-for-byte identical.
 | grade weights add up to 100% | — (spans rows) | `gradeWeightsProblem` (`rules.ts`) | — (#145) |
 | late rule both-null-or-both-set, 0 < p ≤ 100, days ≥ 1 | `CHECK` on `course_policies` | — (#145 adds its route) | — (#145) |
 | check-in answer closed set | `CHECK` on `course_checkins` | `CheckinAnswer` type (`types.ts`) | — (#145) |
-| week hours: week 1–15, hours whole 1–80 | `CHECK` on `week_hours` | — (#148 adds its route; same 80 as `MAX_WEEKLY_CAPACITY`) | — (#148) |
+| week hours: week 1–15, hours whole 1–80 | `CHECK` on `week_hours` | `PATCH /semester/weeks/:week` (#148; same 80 as `MAX_WEEKLY_CAPACITY`) | `WeekHoursEditor` (#148) |
 
 ---
 
