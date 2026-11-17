@@ -61,6 +61,7 @@ export default function CoursesScreen() {
         <ScreenHeader
           eyebrow={`${semester.courses.length} courses · ${semester.label}`}
           title="Courses"
+          week={semester.currentWeek}
           right={
             <Pressable
               testID="go-to-syllabus"

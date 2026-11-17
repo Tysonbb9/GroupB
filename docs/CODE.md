@@ -222,7 +222,7 @@ The app no longer reads this file by default. It is kept as the offline option b
 
 ### `src/state/semester-store.tsx`
 
-Plain React context holding the one semester, plus `toggleDone(taskId)` and `setEstimate(taskId, hours)`. Both go through one `updateTask` helper, and both change the forecast because the forecast is computed from the tasks.
+Plain React context holding the one semester, plus `toggleDone(taskId)` and `saveTask(taskId, change)` (US-44). Both go through one `changeTask` helper, and both change the forecast because the forecast is computed from the tasks. `saveTask` saves a task's hours or due week first (on the server, PATCH /tasks/:id through `updateTask` in `api.ts`; with no server, on the device) and then uses what was kept; if the save rejects, nothing changes. It replaced `setEstimate`, which only changed the phone's copy, so **Add estimate** on a row is now saved on the server too.
 
 It exists for one reason: marking a task done on the week screen has to change the forecast on the semester screen. Two screens, one source of truth.
 
@@ -259,7 +259,7 @@ Who is signed in (US-20), in a React context: `checking` (still looking for a sa
 
 The bar chart. Fifteen bars, height proportional to projected hours, colour from `loadColor` in `theme.ts`, and a dashed line at the student's capacity so "over the line" is literal.
 
-Each bar is a button with `testID="week-bar-N"` and an accessibility label naming its week and hours. Tapping it selects that week (`onSelectWeek`). The selected week's bar is outlined, starting with the current week, and the current week's axis number is in the accent colour. The next week over capacity (`wallWeek`) is numbered in the warning colour.
+Each bar is a button with `testID="week-bar-N"` and an accessibility label naming its week and hours. Tapping it selects that week (`onSelectWeek`). The selected week's bar is outlined, starting with the current week, and the current week's axis number is in the accent colour, with "Now" (`testID="week-now"`) under it so colour is not the only signal (US-46). The next week over capacity (`wallWeek`) is numbered in the warning colour.
 
 Under the bars, one line names the capacity ("Dashed line is your 15 hours a week"). When the screen passes `onSaveCapacity`, as Forecast does, that line is a `CapacityEditor`, so the student can change it.
 
@@ -281,7 +281,7 @@ The assignments behind the selected week, each with the hours it puts into that 
 
 ### `src/components/EstimateEditor.tsx`
 
-An **Add estimate** link for a task that has no estimate. Saving runs the text through `parseEstimate`; invalid text shows an error and saves nothing. Once a task has an estimate the link goes away. A task with no estimate stays in the list and contributes nothing to the forecast until it has one.
+An **Add estimate** link for a task that has no estimate. Saving runs the text through `parseEstimate`; invalid text shows an error and saves nothing. Otherwise it waits for `onSave` (the store's `saveTask`, US-44): the box closes when it resolves, and if it rejects the box stays open with the hours typed and "Could not save. Try again." Once a task has an estimate the link goes away. A task with no estimate stays in the list and contributes nothing to the forecast until it has one.
 
 ### `src/components/CapacityEditor.tsx`, `src/lib/capacity.ts`
 
@@ -293,6 +293,12 @@ US-32. The line under the week strip with **Change** beside it. Change opens a b
 
 One assignment as a row on the This week screen: category tile, title, details (course, hours or "Add estimate", "Was week N", "start now") and a circle with a faint tick, so it reads as the thing to tap. The circle has `accessibilityRole="checkbox"` and a label naming the work it completes.
 
+US-44: given `onOpen`, tapping the tile or the words opens the task's details (`app/task/[id].tsx`), and a › after the title says so. The bigger area is `accessible={false}`, so screen readers reach the same action through the title (a button named "Midterm, MATH 251") and can still reach **Add estimate** and **Undo** on their own. The tick circle is outside it.
+
+### `src/app/task/[id].tsx`, `src/lib/task-edit.ts`
+
+US-44 (#159). An assignment's details: its title, course, due week (with "overdue" when it is past and not done), the weeks a long task is worked on, its kind, whether it is done, and its hours. One card changes the due week and hours with one **Save**; the title is left out for now. `checkTaskEdit` (`lib/task-edit.ts`) checks them with the server's rules (week 1 to 15, hours more than 0 and up to 100 or blank) and returns only the fields that changed, so nothing is sent when nothing changed. Saving goes through the store's `saveTask`; if it fails, the screen says "Could not save, so nothing has changed." with the reason. The course and kind are not editable.
+
 US-45: with `markedDone`, the row stays where it is but looks finished: the title is struck through, the circle is filled, "Marked done" and an **Undo** link show under the details, and tapping the circle or Undo calls `onUndo`.
 
 ### `src/components/CompletedTasks.tsx`
@@ -302,6 +308,12 @@ The finished work on the This week screen (US-31). It draws one "Completed (n)" 
 ### `src/components/HoursReview.tsx`
 
 US-23. The card This week shows when a task is ticked done: "How long did it take you?" with an hours box, Save, and Skip. The hours are checked with `parseEstimate` (more than 0, up to 100) before anything is sent, then stored with `addReview`, which the server saves in the `reviews` table. A thank-you replaces the box once saved; the server's message is shown if saving fails.
+
+### `src/components/ReminderCard.tsx`
+
+#156, AI screen 3 (`docs/ui/ai-screens.html`). A reminder at the top of Forecast: the course and assignment ("MATH 251 · Problem set 1"), one line with one action and one number ("Finish it this week: 3 hours, due week 3."), and "1 of 2 today", so the daily limit is visible rather than trusted. **Open This week** goes there; **Dismiss** closes it. The mockup draws a phone notification; the app has no notifications yet, so this first version shows the same content as a card. The server decides when there is one; the card only shows it.
+
+<img src="ui/screenshots/156-reminder.png" alt="Forecast with a reminder card at the top: MATH 251, Problem set 1, Finish it this week: 3 hours, due week 3, 1 of 2 today, Open This week and Dismiss" width="200">
 
 ### `src/components/CheckinCard.tsx`
 
@@ -326,7 +338,7 @@ The courses on the Courses tab, one card each: code and name, absences left (a s
 
 ### `src/components/ScreenHeader.tsx`, `LoadPill.tsx`
 
-Every tab draws its own header with `ScreenHeader`: a small line placing it in the semester ("Fall 2026 · Week 3 of 15"), a large title, and whatever belongs beside it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
+Every tab draws its own header with `ScreenHeader`: a small line naming the semester ("Fall 2026"), a large title, and whatever belongs beside it. Given `week`, it shows `WeekChip` under the title, "Week 3 of 15" from `semester.currentWeek` and `WEEKS_IN_SEMESTER` (US-46); every tab passes it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
 
 ### `src/components/SummaryRow.tsx`
 
@@ -335,6 +347,16 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 ### `src/components/LogOutButton.tsx`
 
 `LogOutButton` is the log-out icon beside the Forecast title, and `LogOutLink` is the same action as a line of text, for the loading and error screens. Both call `signOut()`, and the root layout takes the student back to Log in. Both draw nothing when there is no session around the screen.
+
+### `src/components/DraftCard.tsx`
+
+Issue #146: the editable assignment card used by the syllabus review screen. It
+keeps the existing field test IDs, labels and edit/remove callbacks, with a wrapping
+title, visible Week and Hours labels, 44-pixel controls and an accessible ready or
+needs-review icon. `DraftNotice` gives hints and errors the same icon-and-words
+layout. `DraftBlocker` derives a singular or plural missing-week/fixing summary from
+`checkDraft`, hiding it when nothing is invalid. It does not change the Add action,
+block duplicates or save any data.
 
 ### `src/components/Figure.tsx`, `SectionHeader.tsx`
 
@@ -360,7 +382,7 @@ Route: `/`
 
 One focus: the header (with the load label and the log-out icon), the week figures and week strip, and the wall card with its **Plan this week** button. A week's assignments (`WeekDetail`) open when its bar is tapped and close on a second tap. Below, two rows open the Courses tab: **Heads up** (how many notices in the next three weeks) and **Course spikes** (the course with the heaviest single week).
 
-When the semester comes from the server, the screen asks `fetchCheckinQuestion` once and shows `CheckinCard` above the figures if there is a question (#155). With sample data, no AI on the server, or any failure, there is no card and the screen is as before.
+When the semester comes from the server, the screen asks `fetchReminder` once and shows `ReminderCard` at the top if the server gives one (#156), then asks `fetchCheckinQuestion` once and shows `CheckinCard` above the figures if there is a question (#155). Each is asked for once, because a reminder the server hands out counts toward the day's limit. With sample data, no AI on the server, or any failure, there is no card and the screen is as before.
 
 It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size and clearer than caching.
 
@@ -390,6 +412,12 @@ Two forms on one screen: **Log in** (email and password) and **Create account** 
 Route: `/syllabus`, reached from the **+ Syllabus** button on the Courses tab (US-28).
 
 The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Each assignment found is shown as boxes for its title, due week and hours, with a Remove link (US-30). Add to semester checks every one with checkDraft (lib/review.ts) and shows a message on each bad one. When all are valid it saves them with POST /tasks and only then adds them to the semester, so the forecast never changes while the student is still reviewing.
+
+Issue #146 gives the results a soft accent review banner, an ASSIGNMENTS section
+header and count, a course context line, and extracted `DraftCard` rows. A summary
+under Add explains invalid drafts using the existing checks. The extras use GRADE
+WEIGHTS and POLICIES headers with labels left and values right, retaining the
+not-saved notice. Intake, scanner, AI run fencing and saving are unchanged.
 
 **Choose PDF** (US-29) opens the file picker (`lib/pick-pdf.ts`), sends the PDF to `POST /syllabus/text` with `extractSyllabusText`, puts the text that comes back in the text box, and scans it like pasted text. When the server cannot read the PDF (scanned, locked, too large), its message is shown above the text box, so the student can paste the text instead.
 
@@ -480,9 +508,11 @@ One module talks to a language model, and everything else goes through it, so te
 The weights and policies are returned but not saved yet (#144). The reminder (#156) will build on `ModelClient` too.
 
 - **`checkin.ts`** (#155): `buildSnapshot` builds what the AI is shown: the current week, and each course with its open tasks from this week on and when the student last answered about it. It leaves out courses with nothing open and courses answered in the last 7 days (`RECENTLY_CONFIRMED_DAYS`), so "Yes" means "don't ask again for a while". `checkModelAnswer` checks the AI's answer: the course must be one from the snapshot or nothing is asked, and a reason that is blank, over 200 characters or has a digit in it is dropped, because the AI never produces a number. The question's words come from code, not the AI.
+- **`reminders.ts`** (#156): the limits around a reminder, in code with no model call. `pickReminder(semester, shown, now)` returns nothing once `MAX_REMINDERS_PER_DAY` (2) were shown that day (UTC), and otherwise the open assignment with hours, due this week or next, never reminded about before: soonest due first, then most hours, then by id. `reminderText` is the fixed line ("Start it this week: 6 hours, due week 4." or "Finish it this week: …" for work due now). `ReminderLog` is the record of what was shown and when, in memory as the card asks, so a restart forgets it; moving it to the database can follow. `nextReminder` picks, records and returns what the phone shows, with `countToday`. "Never during class" waits for a class timetable.
+- **`reminder-routes.ts`** (#156): `reminderRouter(store, model, log, now)` gives `POST /reminders` (`{ reminder }` or `{ reminder: null }`; never an error). It is a POST because the reminder it gives is recorded. With no AI set up it always answers null, so the app works as before; the first version never calls the model. The log and the clock are parameters, so tests use a fixed clock.
 - **`checkin-routes.ts`** (#155): `checkinRouter(store, model)` gives `GET /checkin` (`{ question }` or `{ question: null }`; never an error, since the card is optional, and any AI failure or answer that is not JSON just means no question) and `POST /checkin` (`{ courseId, answer, changes? }`; 400 for a bad answer, a bad change or changes with the wrong answer, 404 for an unknown course; for `changed`, every change is checked before any is saved, then `store.updateTask` gets the new `dueWeek` and `estimatedHours`, and `store.saveCheckin` records the answer and its time). `app.ts` makes the model once with `createModelClient()` and hands the same one to `aiRouter` and `checkinRouter`.
 
-`updateTask` in both stores can now change `dueWeek` too, for the check-in's "Something changed". `PATCH /tasks/:id` does not send it, so that route is unchanged.
+`updateTask` in both stores can now change `dueWeek` too, for the check-in's "Something changed". US-44 (#159): `PATCH /tasks/:id` now accepts it too, a `dueWeek` from 1 to 15, checked with the other fields before anything changes. A title is ignored; renaming is left out for now. A body with none of `done`, `estimatedHours` or `dueWeek` is a 400 (TP-28), but any one on its own is enough, so the details screen can send just a new week. The Supabase store used to return before adding `due_week` when nothing else changed, so a change of week on its own (the check-in card) was never saved; every field is now gathered first. Tests: `server/src/__tests__/task-details.test.ts`.
 
 ### Supabase SQL Scripts
 
@@ -506,7 +536,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 980 tests across 50 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 995 tests across 51 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -556,7 +586,8 @@ npx jest --watch              # while you work
 | `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
 | `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
 | `src/lib/ai-api.test.ts` | 16 | Issue #145: `getAiStatus` (true only when the server says available, false and never throwing for an error, a wrong shape, bad JSON or no server) and `readSyllabusWithAi` (the JSON it posts, the server's message on a refusal, six wrong shapes rejected, the unreachable-server message) |
-| `src/__tests__/ai-syllabus.test.tsx` | 24 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, weights and policies shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, a warning when the server dropped items, a non-blocking wrong-course warning cleared on a course switch, and duplicate hints that update on edits and allow Add or Remove |
+| `src/__tests__/draft-card.test.tsx` | 15 | Issue #146: titles kept on one line (Return finishes editing, pasted line breaks become spaces); good, missing-week, duplicate, error, long-title and invalid-value states; labelled editing and Remove; accessible status; singular/plural blockers, mixed invalid inputs and hidden valid/empty summaries |
+| `src/__tests__/ai-syllabus.test.tsx` | 24 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, the review banner/count and live blocker summary, grade-weight/policy section labels and paired values shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, a warning when the server dropped items, a non-blocking wrong-course warning cleared on a course switch, and duplicate hints that update on edits and allow Add or Remove |
 | `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
 | `src/lib/capacity.test.ts` | 15 | US-32: `parseWeeklyHours` reading whole hours from 1 to 80, and refusing blank, 0, 81, decimals, negatives and words |
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |
@@ -566,14 +597,21 @@ npx jest --watch              # while you work
 | `src/__tests__/weekly-capacity.test.tsx` | 15 | US-32: Change and the box with the current hours, the forecast and This week redrawn after Save (pill, wall, crunch, "/ 20 hrs"), refused values, nothing moving while typing, Cancel, saving on the server first, a failed save keeping the old hours, and the same hours not saved again |
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
 | `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
+| `src/__tests__/reminder.test.tsx` | 9 | #156, AI screen 3: the reminder on Forecast with its course, assignment, line and "1 of 2 today", "2 of 2", no card when there is none or asking fails, asked for only once, Open This week, Dismiss, above the check-in question, and never asked for with sample data |
+| `src/lib/reminder-api.test.ts` | 9 | `fetchReminder`: a POST to /reminders, the reminder or null, the server's message, an unreachable server, and replies that are not a reminder |
 | `src/__tests__/checkin-question.test.tsx` | 8 | #155, AI screen 2: the question and reason above the figures, no card with no question, Yes, the week and hours boxes for the course's open tasks, Save sending only what changed and the forecast redrawing, a bad week refused, None of these, a failed save keeping the card |
+| `src/__tests__/task-detail.test.tsx` | 46 | US-44: the row opening the details by its id and through the title for a screen reader, the tick and Add estimate still working on their own; what the details show (title, course, due, overdue, worked on, kind, status, hours, a missing task); changing the hours and due week, no title box, refusals and nothing saved when a box is wrong; saving on the server first, only what changed, what the server kept, a failed save changing nothing, Saving… and no double save; Add estimate on the row saved on the server, and kept open when it fails |
+| `src/lib/task-edit.test.ts` | 20 | US-44: `editTextFor` and `checkTaskEdit`: only the changed fields, blank hours clearing, and the week and hours limits |
+| `src/lib/update-task-api.test.ts` | 12 | `updateTask`: a JSON PATCH to /tasks/:id with only the given fields, a new due week, null to clear hours, an id kept inside its part of the address, the server's message, a missing task, an unreachable server, and replies that are not that task |
 | `src/__tests__/marked-done.test.tsx` | 8 | US-45: the ticked task staying in place marked done with Undo and not yet in Completed, the hours question directly under it, the figures dropping straight away, moving to Completed on Skip and on Save then Close, Undo and the filled circle putting it back, and a second tick moving the first task on |
+| `src/__tests__/current-week.test.tsx` | 22 | US-46: the Week N of 15 chip on Forecast, This week and Courses, following `currentWeek` rather than a fixed number, the semester name kept above the title, the old line gone, and "Now" under the current week on the strip, in its own column, moving with the semester, with every week number still drawn |
 
 
 
 
 
 The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 695 passing in 31 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
+The reminder (#156) is covered by `reminders.test.ts` (the limits with a fixed clock: two a day, the next day, never twice about one assignment, which assignments qualify and in what order, the fixed line, and the log) and `reminder-routes.test.ts` (no AI means no reminder, the model never called, the second and third requests in a day, the next day, done work skipped, a student with no tasks, and 401 without login).
 The check-in question (#155) is covered by `checkin.test.ts` (the snapshot and the check on the AI's answer) and `checkin-routes.test.ts` (both routes with a fake AI: no AI means no question, a foreign course dropped, an AI that fails or answers with non-JSON, no repeat after answering, saving changes all or nothing, 400s, 404, and 401 without login).
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
 

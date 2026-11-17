@@ -93,6 +93,7 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 | `db/seed.sql` | Loads the shared calendar and catalog: 1 semester, 5 courses, no student tasks |
 | `db/migration_course_catalog.sql` | Backfills normalized code identity with a unique index and adds search and atomic create-and-enroll functions. Run after migration_own_semester.sql. |
 | `db/migration_own_semester.sql` | Adds student settings and task ownership, deletes only ownerless sample tasks and adds the transactional sample-copy function. Run after the existing migrations. |
+| `db/migration_atomic_task_ids.sql` | Adds atomic, student-scoped syllabus task creation. Run on existing databases after the student ownership migration and before deploying the matching server code. |
 | `db/reset.sql` | **Deletes every table and all data**, including saved reviews and accounts |
 
 On an empty project:
@@ -244,9 +245,10 @@ curl -b cookies.txt http://localhost:3000/semester
 | GET | `/tasks/:id` | One task | 200 | 404 |
 | PATCH | `/semester` | Set the weekly capacity: `{ weeklyCapacity }`, a whole number of hours from 1 to 80. Returns the whole semester | 200 | 400 bad body |
 | PATCH | `/semester/weeks/:week` | Give one week its own hours (#148): `{ hours }`, a whole number from 1 to 80, or `null` to use the weekly number again. Returns every week with its own hours. `GET /semester` includes them as `weekHours` | 200 | 400 bad week or body |
-| PATCH | `/tasks/:id` | Update `done` and/or `estimatedHours` | 200 | 400 bad body, 404 |
+| PATCH | `/tasks/:id` | Update any of `done`, `estimatedHours` and `dueWeek` (1 to 15); a bad field changes nothing | 200 | 400 bad body or none of those fields (TP-28), 404 |
 | POST | `/syllabus/text` | A syllabus PDF in (`Content-Type: application/pdf`), its text out | 200 | 400 empty, 413 over 10 MB, 415 not a PDF, 422 no text / locked / damaged / over 50 pages |
 | GET | `/ai/status` | `{ available }`: whether the server has an AI to read syllabi with | 200 | |
+| POST | `/reminders` | One reminder within code's limits (#156): at most 2 a day, never twice about one assignment. `{ reminder }` with the course, assignment, one line and `countToday`, or `{ reminder: null }`. Always null with no AI set up. It records the reminder it gives | 200 | |
 | POST | `/ai/syllabus` | Syllabus text in (`{ text }`), what the AI read out: `{ assignments, weights, policies, dropped }`, every field checked. Takes about 30 seconds | 200 | 400 no text, 413 over 30,000 characters, 502 the AI failed or gave an unusable answer, 503 no AI set up |
 | POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |
 | GET | `/courses/:id/reviews` | Reviews of one course | 200 | 404 |
@@ -343,6 +345,20 @@ AI_MODEL=nvidia-qwen3-6-35b-a3b-nvfp4
 Every semester, course and task lookup takes the signed-in student's ID from the checked session. Course lookups return 404 unless the student is enrolled. Task reads, ticks, estimates and generated IDs are scoped to that student. A task's ID can therefore be the same in two accounts without sharing its contents. POST /tasks accepts only the student's enrolled courses. Shared reviews, syllabi, weights and course policies stay attached to the catalog course.
 
 Apply `db/migration_own_semester.sql` before using this server with an existing database. It runs in one transaction and can be repeated; only ownerless tasks are deleted. It does not delete saved course reviews. Do not run reset.sql on a database you want to keep.
+
+For existing Supabase databases, apply `db/migration_atomic_task_ids.sql`
+**before deploying** the server version that calls `add_student_tasks`.
+The function creates syllabus task IDs under a per-student transaction lock,
+checks course enrollment, and inserts each batch atomically. It preserves
+the `<courseId>-syl-N` ID format and allows different students to have
+the same task IDs. New databases already include the function in
+`db/schema.sql`. Coordinate migration deployment with the project owner;
+do not run `db/reset.sql` to apply this change.
+
+`createStore()` uses MemoryStore only when both Supabase environment
+variables are absent. If exactly one of `SUPABASE_URL` and
+`SUPABASE_SECRET_KEY` is configured, server initialization fails with
+a configuration error instead of silently using MemoryStore.
 
 PowerShell example after signing in and keeping the session in `$session`:
 

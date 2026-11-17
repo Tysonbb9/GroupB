@@ -2,9 +2,8 @@ import { normalizeCourseCode, courseIdBase, type NewCourse } from './course-cata
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { DatabaseError } from './database-error';
-import { nextTaskId } from './task-ids';
 import { semester as sample, DEFAULT_WEEKLY_CAPACITY } from './semester';
-import type { CheckinAnswer, CoursePolicies, GradeWeight } from '../types';
+import type { Category, CheckinAnswer, CoursePolicies, GradeWeight } from '../types';
 
 /** Postgres timestamps arrive as text with an offset; the API uses ISO in UTC. */
 const toIso = (timestamp: string) => new Date(timestamp).toISOString();
@@ -214,11 +213,14 @@ async updateTask(userId: string, id: string, updates: TaskUpdates) {
     changes.estimated_hours = updates.estimatedHours;
   }
 
+  if (updates.dueWeek !== undefined) {
+    changes.due_week = updates.dueWeek;
+  }
+
+  // Every field is gathered before this check. It used to come before due_week,
+  // so a change of week alone (the check-in card, #155) was never saved.
   if (Object.keys(changes).length === 0) {
     return this.getTask(userId, id);
-  }
-  if (updates.dueWeek !== undefined){
-    changes.due_week = updates.dueWeek;
   }
 
   const { data, error } = await this.client
@@ -250,41 +252,31 @@ async updateTask(userId: string, id: string, updates: TaskUpdates) {
 }
 
 async addTasks(userId: string, newTasks: NewTask[]) {
-  // The ids already in use, so the new ones never clash with them.
-  const { data: existing, error: idsError } = await this.client
-    .from('tasks')
-    .select('id')
-    .eq('user_id', userId);
-
-  if (idsError) {
-    throw new DatabaseError(`Failed to add tasks: ${idsError.message}`);
-  }
-
-  const taken = new Set(existing.map((row) => row.id as string));
-  const rows = newTasks.map((newTask) => {
-    const id = nextTaskId(newTask.courseId, taken);
-    taken.add(id);
-    return {
-      id,
-      user_id: userId,
-      course_id: newTask.courseId,
-      title: newTask.title,
-      due_week: newTask.dueWeek,
-      estimated_hours: newTask.estimatedHours,
-    };
+  // The database assigns IDs while holding a per-student transaction lock.
+  // This prevents overlapping requests from choosing the same task ID.
+  const { data, error } = await this.client.rpc('add_student_tasks', {
+    p_user_id: userId,
+    p_tasks: newTasks,
   });
-
-  // One insert for every row, so the database adds all of them or none.
-  const { data, error } = await this.client
-    .from('tasks')
-    .insert(rows)
-    .select('*');
 
   if (error) {
     throw new DatabaseError(`Failed to add tasks: ${error.message}`);
   }
 
-  return data.map((task) => ({
+  if (!data) {
+    throw new DatabaseError('Failed to add tasks: no tasks returned');
+  }
+
+  return (data as Array<{
+    id: string;
+    course_id: string;
+    title: string;
+    category: Category | null;
+    due_week: number;
+    estimated_hours: number | null;
+    spread_weeks: number;
+    done: boolean;
+  }>).map((task) => ({
     id: task.id,
     courseId: task.course_id,
     title: task.title,

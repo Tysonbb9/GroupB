@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CheckinCard } from '../../components/CheckinCard';
+import { ReminderCard } from '../../components/ReminderCard';
 import { EmptySemesterScreen } from '../../components/EmptyState';
 import { LoadPill } from '../../components/LoadPill';
 import { LogOutButton } from '../../components/LogOutButton';
@@ -13,7 +14,7 @@ import { WeekDetail } from '../../components/WeekDetail';
 import { WeekHoursEditor } from '../../components/WeekHoursEditor';
 import { WeekFigures } from '../../components/WeekFigures';
 import { WeekStrip } from '../../components/WeekStrip';
-import { CheckinQuestion, fetchCheckinQuestion } from '../../lib/api';
+import { CheckinQuestion, fetchCheckinQuestion, fetchReminder, Reminder } from '../../lib/api';
 import { capacityByWeek, ownWeekHours } from '../../lib/capacity';
 import { courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
 import {
@@ -57,6 +58,23 @@ export default function SemesterScreen() {
       cancelled = true;
     };
   }, [fromServer, courseCount]);
+  // #156: a reminder, if the server's limits allow one now. Asked for once
+  // when Forecast opens, like the check-in question; the server records the
+  // one it gives, so asking again would use up the day's limit. A failure
+  // only hides the card.
+  const [reminder, setReminder] = useState<Reminder | null>(null);
+  useEffect(() => {
+    if (!fromServer || courseCount === 0) return;
+    let cancelled = false;
+    fetchReminder()
+      .then((r) => {
+        if (!cancelled) setReminder(r);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fromServer, courseCount]);
   // No week is open until a bar is tapped, so the screen starts uncluttered.
   const [openWeek, setOpenWeek] = useState<number | null>(null);
 
@@ -90,12 +108,9 @@ export default function SemesterScreen() {
     <SafeAreaView edges={['top']} style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <ScreenHeader
-          eyebrow={
-            <>
-              <Text>{semester.label}</Text> · Week {semester.currentWeek} of 15
-            </>
-          }
+          eyebrow={semester.label}
           title="Forecast"
+          week={semester.currentWeek}
           right={
             <>
               <LoadPill hours={thisWeekHours} capacity={thisWeekCapacity} />
@@ -103,6 +118,17 @@ export default function SemesterScreen() {
             </>
           }
         />
+
+        {reminder !== null && (
+          <ReminderCard
+            reminder={reminder}
+            onOpen={() => {
+              setReminder(null);
+              router.push('/week');
+            }}
+            onDismiss={() => setReminder(null)}
+          />
+        )}
 
         {question !== null && (
           <CheckinCard

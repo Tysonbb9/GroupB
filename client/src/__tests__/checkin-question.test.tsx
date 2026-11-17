@@ -11,6 +11,8 @@ jest.mock('expo-router', () => ({
 
 // No server in these tests: the three calls the Forecast tab makes are fakes.
 jest.mock('../lib/api', () => ({
+  // #156: Forecast also asks for a reminder; none here.
+  fetchReminder: jest.fn(async () => null),
   fetchSemester: jest.fn(),
   fetchCheckinQuestion: jest.fn(),
   answerCheckin: jest.fn(),
