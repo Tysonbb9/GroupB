@@ -8,15 +8,13 @@ Tracked in the umbrella issue [#111](https://github.com/Tysonbb9/GroupB/issues/1
 - **Reviewed against:** `main` after the data layer (PR [#121](https://github.com/Tysonbb9/GroupB/pull/121)) merged.
 - **Scribe:** TJ.
 
-> **Status of this record:** sections 2, 3 and 4 are fully resolved and merged.
-> Sections 1 and 5 are reviewed and their findings agreed, but the fix PRs are
-> not merged yet, so those rows are marked **Pending PR** and will be filled in
-> when the PRs land. See [Open items](#open-items) at the bottom.
+
+> **Status of this record:** All five sections have been reviewed and resolved, and their fix PRs have been merged into `main`. Issues #112 and #116 are closed. The database migration associated with Section 5 still requires deployment verification.
+
 
 ## Attendance
 
-All six team members attended: Tyson Bobeldyk, Gabby Odhiambo, Nhyira Mante,
-TJ French, Bithiah Botsha, Colin Redder.
+All six team members attended: Tyson Bobeldyk, Gabby Odhiambo, Nhyira Mante,TJ French, Bithiah Botsha, Colin Redder.
 
 ## The five sections
 
@@ -27,11 +25,13 @@ finding ended either fixed in a PR or declined with a reason.
 
 | Section | Issue | Reviewer | Findings | Resolved in | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1. Read routes | [#112](https://github.com/Tysonbb9/GroupB/issues/112) | TJ | 4 | see below | **Pending PR** |
+| 1. Read routes | [#112](https://github.com/Tysonbb9/GroupB/issues/112) | TJ | 4 | PR [#171](https://github.com/Tysonbb9/GroupB/pull/171), PR [#174](https://github.com/Tysonbb9/GroupB/pull/174) | Closed |
 | 2. Write routes, reviews, request handling | [#113](https://github.com/Tysonbb9/GroupB/issues/113) | Gabby | 6 | PR [#167](https://github.com/Tysonbb9/GroupB/pull/167) | Closed |
 | 3. PDF endpoint and safety checks | [#114](https://github.com/Tysonbb9/GroupB/issues/114) | Tyson | 9 | PR [#151](https://github.com/Tysonbb9/GroupB/pull/151) | Closed |
 | 4. Reading the PDF: worker and lines | [#115](https://github.com/Tysonbb9/GroupB/issues/115) | Colin | 6 | PR [#150](https://github.com/Tysonbb9/GroupB/pull/150) | Closed |
-| 5. Data, configuration, database layer | [#116](https://github.com/Tysonbb9/GroupB/issues/116) | Bithiah | 2 | see below | **Pending PR** |
+| 5. Data, configuration, database layer | [#116](https://github.com/Tysonbb9/GroupB/issues/116) | Bithiah | 2 | PR [#201](https://github.com/Tysonbb9/GroupB/pull/201) | Closed |
+
+
 
 Severity uses the card's three levels: **must fix**, **should fix**, **nit**.
 A fourth label, **needs team decision**, was used once in section 1 and was
@@ -47,9 +47,9 @@ with the reason given.
 
 | # | Where | Severity | Resolution |
 | --- | --- | --- | --- |
-| 1 | `app.ts:87` — `?week=` (empty) passes validation because `Number('')` is `0`, so the request returns `200 []` instead of `400` | should fix | **Pending PR** — fix agreed: reject empty/whitespace before converting. Lands with the section 1 fix PR. |
-| 2 | `app.ts:100` — unknown/empty filters (`?courseId=nope`, `?courseId=`, `?week=99`) return `200 []` with no validation | needs team decision | **Decided** (settled in [#109](https://github.com/Tysonbb9/GroupB/issues/109)): `?courseId=nope` → `200` empty list (agreed); `?week=99` and `?week=` (empty) → `400` with a JSON error (agreed). **Pending PR** — the small `GET /tasks` check and the tests land in the [#109](https://github.com/Tysonbb9/GroupB/issues/109) PR (Bithiah). |
-| 3 | `tasks.test.ts:23-33` — eight read-route tests are still `it.todo` placeholders | must fix | **Pending PR** — Bithiah completes the to-do tests (TP-08 to TP-17) in the [#109](https://github.com/Tysonbb9/GroupB/issues/109) PR. |
+| 1 | `app.ts:87` — `?week=` (empty) passes validation because `Number('')` is `0`, so the request returns `200 []` instead of `400` | should fix | **Fixed in [#174](https://github.com/Tysonbb9/GroupB/pull/174)** — Updated `GET /tasks` to reject empty and whitespace-only week values with HTTP 400 and a JSON error. Added automated tests covering invalid week parameters.|
+| 2 | `app.ts:100` — unknown/empty filters (`?courseId=nope`, `?courseId=`, `?week=99`) return `200 []` with no validation | needs team decision | **Fixed in [#174](https://github.com/Tysonbb9/GroupB/pull/174)** — The team agreed in [#109](https://github.com/Tysonbb9/GroupB/issues/109) that an unknown `courseId` returns `200` with an empty list, while invalid, out-of-range, or empty `week` values return `400` with a JSON error. The week-validation changes and tests were merged in PR #174.|
+| 3 | `tasks.test.ts:23-33` — eight read-route tests are still `it.todo` placeholders | must fix |**Fixed in [#171](https://github.com/Tysonbb9/GroupB/pull/171)** — Bithiah implemented eight automated read-endpoint tests (TP-08 to TP-13 and TP-16 to TP-17), replacing the existing `it.todo` placeholders. The remaining week-validation tests (TP-14 and TP-15) were completed in [#174](https://github.com/Tysonbb9/GroupB/pull/174). Both PRs were merged into `main`.|
 | 4 | `app.ts:51-73` — `GET /courses/:id` and `GET /tasks/:id` repeat the same fetch/404/return shape | nit | **Declined** — only two occurrences; a helper is not worth it until a third single-resource route appears. (Team nit policy: nits are not actioned.) |
 
 ### Section 2 — Write routes, reviews and request handling ([#113](https://github.com/Tysonbb9/GroupB/issues/113), reviewer Gabby)
@@ -96,10 +96,15 @@ All six fixes merged in PR [#150](https://github.com/Tysonbb9/GroupB/pull/150). 
 
 ### Section 5 — Data, configuration and the new database layer ([#116](https://github.com/Tysonbb9/GroupB/issues/116), reviewer Bithiah)
 
+Both findings were resolved in commit `7b892c0` and merged into `main` through [PR #201](https://github.com/Tysonbb9/GroupB/pull/201). Issue #116 is closed. The changes passed typechecking and 699 automated tests across 32 suites. 
+
+
+
+
 | # | Where | Severity | Resolution |
 | --- | --- | --- | --- |
-| 1 | `supabase-store.ts:185-210` — task IDs are generated by reading existing IDs first, so concurrent requests can pick the same next ID | should fix | **Pending PR** — Bithiah will fix it and will choose the approach (database-generated IDs, UUIDs, or atomic sequential generation). |
-| 2 | `create-store.ts:5-13` — an incomplete Supabase config (only one of the two variables set) silently falls back to `MemoryStore` | should fix | **Pending PR** — Bithiah will fix it: keep `MemoryStore` when neither variable is set, but throw a clear error when only one is, and log the chosen storage mode (never printing the secret key). |
+| 1 | `supabase-store.ts:185-210` — task IDs are generated by reading existing IDs first, so concurrent requests can pick the same next ID | should fix | **Fixed in [#201](https://github.com/Tysonbb9/GroupB/pull/201)** — Replaced client-side task ID generation with PostgreSQL RPC `add_student_tasks`, using a per-student transaction advisory lock. Preserved the `<course>-syl-N` ID format and added `server/db/migration_atomic_task_ids.sql`. |
+| 2 | `create-store.ts:5-13` — incomplete Supabase configuration silently falls back to `MemoryStore` | should fix | **Fixed in [#201](https://github.com/Tysonbb9/GroupB/pull/201)** — Updated `createStore()` to use `MemoryStore` when neither Supabase variable is configured, use `SupabaseStore` when both are present, and throw a descriptive error when only one is set. Added four configuration tests. |
 
 ## Decisions made at the session
 
@@ -116,18 +121,11 @@ All six fixes merged in PR [#150](https://github.com/Tysonbb9/GroupB/pull/150). 
   returns an empty list, but a non-numeric, out-of-range, or empty `week`
   returns `400`.
 
+
 ## Open items
 
-These are the parts of the record that are not final until the fix PRs merge.
-Fill in the PR number and change **Pending PR** to **Fixed in #NNN** when each
-lands.
+All five code review sections have been resolved and their PRs merged.
 
-- [ ] Section 1 ([#112](https://github.com/Tysonbb9/GroupB/issues/112)) —
-  findings 1, 2 and 3: the `?week=` empty-value fix, the filter-validation
-  check, and the eight to-do tests. Expected to land in the
-  [#109](https://github.com/Tysonbb9/GroupB/issues/109) PR (Bithiah).
-- [ ] Section 5 ([#116](https://github.com/Tysonbb9/GroupB/issues/116)) —
-  findings 1 and 2: the task-ID race condition and the silent
-  `MemoryStore` fallback (Bithiah).
-- [ ] Close [#112](https://github.com/Tysonbb9/GroupB/issues/112) and
-  [#116](https://github.com/Tysonbb9/GroupB/issues/116) once their PRs merge.
+- [x] Section 1 ([#112](https://github.com/Tysonbb9/GroupB/issues/112)) — findings 1, 2 and 3 resolved in merged PRs [#171](https://github.com/Tysonbb9/GroupB/pull/171) and [#174](https://github.com/Tysonbb9/GroupB/pull/174). Finding 4 declined by team agreement. Issue #112 closed.
+- [x] Section 5 ([#116](https://github.com/Tysonbb9/GroupB/issues/116)) — both findings resolved in merged [PR #201](https://github.com/Tysonbb9/GroupB/pull/201). Issue #116 closed.
+- [x] Close Issues #112 and #116 following their merged PRs.
