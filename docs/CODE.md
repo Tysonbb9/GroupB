@@ -567,7 +567,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 1238 tests across 65 suites. Server: 917 passing tests across 42 suites, with 4 optional hosted-database checks skipped. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 1244 tests across 66 suites. Server: 917 passing tests across 42 suites, with 4 optional hosted-database checks skipped. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
