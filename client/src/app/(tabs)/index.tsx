@@ -10,9 +10,11 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { SummaryRow } from '../../components/SummaryRow';
 import { WallCard } from '../../components/WallCard';
 import { WeekDetail } from '../../components/WeekDetail';
+import { WeekHoursEditor } from '../../components/WeekHoursEditor';
 import { WeekFigures } from '../../components/WeekFigures';
 import { WeekStrip } from '../../components/WeekStrip';
 import { CheckinQuestion, fetchCheckinQuestion } from '../../lib/api';
+import { capacityByWeek, ownWeekHours } from '../../lib/capacity';
 import { courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
 import {
   assignmentsInWeek,
@@ -35,7 +37,7 @@ import { theme } from '../../theme';
  */
 export default function SemesterScreen() {
   const router = useRouter();
-  const { semester, setWeeklyCapacity, fromServer, replaceTasks } = useSemester();
+  const { semester, setWeeklyCapacity, setWeekHours, fromServer, replaceTasks } = useSemester();
   // #155: the one check-in question, if the server has one to ask.
   const [question, setQuestion] = useState<CheckinQuestion | null>(null);
 
@@ -64,8 +66,11 @@ export default function SemesterScreen() {
 
   const loads = weeklyLoad(semester.tasks);
   const thisWeekHours = hoursInWeek(loads, semester.currentWeek);
-  const wall = nextWall(loads, semester.weeklyCapacity, semester.currentWeek);
-  const period = wall && crunchPeriodAt(loads, semester.weeklyCapacity, wall.week);
+  // #148: a week the student gave its own hours uses them; the rest use the weekly number.
+  const capacityOf = capacityByWeek(semester);
+  const thisWeekCapacity = capacityOf(semester.currentWeek);
+  const wall = nextWall(loads, capacityOf, semester.currentWeek);
+  const period = wall && crunchPeriodAt(loads, capacityOf, wall.week);
   const recommendation =
     wall && recommendStart(semester.tasks, wall.week, semester.weeklyCapacity);
   const spikeSummaries = courseSpikes(semester);
@@ -93,7 +98,7 @@ export default function SemesterScreen() {
           title="Forecast"
           right={
             <>
-              <LoadPill hours={thisWeekHours} capacity={semester.weeklyCapacity} />
+              <LoadPill hours={thisWeekHours} capacity={thisWeekCapacity} />
               <LogOutButton />
             </>
           }
@@ -113,7 +118,7 @@ export default function SemesterScreen() {
         <View style={styles.card}>
           <WeekFigures
             hoursThisWeek={thisWeekHours}
-            capacity={semester.weeklyCapacity}
+            capacity={thisWeekCapacity}
             wallWeek={wall?.week ?? null}
           />
           <WeekStrip
@@ -124,6 +129,7 @@ export default function SemesterScreen() {
             wallWeek={wall?.week ?? null}
             onSelectWeek={toggleWeek}
             onSaveCapacity={setWeeklyCapacity}
+            capacityOf={capacityOf}
           />
         </View>
 
@@ -133,13 +139,22 @@ export default function SemesterScreen() {
             hours={hoursInWeek(loads, openWeek)}
             assignments={assignmentsInWeek(semester.tasks, openWeek)}
             courses={semester.courses}
+            footer={
+              <WeekHoursEditor
+                key={openWeek}
+                week={openWeek}
+                weeklyCapacity={semester.weeklyCapacity}
+                ownHours={ownWeekHours(semester, openWeek)}
+                onSave={(hours) => setWeekHours(openWeek, hours)}
+              />
+            }
           />
         )}
 
         <WallCard
           wall={wall}
           period={period}
-          capacity={semester.weeklyCapacity}
+          capacity={wall ? capacityOf(wall.week) : semester.weeklyCapacity}
           currentWeek={semester.currentWeek}
           recommendation={recommendation}
           onPlan={() => router.push('/week')}

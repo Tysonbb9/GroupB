@@ -11,6 +11,7 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SummaryRow } from '../../components/SummaryRow';
 import { TaskRow } from '../../components/TaskRow';
+import { capacityByWeek } from '../../lib/capacity';
 import { groupThisWeek, startsNow } from '../../lib/tasks';
 import { Task } from '../../lib/types';
 import { hoursInWeek, weeklyLoad, wholeHours } from '../../lib/workload';
@@ -56,6 +57,8 @@ export default function WeekScreen() {
     setJustDone(null);
   };
   const thisWeekHours = hoursInWeek(weeklyLoad(semester.tasks), semester.currentWeek);
+  // #148: this week's own hours, if the student set some, or the weekly number.
+  const thisWeekCapacity = capacityByWeek(semester)(semester.currentWeek);
   // Work due after next week is not on this list; Forecast shows it week by week.
   const later = semester.tasks.filter(
     (t) => !t.done && t.dueWeek > semester.currentWeek + 1
@@ -69,7 +72,7 @@ export default function WeekScreen() {
         <ScreenHeader
           eyebrow={`Week ${semester.currentWeek} of 15`}
           title="This week"
-          right={<LoadPill hours={thisWeekHours} capacity={semester.weeklyCapacity} />}
+          right={<LoadPill hours={thisWeekHours} capacity={thisWeekCapacity} />}
         />
 
         <View style={styles.figures}>
@@ -77,8 +80,8 @@ export default function WeekScreen() {
             testID="week-hours"
             label="Landing this week"
             value={String(wholeHours(thisWeekHours))}
-            unit={`/ ${semester.weeklyCapacity} hrs`}
-            accessibilityLabel={`${wholeHours(thisWeekHours)} of ${semester.weeklyCapacity} hours land this week`}
+            unit={`/ ${thisWeekCapacity} hrs`}
+            accessibilityLabel={`${wholeHours(thisWeekHours)} of ${thisWeekCapacity} hours land this week`}
           />
           <Figure
             testID="items-left"

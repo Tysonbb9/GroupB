@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Course, Semester, Task } from './types';
+import { Course, Semester, Task, WeekHours } from './types';
 
 /**
  * Talking to the server. Everything the app knows about the outside world
@@ -174,6 +174,33 @@ export async function saveWeeklyCapacity(hours: number): Promise<number> {
     throw new Error('The server sent invalid semester data');
   }
   return json.weeklyCapacity;
+}
+
+/**
+ * PATCH /semester/weeks/:week (#148). Gives one week its own hours, or clears
+ * them with null so the weekly number applies again. Returns every week that
+ * has its own hours, as the server now holds them. Rejects with a message the
+ * user can read.
+ */
+export async function saveWeekHours(week: number, hours: number | null): Promise<WeekHours[]> {
+  const response = await send(`/semester/weeks/${week}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hours }),
+  });
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (
+    !Array.isArray(json) ||
+    !json.every((w) => isObject(w) && typeof w.week === 'number' && typeof w.hours === 'number')
+  ) {
+    throw new Error('The server sent invalid week hours');
+  }
+  return json as WeekHours[];
 }
 
 /** The text the server read out of a syllabus PDF. */

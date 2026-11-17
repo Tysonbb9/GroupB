@@ -41,8 +41,19 @@ export type Semester = {
   currentWeek: number;
   /** Hours per week the student says they have for school. */
   weeklyCapacity: number;
+  /**
+   * Weeks the student gave their own hours (#148), replacing weeklyCapacity
+   * in those weeks. A week that is not listed uses weeklyCapacity.
+   */
+  weekHours?: WeekHours[];
   courses: Course[];
   tasks: Task[];
+};
+
+/** A student's hours for one week, replacing their weekly number that week (#148). */
+export type WeekHours = {
+  week: number;
+  hours: number;
 };
 
 /** Projected hours of remaining work in one week. */

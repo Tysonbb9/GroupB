@@ -7,6 +7,7 @@ import { EmptySemesterScreen } from '../../components/EmptyState';
 import { CourseCards } from '../../components/CourseCards';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { SpikeNotice } from '../../components/SpikeNotice';
+import { capacityByWeek } from '../../lib/capacity';
 import { SyllabusReminder } from '../../components/SyllabusReminder';
 import { courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
 import { useSemester } from '../../state/semester-store';
@@ -90,7 +91,7 @@ export default function CoursesScreen() {
               title="Heads up"
               note={`The next ${LOOKAHEAD_WEEKS} weeks · based on estimated hours`}
             />
-            <SpikeNotice notices={notices} capacity={semester.weeklyCapacity} />
+            <SpikeNotice notices={notices} capacity={capacityByWeek(semester)} />
           </>
         )}
 
