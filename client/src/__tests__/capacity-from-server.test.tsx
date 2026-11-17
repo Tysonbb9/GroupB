@@ -10,6 +10,8 @@ jest.mock('expo-router', () => ({
 }));
 // The Forecast tab also asks for a check-in question (#155): none here.
 jest.mock('../lib/api', () => ({
+  // #156: Forecast also asks for a reminder; none here.
+  fetchReminder: jest.fn(async () => null),
   fetchSemester: jest.fn(),
   fetchCheckinQuestion: jest.fn(async () => null),
 }));
