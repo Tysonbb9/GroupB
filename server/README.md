@@ -349,7 +349,7 @@ PowerShell example after signing in and keeping the session in `$session`:
 Invoke-RestMethod -Method Post -Uri http://localhost:3000/semester/sample -WebSession $session
 ```
 
-The optional hosted store contract checks also need `SUPABASE_TEST_USER_ID`, the ID of an existing test student. Write checks still require `RUN_SUPABASE_WRITE_TESTS=true`; use a disposable account that already loaded its sample. Local checks do not load server/.env or connect to the hosted database.
+The optional hosted store contract checks also need `SUPABASE_TEST_USER_ID`, the ID of an existing test student. Write checks still require `RUN_SUPABASE_WRITE_TESTS=true`; use a disposable account that already loaded its sample. Local checks do not load server/.env or connect to the hosted database. Step by step, with the SQL and the commands: [docs/HOSTED_DATABASE_CHECKS.md](../docs/HOSTED_DATABASE_CHECKS.md).
 
 ### Find, join or create a course
 
