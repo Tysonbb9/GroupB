@@ -9,6 +9,7 @@ import { aiRouter } from './ai/routes';
 import { DatabaseError } from './data/database-error';
 import { isValidHours, MAX_WEEKLY_CAPACITY } from './rules';
 import { checkinRouter } from './ai/checkin-routes';
+import { reminderRouter } from './ai/reminder-routes';
 
 export const app = express();
 const store = createStore();
@@ -74,6 +75,8 @@ app.use('/syllabus', syllabusRouter);
 // With no AI_* settings there is no model, and the phone keeps its scanner.
 app.use('/ai', aiRouter(model));
 app.use('/checkin', checkinRouter(store, model));
+// POST /reminders: one reminder within code's limits (#156). See ai/reminder-routes.ts.
+app.use('/reminders', reminderRouter(store, model));
 
 
 
