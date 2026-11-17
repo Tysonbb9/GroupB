@@ -10,6 +10,7 @@ import type {
   Syllabus,
   Task,
   WeekHours,
+  CalendarLink,
 } from '../types';
 
 export type TaskFilters = {
@@ -101,4 +102,9 @@ export interface Store {
   listWeekHours(userId: string): Promise<WeekHours[]>;
   /** Sets one week's hours, or clears them with null, and returns every set week. */
   setWeekHours(userId: string, week: number, hours: number | null): Promise<WeekHours[]>;
+
+  /** A student's Moodle calendar link (#164), or null if none was saved. Server use only. */
+  getCalendarLink(userId: string): Promise<CalendarLink | null>;
+  /** Saves the link, replacing any earlier one, timed now. */
+  saveCalendarLink(userId: string, url: string): Promise<CalendarLink>;
 }

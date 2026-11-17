@@ -238,3 +238,48 @@ describe('course catalog migration', () => {
     }
   });
 });
+
+describe('migration_164_calendar_link.sql (#164)', () => {
+  const migration164 = read('migration_164_calendar_link.sql');
+
+  it('creates calendar_links, safe to run twice, in one transaction', () => {
+    expect(migration164).toMatch(/create table if not exists calendar_links \(/);
+    expect(migration164.trim()).toMatch(/^(--.*\n|\s)*begin;[\s\S]*commit;$/);
+  });
+
+  it('touches no other table', () => {
+    for (const table of ['semester', 'courses', 'tasks', 'reviews', '"user"', 'enrollments', 'week_hours']) {
+      expect(migration164).not.toMatch(new RegExp(`(alter|drop|truncate|delete from|update|insert into) (table )?${table}\\b`, 'i'));
+    }
+  });
+
+  it('keeps one link per student, deleted with the student, and only https', () => {
+    const body = tableBody(migration164, 'calendar_links') ?? '';
+    expect(body).toMatch(/user_id\s+text primary key references "user" \("id"\) on delete cascade/);
+    expect(body).toMatch(/url\s+text not null check \(url like 'https:\/\/%'\)/);
+  });
+
+  it('turns Row Level Security on, so the public key cannot read the secret link', () => {
+    expect(migration164).toMatch(/alter table calendar_links\s+enable row level security;/);
+    expect(schema).toMatch(/alter table calendar_links\s+enable row level security;/);
+  });
+
+  it('schema.sql defines calendar_links exactly as the migration does', () => {
+    expect(tableBody(schema, 'calendar_links')).not.toBeNull();
+    expect(tableBody(schema, 'calendar_links')).toBe(tableBody(migration164, 'calendar_links'));
+  });
+
+  it('reset.sql drops it before "user", which it points at', () => {
+    const drops = [...reset.matchAll(/^drop table if exists [^;]+;/gm)].map((m) => m[0]).join('\n');
+    expect(drops.search(/[ ,]calendar_links[,;]/)).toBeGreaterThan(-1);
+    expect(drops.search(/[ ,]calendar_links[,;]/)).toBeLessThan(drops.search(/[ ,]"user"[,;]/));
+  });
+
+  it('has every column the Supabase store reads or writes', () => {
+    const body = tableBody(schema, 'calendar_links') ?? '';
+    for (const column of ['user_id', 'url', 'saved_at']) {
+      expect(body).toMatch(new RegExp(`^${column}\\s`, 'm'));
+    }
+    expect(store).toMatch(/from\('calendar_links'\)/);
+  });
+});

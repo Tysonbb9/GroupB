@@ -11,6 +11,7 @@ import { isValidHours, MAX_WEEKLY_CAPACITY, WEEKS_IN_SEMESTER } from './rules';
 import type { Semester, WeekHours } from './types';
 import { checkinRouter } from './ai/checkin-routes';
 import { reminderRouter } from './ai/reminder-routes';
+import { calendarRouter } from './calendar/routes';
 
 export const app = express();
 const store = createStore();
@@ -78,6 +79,8 @@ app.use('/ai', aiRouter(model));
 app.use('/checkin', checkinRouter(store, model));
 // POST /reminders: one reminder within code's limits (#156). See ai/reminder-routes.ts.
 app.use('/reminders', reminderRouter(store, model));
+// GET and POST /calendar/link: a student's Moodle calendar link (#164). See calendar/routes.ts.
+app.use('/calendar', calendarRouter(store));
 
 
 

@@ -124,6 +124,15 @@ export type CourseCheckin = {
   answeredAt: string;
 };
 
+/**
+ * A student's saved Moodle calendar link (#164). The url holds a private
+ * token: only the server reads it, and no route sends it to the phone.
+ */
+export type CalendarLink = {
+  url: string;
+  savedAt: string;
+};
+
 /** A student's hours for one week, replacing their weekly number that week (#148). */
 export type WeekHours = {
   week: number;
