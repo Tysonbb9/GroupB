@@ -67,6 +67,8 @@ export interface Store {
     id: string,
     updates: TaskUpdates
   ): Promise<Task | null>;
+  /** Deletes one of the student's tasks (#166). True when there was one to delete. */
+  deleteTask(userId: string, id: string): Promise<boolean>;
   /** Adds every task or none (US-30), and returns them with their new ids. */
   addTasks(userId: string, tasks: NewTask[]): Promise<Task[]>;
 
@@ -113,4 +115,6 @@ export interface Store {
   listCalendarImports(userId: string): Promise<CalendarImport[]>;
   /** Records events just added as tasks. An event recorded before is replaced. */
   recordCalendarImports(userId: string, imports: CalendarImport[]): Promise<void>;
+  /** Forgets these events (#166), once a removed event's change is settled. */
+  deleteCalendarImports(userId: string, eventIds: string[]): Promise<void>;
 }
