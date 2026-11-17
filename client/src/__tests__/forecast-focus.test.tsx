@@ -52,10 +52,10 @@ describe('Forecast: one focus', () => {
 
 describe('Forecast: rows that open Courses', () => {
   // wallSemester, week 3 of 15, capacity 10: CS 262 spikes in weeks 5 to 7 and
-  // MATH 251 in week 6, so weeks 5 and 6 hold three notices.
-  it('counts the heads-up notices in the next three weeks', () => {
+  // MATH 251 in week 6, so weeks 5 and 6 hold three notices from two courses.
+  it('counts the courses in the heads-up notices, each course once', () => {
     renderForecast();
-    expect(screen.getByTestId('heads-up-row')).toHaveTextContent(new RegExp(`3 courses get busy in the next ${LOOKAHEAD_WEEKS} weeks`));
+    expect(screen.getByTestId('heads-up-row')).toHaveTextContent(new RegExp(`2 courses get busy in the next ${LOOKAHEAD_WEEKS} weeks`));
   });
 
   it('names the course with the heaviest single week', () => {
@@ -128,7 +128,6 @@ describe('This week: work after next week', () => {
     expect(mockPush).toHaveBeenCalledWith('/');
   });
 });
-
 
 it('names one course getting busy in the Heads up detail', () => {
   render(<SemesterProvider initial={{ ...wallSemester, tasks: [{ id: 'one', courseId: 'c1', title: 'One project', dueWeek: 4, estimatedHours: 8, done: false }] }}><SemesterScreen /></SemesterProvider>);

@@ -107,7 +107,6 @@ export function startsNow(task: Task, currentWeek: number, weeklyCapacity: numbe
   return task.dueWeek > currentWeek && plannedStart(task, weeklyCapacity) <= currentWeek;
 }
 
-
 /** A starting action that names the assignment's kind, without changing its timing. */
 export function startPhrase(task: Pick<Task, 'title' | 'category'>): string {
   const verb = task.category === 'exam' ? 'studying for' : task.category === 'reading' ? 'reading' : 'working on';

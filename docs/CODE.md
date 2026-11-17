@@ -169,7 +169,7 @@ The last tiebreaker in `rankThisWeek` exists so tests do not depend on array ord
 
 On the fixture, 30% gives CS 262, PHIL 153 and STAT 243 two spike weeks each, CS 336 four, and the exam-heavy MATH 251 six, so every course shows some spikes without most weeks being flagged. Completed work and work without an estimate do not count, and multi-week projects stay spread across their work span.
 
-`upcomingSpikes` turns those summaries into at most three heads-up notices. It includes the current week and the following three weeks, then sorts nearest first. Both functions are pure and use only the semester already returned by `GET /semester`, so this feature needs no new endpoint.
+`upcomingSpikes` turns those summaries into at most three heads-up notices. It includes the current week and the following three weeks, then sorts nearest first. `busyCourseCount(notices)` counts the courses those notices cover, each once, for the Heads up line ("2 courses get busy in the next 3 weeks"). All three are pure and use only the semester already returned by `GET /semester`, so this feature needs no new endpoint.
 
 ### `src/lib/categories.ts`
 
@@ -567,7 +567,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 1236 tests across 65 suites. Server: 950 passing tests across 41 suites, with 4 optional hosted-database checks skipped. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 1238 tests across 65 suites. Server: 950 passing tests across 41 suites, with 4 optional hosted-database checks skipped. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -607,7 +607,7 @@ npx jest --watch              # while you work
 | `src/lib/auth-client.test.ts` | 28 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection, a successful logout sending its cookie without a reported error, the Expo dependencies needed on the phone being installed, ordinary API renewal persisted through the Expo adapter, and late responses after logout or a newer sign-in ignored |
 | `src/lib/api-session.test.ts` | 57 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, nothing added in sample-data mode, renewal responses delivered with the sent cookie, and 401 handled before renewal storage |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
-| `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
+| `src/lib/difficulty.test.ts` | 7 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit, and counting each busy course once |
 | `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (busiest weeks in words and labels, hours and a course with no standout weeks) |
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Courses screen in place of the old one-line text |
 | `src/__tests__/syllabus-text.test.tsx` | 7 |  US-28: choosing a course, the assignments found shown in edit boxes with their week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |

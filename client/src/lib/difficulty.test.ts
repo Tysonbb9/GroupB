@@ -2,6 +2,7 @@ import { Semester } from './types';
 import {
   LOOKAHEAD_WEEKS,
   SPIKE_SHARE,
+  busyCourseCount,
   courseSpikes,
   upcomingSpikes,
 } from './difficulty';
@@ -71,5 +72,28 @@ describe('upcomingSpikes', () => {
       })),
     });
     expect(upcomingSpikes(summaries, 3)).toHaveLength(3);
+  });
+});
+
+describe('busyCourseCount', () => {
+  it('counts each course once, however many of its weeks are in the notices', () => {
+    const summaries = courseSpikes({
+      ...semester,
+      tasks: [4, 5].map((week) => ({
+        id: `busy-${week}`,
+        courseId: 'busy',
+        title: `Week ${week}`,
+        dueWeek: week,
+        estimatedHours: 5,
+        done: false,
+      })),
+    });
+    const notices = upcomingSpikes(summaries, 3);
+    expect(notices).toHaveLength(2);
+    expect(busyCourseCount(notices)).toBe(1);
+  });
+
+  it('is 0 with no notices', () => {
+    expect(busyCourseCount([])).toBe(0);
   });
 });

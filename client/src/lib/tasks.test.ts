@@ -240,7 +240,6 @@ describe('startsNow', () => {
   });
 });
 
-
 describe('startPhrase', () => {
   it.each([
     ['exam', 'Start studying for Midterm'],
