@@ -6,7 +6,7 @@ import { useSemester } from '../state/semester-store';
 import { theme } from '../theme';
 import { LogOutButton } from './LogOutButton';
 import { ScreenHeader } from './ScreenHeader';
-
+import { HelpButton } from './HelpButton';
 /** A short explanation and the actions that make this screen useful next. */
 export function EmptyState({ title, message, children }: {
   title: string;
@@ -37,7 +37,7 @@ export function EmptySemesterScreen({ title, message }: { title: string; message
   const { semester, canLoadSample, loadSample, loadingSample, sampleError } = useSemester();
   return <SafeAreaView edges={['top']} style={styles.screen}>
     <ScrollView contentContainerStyle={styles.page}>
-      <ScreenHeader title={title} eyebrow={semester.label} right={<LogOutButton />} />
+    <ScreenHeader title={title} eyebrow={semester.label} right={<><HelpButton /><LogOutButton /></>} />
       <EmptyState title="No courses yet" message={message}>
         {process.env.EXPO_PUBLIC_USE_FIXTURE !== '1' && <EmptyAction
           label="Add a course" busy={loadingSample} onPress={() => router.push('/add-course')} />}

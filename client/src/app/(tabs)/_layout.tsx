@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
-import React from 'react';
 import type { ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useOptionalSession } from '../../state/session';
 import { theme } from '../../theme';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -41,6 +42,18 @@ function TabIcon({ focused, color, size, open, closed }: TabIconProps) {
  * brackets groups screens without adding to the path.
  */
 export default function TabsLayout() {
+
+  // US-47: a student who has just created an account lands here first, and is
+  // shown the welcome once. Saying so first means it never opens twice.
+  const session = useOptionalSession();
+  const router = useRouter();
+  const newAccount = session?.newAccount ?? false;
+  useEffect(() => {
+    if (!newAccount || session === null) return;
+    session.welcomed();
+    router.push('/welcome');
+  }, [newAccount, session, router]);
+  
   // A height set here replaces the default one, home bar included, so the
   // home bar's inset is added back.
   const { bottom } = useSafeAreaInsets();

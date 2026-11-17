@@ -7,6 +7,7 @@ import { SemesterProvider } from '../state/semester-store';
 import { SessionProvider, useSession } from '../state/session';
 import { theme } from '../theme';
 
+
 /**
  * Set EXPO_PUBLIC_USE_FIXTURE=1 (for example in client/.env.local) to run on
  * the hard-coded semester instead of the server. It is a manual switch: when
@@ -54,6 +55,8 @@ function RootNavigator() {
         <Stack.Screen name="syllabus" options={{ title: 'Add a Syllabus', headerBackTitle: 'Back' }} />
         <Stack.Screen name="task/[id]" options={{ title: 'Assignment', headerBackTitle: 'Back' }} />
         <Stack.Screen name="calendar" options={{ title: 'Moodle calendar', headerBackTitle: 'Back' }} />
+        {/* US-47: the welcome draws its own Skip, so it needs no header. */}
+        <Stack.Screen name="welcome" options={{ headerShown: false, presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
