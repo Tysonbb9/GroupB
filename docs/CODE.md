@@ -156,6 +156,11 @@ US-29. `pickPdf` opens the system file picker for PDFs only (expo-document-picke
 | `absencesRemaining` | `null` when a course has no attendance policy, which is not the same as a policy of zero |
 | `attendanceStatus` | the chip text and tone: "no policy", "0 left", "1 absence", "3 absences" |
 
+`startPhrase(task)` chooses wording only: exams start with "Start studying for",
+reading with "Start reading", and every other category or no category with "Start
+working on". The title is kept, and the action card appends the existing now or week
+timing. It does not change scheduling or workload calculations.
+
 The last tiebreaker in `rankThisWeek` exists so tests do not depend on array order.
 
 ### `src/lib/difficulty.ts`
@@ -285,7 +290,7 @@ An **Add estimate** link for a task that has no estimate. Saving runs the text t
 
 ### `src/components/CapacityEditor.tsx`, `src/lib/capacity.ts`
 
-`capacityByWeek(semester)` (#148) returns the hours the student has in each week: a week's own hours (`semester.weekHours`) where they set some, the weekly number everywhere else. `ownWeekHours(semester, week)` is a week's own hours or null. The calculations take a `Capacity` (`lib/workload.ts`): one number for every week, or a function of the week, read with `capacityIn`. `detectCrunch`, `nextWall`, `crunchPeriodAt` and `courseSpikes` use each week's own hours, and so do the strip's line and bar colours, the load pill and "/ N hrs" for this week, the action card's "You have N free that week" and the notices on Courses. `plannedStart` (when to begin a long task) still uses the weekly number, as a steady rate. Tests: `src/lib/week-hours.test.ts` and `src/__tests__/week-hours.test.tsx`.
+`capacityByWeek(semester)` (#148) returns the hours the student has in each week: a week's own hours (`semester.weekHours`) where they set some, the weekly number everywhere else. `ownWeekHours(semester, week)` is a week's own hours or null. The calculations take a `Capacity` (`lib/workload.ts`): one number for every week, or a function of the week, read with `capacityIn`. `detectCrunch`, `nextWall`, `crunchPeriodAt` and `courseSpikes` use each week's own hours, and so do the strip's line and bar colours, the load pill and "/ N hrs" for this week, the action card's "You've allocated N" and the notices on Courses. `plannedStart` (when to begin a long task) still uses the weekly number, as a steady rate. Tests: `src/lib/week-hours.test.ts` and `src/__tests__/week-hours.test.tsx`.
 
 US-32. The line under the week strip with **Change** beside it. Change opens a box with the current hours, and **Save** runs the text through `parseWeeklyHours` (`lib/capacity.ts`): whole hours from `MIN_WEEKLY_HOURS` (1) to `MAX_WEEKLY_HOURS` (80), the same range PATCH /semester accepts. Invalid text shows a message and keeps nothing; the same hours again just close the box. Otherwise it calls `onSave` (the store's `setWeeklyCapacity`) and closes when that resolves. If it rejects, the box stays open with "Could not save. Your hours are still N." Nothing on screen moves until Save.
 
@@ -352,15 +357,15 @@ US-26. A card at the end of the Courses tab that says "Keep your syllabi up to d
 
 ### `src/components/CourseCards.tsx`
 
-The courses on the Courses tab, one card each: code and name, absences left (a status dot from `attendanceStatus`), a small 15-week strip of that course's own hours with its spike weeks in the heavy colour, and the peak in words ("Peaks in week 7 at 14 hours · weeks 5, 6 and 7"). It replaces the old course chips and difficulty list. Text and accessibility labels carry the meaning, so colour is never the only signal.
+The courses on the Courses tab, one card each: code and name, absences left (a status dot from `attendanceStatus`), a small 15-week strip of that course's own hours with its spike weeks in the heavy colour, and the peak in words ("Busiest in weeks 5, 6 and 7 · week 7: 14 hours"). It replaces the old course chips and difficulty list. Text and accessibility labels carry the meaning, so colour is never the only signal.
 
 ### `src/components/ScreenHeader.tsx`, `LoadPill.tsx`
 
-Every tab draws its own header with `ScreenHeader`: a small line naming the semester ("Fall 2026"), a large title, and whatever belongs beside it. Given `week`, it shows `WeekChip` under the title, "Week 3 of 15" from `semester.currentWeek` and `WEEKS_IN_SEMESTER` (US-46); every tab passes it. `LoadPill` is one word for this week against capacity, **Fits**, **Busy** or **Over**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
+Every tab draws its own header with `ScreenHeader`: a small line naming the semester ("Fall 2026"), a large title, and whatever belongs beside it. Given `week`, it shows `WeekChip` under the title, "Week 3 of 15" from `semester.currentWeek` and `WEEKS_IN_SEMESTER` (US-46); every tab passes it. `LoadPill` is one word for this week against capacity, **Light**, **Busy** or **Heavy**. A dot and a light tint carry the same load colour as the bars; the word itself is in ink, because the load colours are too light to read as small text.
 
 ### `src/components/SummaryRow.tsx`
 
-A row that opens something else: an icon in a tinted circle, a title, one short line and a chevron. Forecast uses it for **Heads up** and **Course spikes** (both open Courses), and This week for **Later this semester** (opens Forecast).
+A row that opens something else: an icon in a tinted circle, a title, one short line and a chevron. Forecast uses it for **Heads up** and **Busiest weeks** (both open Courses), and This week for **Later this semester** (opens Forecast).
 
 ### `src/components/LogOutButton.tsx`
 
@@ -398,7 +403,7 @@ Every file imports Ionicons from `@expo/vector-icons/Ionicons`, not from `@expo/
 
 Route: `/`
 
-One focus: the header (with the load label and the log-out icon), the week figures and week strip, and the wall card with its **Plan this week** button. A week's assignments (`WeekDetail`) open when its bar is tapped and close on a second tap. Below, two rows open the Courses tab: **Heads up** (how many notices in the next three weeks) and **Course spikes** (the course with the heaviest single week).
+One focus: the header (with the load label and the log-out icon), the week figures and week strip, and the wall card with its **Plan this week** button. A week's assignments (`WeekDetail`) open when its bar is tapped and close on a second tap. Below, two rows open the Courses tab: **Heads up** (how many notices in the next three weeks) and **Busiest weeks** (the course with the heaviest single week).
 
 When the semester comes from the server, the screen checks the Moodle calendar in the background with `fetchCalendarChanges` (US-50): a **Moodle calendar** row under Course spikes says "2 changes and 1 new event to review" and opens the calendar screen, or says the link stopped working and opens Courses; with no link saved, or nothing new, there is no row, and the screen never waits for it. It also asks `fetchReminder` once and shows `ReminderCard` at the top if the server gives one (#156), then asks `fetchCheckinQuestion` once and shows `CheckinCard` above the figures if there is a question (#155). Each is asked for once, because a reminder the server hands out counts toward the day's limit. With sample data, no AI on the server, or any failure, there is no card and the screen is as before.
 
@@ -562,7 +567,7 @@ The server does not require these scripts when running with
 ## Tests
 
 
-Client: 995 tests across 51 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
+Client: 1236 tests across 65 suites. Server: 950 passing tests across 41 suites, with 4 optional hosted-database checks skipped. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -575,18 +580,19 @@ npx jest --watch              # while you work
 | `src/__tests__/empty-semester.test.tsx` | 8 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses and fixture isolation |
 | `src/__tests__/load-sample-api.test.ts` | 5 | sample POST, conflict refetch, server message, invalid data and expired session |
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
-| `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
+| `src/lib/tasks.test.ts` | 30 | ranking, grouping, Coming up, start timing, attendance, and category-based start phrases |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
 | `src/lib/inputs.test.ts` | 296 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, hostile or oversized input, and calendar date prefixes with normal titles preserved |
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
 | `src/__tests__/tabs.test.tsx` | 4 | the tab bar: opens on Forecast, switches to This week and to Courses, and `/week` still lands on its tab |
-| `src/__tests__/forecast-focus.test.tsx` | 12 | Option A (#96): what Forecast keeps and what moved to Courses, the Heads up and Course spikes rows, the Fits, Busy and Over label (its dot in the load colour, its word in ink), and the Later this semester row |
+| `src/__tests__/forecast-focus.test.tsx` | 13 | Option A (#96): what Forecast keeps and what moved to Courses, the singular/plural Heads up and Busiest weeks rows, the Light, Busy and Heavy label with its spoken name (its dot in the load colour, its word in ink), and the Later this semester row |
+| `src/__tests__/plain-words.test.tsx` | 4 | heavy-week and clear-state sentences, allocated hours, and studying/reading start actions with now or a future week |
 | `src/__tests__/front-door.test.tsx` | 14 | Log in is the front door: the app opens on it, keeps every screen behind it, opens Forecast with the semester loaded after signing in, and comes back to it on log out. Log out also works while the semester is loading and after it fails to load, and the next sign-in loads it again. US-20: a saved session opens the app straight away, the splash screen stays up until the check is done, a wrong password stays on Log in, a new account opens the app, Log out ends the session on the server, and a 401 comes back to Log in with a notice |
 | `src/__tests__/contrast.test.ts` | 9 | every text colour against both backgrounds at WCAG AA (4.5 to 1), and that the measurement matches WCAG's |
 | `src/__tests__/semester-stories.test.tsx` | 16 | US-01, US-02, US-03: the week strip, figures and load bands |
-| `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the wall card and start-by recommendation |
+| `src/__tests__/start-by-recommendation.test.tsx` | 6 | US-15, US-04, US-05: the heavy-week card and start-by recommendation |
 | `src/__tests__/estimate-hours.test.tsx` | 11 | US-12, US-13: adding an estimate, and tasks without one |
 | `src/__tests__/assignments-by-week.test.tsx` | 11 | US-25 (visual depiction): tap a week to see its assignments, and tap again to close them |
 | `src/__tests__/ui-design.test.tsx` | 20 | the UI design: grouped rows, categories, course chips, plan link |
@@ -602,7 +608,7 @@ npx jest --watch              # while you work
 | `src/lib/api-session.test.ts` | 57 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, nothing added in sample-data mode, renewal responses delivered with the sent cookie, and 401 handled before renewal storage |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
-| `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (peak week, heavy weeks in words and labels, a course with none) |
+| `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (busiest weeks in words and labels, hours and a course with no standout weeks) |
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Courses screen in place of the old one-line text |
 | `src/__tests__/syllabus-text.test.tsx` | 7 |  US-28: choosing a course, the assignments found shown in edit boxes with their week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |
 | `src/__tests__/undo-done.test.tsx` | 7 | US-31: the Completed line and its count, opening and closing it, moving a task there and back, the hours returning to this week and the forecast, the line going away after the last undo, and nothing drawn when no task is done. Queries by role and name, so the open and checked states are tested too |
@@ -619,8 +625,8 @@ npx jest --watch              # while you work
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |
 | `src/lib/save-week-hours-api.test.ts` | 8 | `saveWeekHours`: a JSON PATCH to /semester/weeks/:week, null to clear, the weeks it returns, the server's message on a refusal, an unreachable server, replies that are not a list of weeks |
 | `src/lib/week-hours.test.ts` | 12 | #148: `capacityByWeek`, `ownWeekHours` and `capacityIn`; the wall and the crunch moving when a week gets more or fewer hours, a week exactly at its own hours fitting, the same answers as before with no weeks of their own, and spikes measured against a week's own hours |
-| `src/__tests__/week-hours.test.tsx` | 25 | #148: the tapped week's hours and Change; setting a week moving the wall, stepping the dashed line, recolouring that bar and its screen reader label, the pill and figures for this week; refused values; the weekly number clearing the week; Cancel; Use my weekly hours; saving on the server first, null to clear, a failed save keeping the old hours, nothing saved when nothing changes; This week and the Courses notices using the week's hours |
-| `src/__tests__/weekly-capacity.test.tsx` | 15 | US-32: Change and the box with the current hours, the forecast and This week redrawn after Save (pill, wall, crunch, "/ 20 hrs"), refused values, nothing moving while typing, Cancel, saving on the server first, a failed save keeping the old hours, and the same hours not saved again |
+| `src/__tests__/week-hours.test.tsx` | 25 | #148: the tapped week's hours and Change; setting a week moving the next heavy week, stepping the dashed line, recolouring that bar and its screen reader label, the pill and figures for this week; refused values; the weekly number clearing the week; Cancel; Use my weekly hours; saving on the server first, null to clear, a failed save keeping the old hours, nothing saved when nothing changes; This week and the Courses notices using the week's hours |
+| `src/__tests__/weekly-capacity.test.tsx` | 15 | US-32: Change and the box with the current hours, the forecast and This week redrawn after Save (pill, next heavy week, heavy stretch, "/ 20 hrs"), refused values, nothing moving while typing, Cancel, saving on the server first, a failed save keeping the old hours, and the same hours not saved again |
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
 | `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
 | `src/__tests__/calendar-link.test.tsx` | 12 | US-48: the Moodle calendar card on Courses: the box and where to find the link, saving then emptying the box and saying Connected, never showing the link again, the server's reason when refused, an empty box, Checking… and no double save, Replace link and Cancel, a status that cannot be read, and no card with sample data |

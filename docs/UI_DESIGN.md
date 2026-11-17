@@ -62,7 +62,7 @@ a tap, not a section that is always on screen.
 category sets a colour and a tile wherever the assignment appears. A problem set
 should not look like an essay from across the room.
 
-**The reward is the wall coming down.** There are no points, streaks or badges.
+**The reward is the heavy weeks getting lighter.** There are no points, streaks or badges.
 Finishing work visibly shortens a bar, and that is the entire feedback mechanism.
 It cannot be farmed, and it means exactly what it appears to mean.
 
@@ -103,7 +103,7 @@ acting on every day moves to Courses.
 **How the screens connect.**
 
 - Forecast's action card has **Plan this week**, which opens This week.
-- Forecast's **Heads up** and **Course spikes** rows open Courses.
+- Forecast's **Heads up** and **Busiest weeks** rows open Courses.
 - Tapping a bar on Forecast opens that week's assignments under the strip. Tapping it
   again closes them.
 - This week's **Later this semester** row opens Forecast, where each later week has
@@ -115,7 +115,7 @@ acting on every day moves to Courses.
 The tabs keep the addresses the screens had before (`/` and `/week`), so nothing that
 linked to them changed.
 
-**Why the forecast is the landing screen.** It is derived entirely from setup inputs
+**Why the forecast is the first screen.** It is derived entirely from setup inputs
 01 to 03 (see DESIGN.md §2), so it is useful in week one before the student has
 entered anything ongoing. Opening on the thing that works with no user data is what
 makes the app worth returning to.
@@ -125,35 +125,35 @@ makes the app worth returning to.
 ## 4. Screen 1: Forecast
 
 **Route:** `/` · **Purpose:** how heavy is the rest of my semester, where is the next
-wall, and what should I start.
+heavy week, and what should I start.
 
 ### Regions, top to bottom
 
 | Region | Content | Why it is here |
 |---|---|---|
 | Header | The term ("Fall 2026"), the title, a **Week 3 of 15** chip under it (US-46), the load pill, and Log out | Says which week it is at a glance, and how this week sits in one word before any number |
-| Week figures and strip | Hours landing this week against hours available, the next wall, and 15 bars with a dashed capacity line | The signature view. The only place the scale of a whole semester is visible |
+| Week figures and strip | Work this week against allocated time, the next heavy week, and 15 bars with a dashed allocated time line | The signature view. The only place the scale of a whole semester is visible |
 | Week detail | That week's assignments and hours, shown only after a bar is tapped | Details on demand, so the screen starts uncluttered |
 | Action card | The one thing to start, then why, then **Plan this week** | Turns the forecast into something the student can act on today |
-| Summary rows | **Heads up:** how many notices fall in the next 3 weeks. **Course spikes:** the course with the heaviest single week. Both open Courses | The rest is one tap away, not on screen |
+| Summary rows | **Heads up:** how many courses get busy in the next few weeks. **Busiest weeks:** the course with the busiest single week. Both open Courses | The rest is one tap away, not on screen |
 
 ### The load pill
 
-One word for this week: **Fits** (at or below two-thirds of capacity), **Busy** (up
-to capacity) or **Over**. A dot and a light tint carry the load colour; the word is
+One word for this week: **Light** (at or below two-thirds of allocated time), **Busy** (up
+to allocated time) or **Heavy**. A dot and a light tint carry the load colour; the word is
 in ink, because the load colours are too light to read as small text. The same pill
 heads This week.
 
 ### The week strip
 
-Bar height is projected hours relative to the tallest week or the capacity, whichever
-is higher, so the chart always fills its space and the capacity line is always on it.
-The dashed line sits at the student's weekly capacity, which makes "over the line"
+Bar height is projected hours relative to the tallest week or the allocated time, whichever
+is higher, so the chart always fills its space and the allocated time line is always on it.
+The dashed line sits at the student's weekly allocated time, which makes "over the line"
 literal rather than a colour the user has to learn.
 
 The selected week's bar is outlined: the current week until another bar is tapped.
 The current week's axis number is always in the accent colour, with **Now** written
-under it (US-46), so it does not rely on colour alone. The next week over capacity is
+under it (US-46), so it does not rely on colour alone. The next week over allocated time is
 marked on the axis in the warning colour, so the two weeks that matter are findable
 without counting.
 
@@ -169,7 +169,7 @@ a week", with **Change** beside it.
 
 ### Changing the hours a week (US-32)
 
-The capacity is the student's own number, not a fixed threshold, so it has to be
+The allocated time is the student's own number, not a fixed threshold, so it has to be
 theirs to change. **Change** opens a box under the strip with the current hours in it,
 already selected so typing replaces them.
 
@@ -178,10 +178,10 @@ already selected so typing replaces them.
 - **Nothing moves while the student types.** The forecast changes only on **Save**,
   the same rule as reviewing a syllabus before adding it.
 - **Save keeps the hours first, then redraws.** On the server (`PATCH /semester`), so
-  they are still there after a reload. Every comparison against capacity follows: the
-  line, the bar colours, the load pill, the next wall and how long the crunch lasts,
+  they are still there after a reload. Every comparison against allocated time follows: the
+  line, the bar colours, the load pill, the next heavy week and how long the heavy stretch lasts,
   the action card, the Heads up count, "/ 20 hrs" on This week, and the heavy weeks on
-  Courses (a course spikes when it needs more than 30% of the hours).
+  Courses (a course stands out when it needs more than 30% of the hours).
 - **A save that fails changes nothing.** The box stays open with "Could not save. Your
   hours are still 15." **Cancel** closes it the same way.
 - **With no server** (the sample-data switch), the new hours are kept on the device
@@ -189,24 +189,24 @@ already selected so typing replaces them.
 
 <img src="ui/screenshots/us-32-1-before.png" alt="Forecast at 15 hours a week: Busy, with Change under the strip" width="200">
 <img src="ui/screenshots/us-32-2-editing.png" alt="The box under the strip, with 20 typed in, Save and Cancel" width="200">
-<img src="ui/screenshots/us-32-3-after.png" alt="Forecast at 20 hours a week: Fits, the line higher, fewer red weeks, and You have 20 free that week" width="200">
+<img src="ui/screenshots/us-32-3-after.png" alt="Forecast at 20 hours a week: Light, the line higher, fewer red weeks, and You've allocated 20" width="200">
 <img src="ui/screenshots/us-32-4-save-failed.png" alt="The box after a failed save: Could not save. Your hours are still 20." width="200">
 
 **One week's own hours (#148).** Some weeks differ: 10 hours this week, 20 next. Tapping
-a week's bar shows, under its assignments, "You have 15 hours in week 6, your weekly
+a week's bar shows, under its assignments, "You set aside 15 hours in week 6, your weekly
 number" with **Change**. Saving other hours gives that week its own: the dashed line
-steps at that week, its bar is coloured against them, and the wall, the crunch, the
+steps at that week, its bar is coloured against them, and the next heavy week, the heavy stretch, the
 action card and the notices on Courses use them. "…set for this week only" then shows
 **Use my weekly hours** to go back. The weekly number itself does not change, and the
 same rules apply: whole hours, 1 to 80, saved first, and a failed save changes nothing.
 
-<img src="ui/screenshots/148-week-before.png" alt="Week 6 tapped: 27 hours of work against the weekly 15, so week 6 is the next wall, with You have 15 hours in week 6, your weekly number, and Change" width="200">
-<img src="ui/screenshots/148-week-after.png" alt="Week 6 given 30 hours: the dashed line steps up at week 6, its bar is no longer red, the next wall is week 7, and Use my weekly hours appears" width="200">
+<img src="ui/screenshots/148-week-before.png" alt="Week 6 tapped: 27 hours of work against the weekly 15, so week 6 is the next heavy week, with You set aside 15 hours in week 6, your weekly number, and Change" width="200">
+<img src="ui/screenshots/148-week-after.png" alt="Week 6 given 30 hours: the dashed line steps up at week 6, its bar is no longer red, the next heavy week is week 7, and Use my weekly hours appears" width="200">
 
 ### The action card
 
-It leads with the action, not the problem: **"Start Midterm 1 in week 5."** Under it,
-the hours that assignment takes, what the wall week needs against what the student
+It leads with the action, not the problem: **"Start studying for Midterm 1 in week 5."** Under it,
+the hours that assignment takes, what the heavy week needs against what the student
 has, and how long the heavy stretch lasts. It is the only solid-colour card in the
 app, so it reads as the thing to act on.
 
@@ -217,7 +217,7 @@ deliberately singular; a list of recommendations would be another list.
 
 | Was on the Semester screen | Now |
 |---|---|
-| Heads-up notices, syllabus reminder, course difficulty summary, course chips | Courses tab, with a summary row on Forecast |
+| Heads-up notices, syllabus reminder, busiest-course summary, course chips | Courses tab, with a summary row on Forecast |
 | The selected week's assignments, always shown | Shown when a bar is tapped |
 | Coming up (a grid of the next four assignments) | Removed. This week lists the next two weeks, and any later week opens from its bar |
 | See this week button | The tab bar |
@@ -227,8 +227,8 @@ deliberately singular; a list of recommendations would be another list.
 
 | State | What the screen shows |
 |---|---|
-| Crunch ahead | Action card present, with its week marked on the axis |
-| Nothing over capacity | A calm card: "Nothing over capacity ahead. Every remaining week fits in 15 hours" |
+| Heavy week ahead | Action card present, with its week marked on the axis |
+| No heavy weeks ahead | A calm card: "No heavy weeks ahead. Every week left fits in your 15 hours" |
 | No notices coming up | Heads up reads "Nothing in the next 3 weeks" |
 
 ---
@@ -242,7 +242,7 @@ deliberately singular; a list of recommendations would be another list.
 | Region | Content |
 |---|---|
 | Header | The week, the title and the load pill |
-| Week figures | Hours landing this week against hours available, and the count of items left |
+| Week figures | Work this week against allocated time, and the count of items left |
 | Task groups | Outstanding work under **Overdue**, **Due this week** and **Next week** |
 | Completed | A collapsed line, "Completed (2)", that opens the finished work so it can be undone |
 | Later this semester | A row counting the work due after next week, which opens Forecast |
@@ -257,7 +257,7 @@ Ordering is a UI decision with real consequences: a four-hour project and a
 ten-minute reading due the same day are not equally urgent, so size breaks the tie
 after date.
 
-Grouping also constrains the "start now" flag, which appears only on work that is not
+Grouping also constrains the "Start this week" flag, which appears only on work that is not
 yet due but whose backward-planned start week has arrived. Inside the Due this week
 group it would be true of everything and would stop meaning anything.
 
@@ -294,7 +294,7 @@ tick puts it back (US-31), so a mistaken tap is never permanent.
 | State | Treatment |
 |---|---|
 | Overdue | Grouped under Overdue; the week it was due shown in the warning colour |
-| Start now | Flagged in the accent colour on work not yet due |
+| Start this week | Flagged in the accent colour on work not yet due |
 | No estimate | No hours shown; an **Add estimate** link in their place |
 | Done | Moves to Completed; its filled tick undoes it |
 | Nothing left | Replaces the groups with a single confirming message |
@@ -310,7 +310,7 @@ Forecast.
 | Region | Content |
 |---|---|
 | Header | The number of courses and the term, the title, and **+ Syllabus** |
-| Your courses | One card per course: code and name, an attendance pill ("3 absences", "0 left" or "no policy"), a small 15-week strip of that course's own hours with its heavy weeks in the warning colour, and a line naming its peak in words |
+| Your courses | One card per course: code and name, an attendance pill ("3 absences", "0 left" or "no policy"), a small 15-week strip of that course's own hours with its heavy weeks in the warning colour, and a line naming its busiest weeks in words |
 | Heads up | One card per notice in the next 3 weeks, drawn like a calendar entry with the week |
 | Reminder | Keep each syllabus up to date, with Dismiss |
 
@@ -380,6 +380,25 @@ not exist.
 
 ## 9. Visual language
 
+### Words we use
+
+One plain term names each idea. Wording will be discussed at the next team meeting.
+Hours remain the input and the explanation. Week summaries put the plain word first,
+including the spoken Forecast figure: "This week: busy, 12 of your 15 allocated hours".
+Calculations, layout and internal names stay the same.
+
+| Term | What it means | Replaces | Where it appears |
+|---|---|---|---|
+| **Your allocated time** | The hours you set aside for schoolwork each week (your weekly hours, or the hours you set for one week) | "capacity", "free" | Hours editor ("Hours you set aside each week"), the week editor, the Forecast card, the week figures |
+| **Light / Busy / Heavy** | How full a week is against your allocated time. Light: up to two-thirds of it. Busy: up to all of it. Heavy: more than it | "Fits / Busy / Over" | The pill on Forecast, the week strip's colours |
+| **Heavy week** | A week that needs more than your allocated time | "wall", "crunch", "over capacity" | "Next heavy week: week 6" in the figures; the Forecast card ("Next heavy week · week 6", "Weeks 5 to 7 need more than your allocated time", "No heavy weeks ahead") |
+| **Busiest week** | The week a single course has the most work | "difficulty spike", "Course spikes", "Heaviest", "peak", "No heavy weeks" on course cards | Forecast row "Busiest weeks" ("CS 262 is busiest in week 6"), course cards ("Busiest in weeks 6 and 9" / "No standout weeks"), the Heads up cards |
+| **Start studying for / Start reading / Start working on** | When to begin a big assignment so it's done before its heavy week. The verb follows the assignment's kind: exams "studying for", reading "reading", everything else "working on" | "Start Midterm 1 in week 5" | The Forecast card; the tag on This week becomes "Start this week" |
+| **Work this week** | The hours of work in the current week: what's due, plus this week's share of longer assignments | "Landing this week", "hours land this week" | The This week tab's figure |
+| **Heads up** | Kept. Courses that get busy soon | | Forecast and Courses; the detail becomes concrete, e.g. "2 courses get busy in the next 3 weeks" |
+
+
+
 Defined in [`client/src/theme.ts`](../client/src/theme.ts) so the screens cannot
 drift apart.
 
@@ -391,7 +410,7 @@ the screens becoming noisy as more is added.
 | System | Job | May be used for |
 |---|---|---|
 | Interface | Structure and action | Backgrounds, text, rules, the action card, buttons, the active tab |
-| Load bands | How a week sits against capacity | Bars, axis markers, the load pill's dot and tint, attendance dots, heavy weeks in a course's strip |
+| Load bands | How a week sits against allocated time | Bars, axis markers, the load pill's dot and tint, attendance dots, heavy weeks in a course's strip |
 | Categories | What kind of work an assignment is | Category tiles |
 
 No element takes colour from more than one system. A category tile never changes with
@@ -407,7 +426,7 @@ load; a bar never changes with category.
 | `muted` | `#5A6A72` | Secondary text |
 | `faint` | `#677276` | Labels, axis numbers, placeholders, inactive tabs |
 | `rule` | `#DCE4E4` | Dividers and borders |
-| `accent` | `#1F5C6B` | The action card, primary buttons, links, "start now", the active tab |
+| `accent` | `#1F5C6B` | The action card, primary buttons, links, "Start this week", the active tab |
 | `accentSoft` | `#E2EDEF` | Accent backgrounds |
 
 **Every text colour meets WCAG AA,** a contrast of at least 4.5 to 1, on both `bg`
@@ -417,16 +436,16 @@ a colour change that makes text hard to read fails the build. `faint` used to be
 
 ### Load bands
 
-A week's colour is a function of its hours against the student's own capacity, not a
+A week's colour is a function of its hours against the student's own allocated time, not a
 fixed threshold:
 
 | Band | Condition | Word | Token | Value |
 |---|---|---|---|---|
-| Calm | at or below two-thirds of capacity | Fits | `calm` | `#3F7F6E` |
-| Moderate | above two-thirds, at or below capacity | Busy | `moderate` | `#B8912A` |
-| Over capacity | above capacity | Over | `heavy` | `#A93F30` |
+| Light | at or below two-thirds of allocated time | Light | `calm` | `#3F7F6E` |
+| Busy | above two-thirds, at or below allocated time | Busy | `moderate` | `#B8912A` |
+| Heavy | above allocated time | Heavy | `heavy` | `#A93F30` |
 
-A week exactly at capacity reads as moderate, not as a crunch: it fits, barely.
+A week exactly at allocated time reads as Busy. It still fits.
 
 The load colours are for shapes (bars, dots, tints), not small text. `moderate` is
 2.7 to 1 on `bg`, which is enough for a bar but not for a word.
@@ -485,7 +504,7 @@ property, and sorts normally. The student can set the category by hand.
 The three-bar meter and the hours beside it report **the time students recorded for
 that assignment in previous semesters**. It is not a judgement of how hard the work is
 and it is not generated. One bar is light, two moderate, three heavy, measured
-relative to the student's weekly capacity.
+relative to the student's weekly allocated time.
 
 This obeys "the count must be true": the figure is computed from recorded data, so
 where there is no data there is no meter. An assignment nobody has reported hours for
@@ -500,10 +519,10 @@ demonstrates and what the product can currently do should not differ.
 
 ## 12. Accessibility
 
-**Colour is never the only signal.** The load pill says Fits, Busy or Over in words,
-the action card states the week and the hours, the capacity line is a dashed rule
+**Colour is never the only signal.** The load pill says Light, Busy or Heavy in words,
+the action card states the week and the hours, the allocated time line is a dashed rule
 rather than a colour change, every bar carries a label naming its week and hours,
-every course strip has a line naming its peak, and every category tile carries two
+every course strip has a line naming its busiest weeks, and every category tile carries two
 letters as well as a colour.
 
 **Text is readable.** Every text colour meets WCAG AA on both backgrounds, checked by
@@ -551,13 +570,13 @@ after Option A. The screenshots are in [`docs/ui/screenshots/`](ui/screenshots/)
 
 The Semester screen, shown at its full length: everything in one scroll.
 
-<img src="ui/screenshots/before-semester-full.png" alt="The old Semester screen at full length: figures and strip, wall card, three heads-up notices, reminder, the week's assignments, Coming up, course difficulty spikes, course chips, and See this week" width="260">
+<img src="ui/screenshots/before-semester-full.png" alt="The old Semester screen at full length: figures and strip, heavy week card, three heads-up notices, reminder, the week's assignments, Coming up, busiest weeks for each course, course chips, and See this week" width="260">
 <img src="ui/screenshots/before-week.png" alt="The old This week screen with empty circles to mark work done" width="260">
 
 ### After: Log in, then three tabs
 
 <img src="ui/screenshots/after-login.png" alt="The Log in screen" width="200">
-<img src="ui/screenshots/after-forecast.png" alt="Forecast: header with the Busy pill, figures and strip, the action card, and the Heads up and Course spikes rows" width="200">
+<img src="ui/screenshots/after-forecast.png" alt="Forecast: header with the Busy pill, figures and strip, the action card, and the Heads up and Busiest weeks rows" width="200">
 <img src="ui/screenshots/after-week.png" alt="This week: header with the Busy pill, figures, and the work grouped as Overdue, Due this week and Next week, with ticks to mark it done" width="200">
 <img src="ui/screenshots/after-courses.png" alt="Courses: one card per course with attendance and a strip of that course's hours" width="200">
 
@@ -575,6 +594,15 @@ titles are edited; the warning case keeps the original reading.
 <img src="ui/screenshots/146-3-after-needs-attention.png" alt="After: course mismatch notice, duplicate hint and missing-week hint with warning status icons" width="200">
 <img src="ui/screenshots/146-4-after-extras.png" alt="After: grade weights and policies marked as not saved, with the Add button explaining that one assignment needs a week" width="200">
 <img src="ui/screenshots/146-6-after-long-title.png" alt="After: a long assignment title wraps without hiding its status or the Week, Hours and Remove controls" width="200">
+
+### Plain words (US-43)
+
+The current Forecast and This week screens, captured at 390 x 760 in Expo Web with
+the existing sample-data switch. The layout and calculations are unchanged. Older
+screenshots above keep their original files and may still show earlier wording.
+
+<img src="ui/screenshots/158-forecast.png" alt="Forecast with Busy, Next heavy week, the studying start action and allocated hours" width="200">
+<img src="ui/screenshots/158-this-week.png" alt="This week with Busy and the Work this week figure" width="200">
 
 ---
 
@@ -611,7 +639,7 @@ stack with the title Add a course and the back title Back.
 
 ## App icon
 
-Five rounded weekly bars stand for the shape of a 15-week semester. The line is the hours a student has available; one week breaks through it to show a crunch week. The symbol has no words because the app name is not final.
+Five rounded weekly bars stand for the shape of a 15-week semester. The line is the hours a student has available; one week breaks through it to show a heavy week. The symbol has no words because the app name is not final.
 
 The palette uses the theme tokens: calm `#3F7F6E`, moderate `#B8912A`, heavy `#A93F30`, accent `#1F5C6B` and accentSoft `#E2EDEF`.
 
