@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import WeekScreen from '../app/(tabs)/week';
 import TaskDetailScreen from '../app/task/[id]';
@@ -81,8 +81,11 @@ async function renderDetailFromServer(id: string) {
   await screen.findByTestId('task-title');
 }
 
-const typeHours = (text: string) => fireEvent.changeText(screen.getByTestId('task-hours-input'), text);
-const pressSave = () => fireEvent.press(screen.getByRole('button', { name: /^Save hours for/ }));
+/** Types into one box of the edit card. */
+const typeIn = (box: 'title' | 'week' | 'hours', text: string) =>
+  fireEvent.changeText(screen.getByTestId(`task-${box}-input`), text);
+const typeHours = (text: string) => typeIn('hours', text);
+const pressSave = () => fireEvent.press(screen.getByRole('button', { name: /^Save changes to/ }));
 
 describe('the row opens the details', () => {
   function renderWeek() {
@@ -212,7 +215,7 @@ describe('changing the hours', () => {
     typeHours('12');
     pressSave();
 
-    expect(await screen.findByTestId('task-hours-saved')).toBeTruthy();
+    expect(await screen.findByTestId('task-saved')).toBeTruthy();
     expect(screen.getByLabelText('Hours: 12 hours')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 22 hours')).toBeTruthy();
   });
@@ -236,8 +239,8 @@ describe('changing the hours', () => {
     renderDetail('exam');
     typeHours(text);
     pressSave();
-    expect(screen.getByTestId('task-hours-problem')).toHaveTextContent(
-      'Enter hours more than 0 and up to 100, or leave it blank.'
+    expect(screen.getByTestId('task-problem')).toHaveTextContent(
+      'Enter hours more than 0 and up to 100, or leave them blank.'
     );
     expect(screen.getByLabelText('Hours: 8 hours')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
@@ -250,51 +253,136 @@ describe('changing the hours', () => {
     expect(await screen.findByLabelText('Hours: 100 hours')).toBeTruthy();
   });
 
-  it('clears an old problem once the hours are saved', async () => {
+  it('clears an old problem once the details are saved', async () => {
     renderDetail('exam');
     typeHours('abc');
     pressSave();
     typeHours('9');
     pressSave();
-    expect(await screen.findByTestId('task-hours-saved')).toBeTruthy();
-    expect(screen.queryByTestId('task-hours-problem')).toBeNull();
+    expect(await screen.findByTestId('task-saved')).toBeTruthy();
+    expect(screen.queryByTestId('task-problem')).toBeNull();
   });
 
   it('hides "Saved" again as soon as the student types', async () => {
     renderDetail('exam');
     typeHours('9');
     pressSave();
-    await screen.findByTestId('task-hours-saved');
+    await screen.findByTestId('task-saved');
     typeHours('10');
-    expect(screen.queryByTestId('task-hours-saved')).toBeNull();
+    expect(screen.queryByTestId('task-saved')).toBeNull();
+  });
+});
+
+describe('changing the title and the due week', () => {
+  it('starts the boxes at the title and the due week', () => {
+    renderDetail('exam');
+    expect(screen.getByTestId('task-title-input').props.value).toBe('Midterm');
+    expect(screen.getByTestId('task-week-input').props.value).toBe('6');
+  });
+
+  it('renames the assignment', async () => {
+    renderDetail('exam');
+    typeIn('title', 'Midterm 1');
+    pressSave();
+    await screen.findByTestId('task-saved');
+    expect(screen.getByTestId('task-title')).toHaveTextContent('Midterm 1');
+  });
+
+  it('trims the spaces around a new title', async () => {
+    renderDetail('exam');
+    typeIn('title', '  Midterm 1  ');
+    pressSave();
+    await screen.findByTestId('task-saved');
+    expect(screen.getByTestId('task-title')).toHaveTextContent(/^Midterm 1$/);
+  });
+
+  it('moves the assignment to another week, and the forecast with it', async () => {
+    renderDetail('exam');
+    typeIn('week', '8');
+    pressSave();
+    await screen.findByTestId('task-saved');
+    expect(screen.getByLabelText('Due: Week 8')).toBeTruthy();
+    expect(screen.getByLabelText('Week 6, 10 hours')).toBeTruthy();
+    expect(screen.getByLabelText('Week 8, 8 hours')).toBeTruthy();
+  });
+
+  it('changes all three at once', async () => {
+    renderDetail('exam');
+    typeIn('title', 'Final');
+    typeIn('week', '15');
+    typeHours('20');
+    pressSave();
+    await screen.findByTestId('task-saved');
+    expect(screen.getByTestId('task-title')).toHaveTextContent('Final');
+    expect(screen.getByLabelText('Due: Week 15')).toBeTruthy();
+    expect(screen.getByLabelText('Week 15, 20 hours')).toBeTruthy();
+  });
+
+  it.each(['', '   '])('refuses a blank title (%p) and changes nothing', (title) => {
+    renderDetail('exam');
+    typeIn('title', title);
+    pressSave();
+    expect(screen.getByTestId('task-problem')).toHaveTextContent('Give the assignment a title.');
+    expect(screen.getByTestId('task-title')).toHaveTextContent('Midterm');
+  });
+
+  it.each(['0', '16', '2.5', 'six', ''])('refuses week %p and changes nothing', (week) => {
+    renderDetail('exam');
+    typeIn('week', week);
+    pressSave();
+    expect(screen.getByTestId('task-problem')).toHaveTextContent('The due week must be a whole number from 1 to 15.');
+    expect(screen.getByLabelText('Due: Week 6')).toBeTruthy();
+  });
+
+  it('saves nothing when one box is wrong, even if another is right', () => {
+    renderDetail('exam');
+    typeIn('title', 'Midterm 1');
+    typeIn('week', '99');
+    pressSave();
+    expect(screen.getByTestId('task-title')).toHaveTextContent(/^Midterm$/);
   });
 });
 
 describe('saving on the server', () => {
+  const midterm = wallSemester.tasks[1];
+
   it('saves the hours with PATCH /tasks/:id, then shows them', async () => {
-    mockUpdateTask.mockResolvedValue({ ...wallSemester.tasks[1], estimatedHours: 12 });
+    mockUpdateTask.mockResolvedValue({ ...midterm, estimatedHours: 12 });
     await renderDetailFromServer('exam');
 
     typeHours('12');
     pressSave();
 
-    expect(await screen.findByTestId('task-hours-saved')).toBeTruthy();
+    expect(await screen.findByTestId('task-saved')).toBeTruthy();
     expect(mockUpdateTask).toHaveBeenCalledWith('exam', { estimatedHours: 12 });
     expect(screen.getByLabelText('Week 6, 22 hours')).toBeTruthy();
   });
 
-  it('uses the hours the server kept', async () => {
-    mockUpdateTask.mockResolvedValue({ ...wallSemester.tasks[1], estimatedHours: 11 });
+  it('sends only what changed', async () => {
+    mockUpdateTask.mockResolvedValue({ ...midterm, title: 'Midterm 1', dueWeek: 7 });
+    await renderDetailFromServer('exam');
+
+    typeIn('title', 'Midterm 1');
+    typeIn('week', '7');
+    pressSave();
+
+    await screen.findByTestId('task-saved');
+    expect(mockUpdateTask).toHaveBeenCalledWith('exam', { title: 'Midterm 1', dueWeek: 7 });
+  });
+
+  it('uses what the server kept', async () => {
+    mockUpdateTask.mockResolvedValue({ ...midterm, title: 'Midterm (kept)', estimatedHours: 11 });
     await renderDetailFromServer('exam');
 
     typeHours('12');
     pressSave();
 
     expect(await screen.findByLabelText('Hours: 11 hours')).toBeTruthy();
+    expect(screen.getByTestId('task-title')).toHaveTextContent('Midterm (kept)');
   });
 
   it('sends null to clear the hours', async () => {
-    mockUpdateTask.mockResolvedValue({ ...wallSemester.tasks[1], estimatedHours: null });
+    mockUpdateTask.mockResolvedValue({ ...midterm, estimatedHours: null });
     await renderDetailFromServer('exam');
 
     typeHours('');
@@ -304,19 +392,21 @@ describe('saving on the server', () => {
     expect(mockUpdateTask).toHaveBeenCalledWith('exam', { estimatedHours: null });
   });
 
-  it('keeps the old hours, and says why, when saving fails', async () => {
+  it('changes nothing, and says why, when saving fails', async () => {
     mockUpdateTask.mockRejectedValue(new Error('Could not reach the server at http://x'));
     await renderDetailFromServer('exam');
 
+    typeIn('title', 'Midterm 1');
     typeHours('12');
     pressSave();
 
-    expect(await screen.findByTestId('task-hours-problem')).toHaveTextContent(
-      'Could not save, so the hours have not changed. Could not reach the server at http://x'
+    expect(await screen.findByTestId('task-problem')).toHaveTextContent(
+      'Could not save, so nothing has changed. Could not reach the server at http://x'
     );
+    expect(screen.getByTestId('task-title')).toHaveTextContent(/^Midterm$/);
     expect(screen.getByLabelText('Hours: 8 hours')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
-    expect(screen.queryByTestId('task-hours-saved')).toBeNull();
+    expect(screen.queryByTestId('task-saved')).toBeNull();
   });
 
   it('says Saving… and cannot be pressed twice while it saves', async () => {
@@ -331,27 +421,58 @@ describe('saving on the server', () => {
     pressSave();
     expect(mockUpdateTask).toHaveBeenCalledTimes(1);
 
-    finish({ ...wallSemester.tasks[1], estimatedHours: 12 });
-    await waitFor(() => expect(screen.getByTestId('task-hours-saved')).toBeTruthy());
+    finish({ ...midterm, estimatedHours: 12 });
+    await waitFor(() => expect(screen.getByTestId('task-saved')).toBeTruthy());
   });
 
-  it('does not call the server when the hours are the same', async () => {
+  it('does not call the server when nothing changed', async () => {
     await renderDetailFromServer('exam');
-
-    typeHours('8');
     pressSave();
-
-    expect(await screen.findByTestId('task-hours-saved')).toBeTruthy();
+    expect(await screen.findByTestId('task-saved')).toBeTruthy();
     expect(mockUpdateTask).not.toHaveBeenCalled();
   });
 
-  it('does not call the server for hours it refuses', async () => {
+  it('does not call the server for details it refuses', async () => {
     await renderDetailFromServer('exam');
-
     typeHours('101');
     pressSave();
-
-    expect(screen.getByTestId('task-hours-problem')).toBeTruthy();
+    expect(screen.getByTestId('task-problem')).toBeTruthy();
     expect(mockUpdateTask).not.toHaveBeenCalled();
+  });
+});
+
+describe('Add estimate on the row saves on the server too', () => {
+  async function renderWeekFromServer() {
+    mockFetchSemester.mockResolvedValue(wallSemester);
+    render(
+      <SemesterProvider>
+        <WeekScreen />
+      </SemesterProvider>
+    );
+    await screen.findByTestId('row-post');
+  }
+
+  const addEstimate = async (text: string) => {
+    fireEvent.press(screen.getByTestId('estimate-open-post'));
+    fireEvent.changeText(screen.getByTestId('estimate-input-post'), text);
+    fireEvent.press(screen.getByTestId('estimate-save-post'));
+    await act(async () => {});
+  };
+
+  it('sends the first estimate with PATCH /tasks/:id', async () => {
+    mockUpdateTask.mockResolvedValue({ ...wallSemester.tasks[3], estimatedHours: 3 });
+    await renderWeekFromServer();
+    await addEstimate('3');
+    expect(mockUpdateTask).toHaveBeenCalledWith('post', { estimatedHours: 3 });
+    expect(screen.getByTestId('row-post')).toHaveTextContent(/3 hrs/);
+  });
+
+  it('keeps the box open, and says so, when it could not be saved', async () => {
+    mockUpdateTask.mockRejectedValue(new Error('Could not reach the server at http://x'));
+    await renderWeekFromServer();
+    await addEstimate('3');
+    expect(screen.getByTestId('estimate-failed-post')).toHaveTextContent('Could not save. Try again.');
+    expect(screen.getByTestId('estimate-input-post').props.value).toBe('3');
+    expect(screen.queryByText('3 hrs')).toBeNull();
   });
 });

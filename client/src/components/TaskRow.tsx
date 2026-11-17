@@ -15,7 +15,8 @@ type Props = {
   /** Not yet due, but the week to begin it has arrived. */
   startNow: boolean;
   onDone: () => void;
-  onEstimate: (hours: number) => void;
+  /** Saves a first estimate. Rejects when it could not be saved. */
+  onEstimate: (hours: number) => Promise<void>;
   /** Opens the assignment's details (US-44). Without it, the row does not open. */
   onOpen?: () => void;
   /**

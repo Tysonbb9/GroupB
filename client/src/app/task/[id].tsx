@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CategoryTile } from '../../components/CategoryTile';
 import { CATEGORY_INFO } from '../../lib/categories';
-import { MAX_ESTIMATE_HOURS, parseEstimate } from '../../lib/estimate';
-import { Task } from '../../lib/types';
+import { MAX_ESTIMATE_HOURS } from '../../lib/estimate';
+import { checkTaskEdit, editTextFor, TaskEditText } from '../../lib/task-edit';
+import { Task, WEEKS_IN_SEMESTER } from '../../lib/types';
 import { hoursLabel } from '../../lib/workload';
 import { useSemester } from '../../state/semester-store';
 import { theme } from '../../theme';
@@ -37,21 +38,56 @@ function hoursText(hours: number | null): string {
   return hours === null ? 'Not set yet' : hoursLabel(hours).replace(' hrs', ' hours').replace(' hr', ' hour');
 }
 
+/** One box of the edit card, with its label above it. */
+function Field({
+  label,
+  testID,
+  value,
+  onChange,
+  numeric,
+  wide,
+  problem,
+}: {
+  label: string;
+  testID: string;
+  value: string;
+  onChange: (text: string) => void;
+  numeric?: 'number-pad' | 'decimal-pad';
+  wide?: boolean;
+  problem: boolean;
+}) {
+  return (
+    <View style={[styles.field, wide && styles.fieldWide]}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        testID={testID}
+        accessibilityLabel={label}
+        value={value}
+        onChangeText={onChange}
+        keyboardType={numeric ?? 'default'}
+        style={[styles.input, problem && styles.inputProblem]}
+      />
+    </View>
+  );
+}
+
 /**
  * US-44 (#159): an assignment's details, opened by tapping it on This week.
  *
  * It shows what the app knows about the task: its title, course, kind, due
- * week, the weeks a long task is spread over, and its hours. The hours can be
- * changed here. They are saved on the server first, so the forecast only
- * changes to hours that were kept; if saving fails, the old hours stay and
- * the screen says so.
+ * week, the weeks a long task is spread over, and its hours. The title, due
+ * week and hours can be corrected here, with one Save. Only what changed is
+ * sent, and it is saved on the server first, so the forecast only changes to
+ * what was kept; if saving fails, nothing changes and the screen says so.
  */
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { semester, saveEstimate } = useSemester();
+  const { semester, saveTask } = useSemester();
   const task = semester.tasks.find((t) => t.id === id);
 
-  const [text, setText] = useState(task?.estimatedHours == null ? '' : String(task.estimatedHours));
+  const [text, setText] = useState<TaskEditText>(
+    task === undefined ? { title: '', dueWeek: '', hours: '' } : editTextFor(task)
+  );
   const [problem, setProblem] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,34 +104,38 @@ export default function TaskDetailScreen() {
   const kind = task.category === undefined ? 'Not sorted' : CATEGORY_INFO[task.category].label;
   const spread = spreadText(task);
 
+  const type = (field: keyof TaskEditText) => (value: string) => {
+    setText((current) => ({ ...current, [field]: value }));
+    setSaved(false);
+  };
+
   const save = async () => {
-    const parsed = parseEstimate(text);
-    if (!parsed.ok) {
+    const checked = checkTaskEdit(task, text);
+    if (!checked.ok) {
       setSaved(false);
-      setProblem(`Enter hours more than 0 and up to ${MAX_ESTIMATE_HOURS}, or leave it blank.`);
+      setProblem(checked.problem);
       return;
     }
-    // The same hours again: nothing to save.
-    if (parsed.hours === task.estimatedHours) {
-      setProblem(null);
+    setProblem(null);
+    // Nothing differs from the task: nothing to save.
+    if (Object.keys(checked.change).length === 0) {
       setSaved(true);
       return;
     }
     setSaving(true);
-    setProblem(null);
     setSaved(false);
     try {
-      await saveEstimate(task.id, parsed.hours);
+      await saveTask(task.id, checked.change);
       setSaved(true);
     } catch (error) {
-      setProblem(`Could not save, so the hours have not changed. ${(error as Error).message}`);
+      setProblem(`Could not save, so nothing has changed. ${(error as Error).message}`);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       <View style={styles.top}>
         <CategoryTile category={task.category} />
         <View style={styles.names}>
@@ -117,44 +157,56 @@ export default function TaskDetailScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Change the hours</Text>
+        <Text style={styles.label}>Change the details</Text>
+        <Field
+          label="Title"
+          testID="task-title-input"
+          value={text.title}
+          onChange={type('title')}
+          wide
+          problem={problem !== null}
+        />
         <View style={styles.row}>
-          <TextInput
-            testID="task-hours-input"
-            accessibilityLabel={`Hours for ${task.title}`}
-            value={text}
-            onChangeText={(value) => {
-              setText(value);
-              setSaved(false);
-            }}
-            keyboardType="decimal-pad"
-            placeholder="hours"
-            placeholderTextColor={theme.faint}
-            style={[styles.input, problem !== null && styles.inputProblem]}
+          <Field
+            label="Due week"
+            testID="task-week-input"
+            value={text.dueWeek}
+            onChange={type('dueWeek')}
+            numeric="number-pad"
+            problem={problem !== null}
           />
-          <Pressable
-            testID="task-hours-save"
-            accessibilityRole="button"
-            accessibilityLabel={`Save hours for ${task.title}`}
-            accessibilityState={{ disabled: saving }}
-            disabled={saving}
-            onPress={save}
-            style={[styles.save, saving && styles.saveOff]}
-          >
-            <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save'}</Text>
-          </Pressable>
+          <Field
+            label="Hours"
+            testID="task-hours-input"
+            value={text.hours}
+            onChange={type('hours')}
+            numeric="decimal-pad"
+            problem={problem !== null}
+          />
         </View>
         <Text style={styles.help}>
-          More than 0 and up to {MAX_ESTIMATE_HOURS}. Leave it blank if you do not know yet.
+          Week 1 to {WEEKS_IN_SEMESTER}. Hours more than 0 and up to {MAX_ESTIMATE_HOURS}; leave them blank if you
+          do not know yet.
         </Text>
+        <Pressable
+          testID="task-save"
+          accessibilityRole="button"
+          accessibilityLabel={`Save changes to ${task.title}`}
+          accessibilityState={{ disabled: saving }}
+          disabled={saving}
+          onPress={save}
+          style={[styles.save, saving && styles.saveOff]}
+        >
+          <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save'}</Text>
+        </Pressable>
         {problem !== null && (
-          <Text testID="task-hours-problem" accessibilityLiveRegion="polite" style={styles.problem}>
+          <Text testID="task-problem" accessibilityLiveRegion="polite" style={styles.problem}>
             {problem}
           </Text>
         )}
         {saved && (
-          <Text testID="task-hours-saved" accessibilityLiveRegion="polite" style={styles.saved}>
-            Saved. Your forecast uses these hours now.
+          <Text testID="task-saved" accessibilityLiveRegion="polite" style={styles.saved}>
+            Saved. Your forecast uses these details now.
           </Text>
         )}
       </View>
@@ -181,9 +233,11 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 14, color: theme.muted },
   detailValue: { flexShrink: 1, fontSize: 14, fontWeight: '700', color: theme.ink, textAlign: 'right' },
   label: { fontSize: 14, fontWeight: '700', color: theme.ink },
-  row: { flexDirection: 'row', alignItems: 'center', gap: theme.space.sm },
+  row: { flexDirection: 'row', gap: theme.space.sm },
+  field: { gap: 4, width: 110 },
+  fieldWide: { width: '100%' },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: theme.muted },
   input: {
-    width: 88,
     borderWidth: 1,
     borderColor: theme.rule,
     borderRadius: theme.radius,
@@ -195,9 +249,10 @@ const styles = StyleSheet.create({
   },
   inputProblem: { borderColor: theme.heavy },
   save: {
+    alignSelf: 'flex-start',
     backgroundColor: theme.accent,
     borderRadius: 999,
-    paddingHorizontal: theme.space.md,
+    paddingHorizontal: theme.space.lg,
     paddingVertical: theme.space.xs + 4,
   },
   saveOff: { opacity: 0.6 },

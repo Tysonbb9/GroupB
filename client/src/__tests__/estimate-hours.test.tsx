@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import React from 'react';
 import SemesterScreen from '../app/(tabs)/index';
 import WeekScreen from '../app/(tabs)/week';
@@ -21,10 +21,12 @@ function renderApp() {
 
 const postRow = () => within(screen.getByTestId('row-post'));
 
-function addEstimate(text: string) {
+/** Saving keeps the hours first (US-44), so wait for it to finish. */
+async function addEstimate(text: string) {
   fireEvent.press(screen.getByTestId('estimate-open-post'));
   fireEvent.changeText(screen.getByTestId('estimate-input-post'), text);
   fireEvent.press(screen.getByTestId('estimate-save-post'));
+  await act(async () => {});
 }
 
 describe('US-13: keep tasks that do not have an estimated number of hours', () => {
@@ -48,41 +50,41 @@ describe('US-13: keep tasks that do not have an estimated number of hours', () =
 });
 
 describe('US-12: include an estimated number of hours on a task', () => {
-  it('shows the estimate on the task once it is saved', () => {
+  it('shows the estimate on the task once it is saved', async () => {
     renderApp();
-    addEstimate('3');
+    await addEstimate('3');
     expect(postRow().getByText('3 hrs')).toBeTruthy();
   });
 
-  it('stops offering to add one once it has one', () => {
+  it('stops offering to add one once it has one', async () => {
     renderApp();
-    addEstimate('3');
+    await addEstimate('3');
     expect(screen.queryByLabelText('Add estimate for Discussion post')).toBeNull();
   });
 
-  it('adds the hours to the forecast on both screens', () => {
+  it('adds the hours to the forecast on both screens', async () => {
     renderApp();
-    addEstimate('3');
+    await addEstimate('3');
     expect(screen.getByTestId('week-hours')).toHaveTextContent(/3 \/ 10 hrs/);
     expect(screen.getByLabelText('Week 3, 3 hours')).toBeTruthy();
   });
 
-  it('accepts half hours', () => {
+  it('accepts half hours', async () => {
     renderApp();
-    addEstimate('2.5');
+    await addEstimate('2.5');
     expect(postRow().getByText('2.5 hrs')).toBeTruthy();
   });
 
-  it('rejects text that is not a number, and saves nothing', () => {
+  it('rejects text that is not a number, and saves nothing', async () => {
     renderApp();
-    addEstimate('lots');
+    await addEstimate('lots');
     expect(screen.getByTestId('estimate-error-post')).toBeTruthy();
     expect(screen.getByLabelText('Week 3, 0 hours')).toBeTruthy();
   });
 
-  it('rejects zero and absurdly large estimates', () => {
+  it('rejects zero and absurdly large estimates', async () => {
     renderApp();
-    addEstimate('0');
+    await addEstimate('0');
     expect(screen.getByTestId('estimate-error-post')).toBeTruthy();
 
     fireEvent.changeText(screen.getByTestId('estimate-input-post'), '500');
@@ -90,9 +92,9 @@ describe('US-12: include an estimated number of hours on a task', () => {
     expect(screen.getByTestId('estimate-error-post')).toBeTruthy();
   });
 
-  it('leaves the task unestimated when the field is left blank', () => {
+  it('leaves the task unestimated when the field is left blank', async () => {
     renderApp();
-    addEstimate('');
+    await addEstimate('');
     expect(screen.getByLabelText('Add estimate for Discussion post')).toBeTruthy();
   });
 

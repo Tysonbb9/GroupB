@@ -343,12 +343,20 @@ export async function addTasks(tasks: NewTask[]): Promise<Task[]> {
   }
   return json as Task[];
 }
+/** What the task details can change (US-44): any of these, the rest stay. */
+export type TaskChange = {
+  /** null clears the hours. */
+  estimatedHours?: number | null;
+  title?: string;
+  dueWeek?: number;
+};
+
 /**
- * PATCH /tasks/:id (US-44). Saves a task's hours, or clears them with null,
- * and returns the task as the server now holds it. Rejects with a message the
- * user can read.
+ * PATCH /tasks/:id (US-44). Saves a task's changed fields (its hours, which
+ * null clears, its title or its due week) and returns the task as the server
+ * now holds it. Rejects with a message the user can read.
  */
-export async function updateTask(id: string, change: { estimatedHours: number | null }): Promise<Task> {
+export async function updateTask(id: string, change: TaskChange): Promise<Task> {
   const response = await send(`/tasks/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -360,7 +368,13 @@ export async function updateTask(id: string, change: { estimatedHours: number | 
   }
 
   const json: unknown = await response.json();
-  if (!isObject(json) || json.id !== id || !(json.estimatedHours === null || typeof json.estimatedHours === 'number')) {
+  if (
+    !isObject(json) ||
+    json.id !== id ||
+    typeof json.title !== 'string' ||
+    typeof json.dueWeek !== 'number' ||
+    !(json.estimatedHours === null || typeof json.estimatedHours === 'number')
+  ) {
     throw new Error('The server sent invalid task data');
   }
   return json as Task;
