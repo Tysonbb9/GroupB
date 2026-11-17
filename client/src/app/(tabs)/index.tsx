@@ -14,7 +14,14 @@ import { WeekDetail } from '../../components/WeekDetail';
 import { WeekHoursEditor } from '../../components/WeekHoursEditor';
 import { WeekFigures } from '../../components/WeekFigures';
 import { WeekStrip } from '../../components/WeekStrip';
-import { CheckinQuestion, fetchCheckinQuestion, fetchReminder, Reminder } from '../../lib/api';
+import {
+  CalendarChanges,
+  CheckinQuestion,
+  fetchCalendarChanges,
+  fetchCheckinQuestion,
+  fetchReminder,
+  Reminder,
+} from '../../lib/api';
 import { capacityByWeek, ownWeekHours } from '../../lib/capacity';
 import { courseSpikes, LOOKAHEAD_WEEKS, upcomingSpikes } from '../../lib/difficulty';
 import {
@@ -27,6 +34,14 @@ import {
 } from '../../lib/workload';
 import { useSemester } from '../../state/semester-store';
 import { theme } from '../../theme';
+
+/** "2 changes and 1 new event", for the Moodle calendar row. */
+function calendarSummary({ changes, newEvents }: CalendarChanges): string {
+  const parts: string[] = [];
+  if (changes.length > 0) parts.push(`${changes.length} ${changes.length === 1 ? 'change' : 'changes'}`);
+  if (newEvents > 0) parts.push(`${newEvents} new ${newEvents === 1 ? 'event' : 'events'}`);
+  return `${parts.join(' and ')} to review`;
+}
 
 /**
  * Screen 1: Forecast.
@@ -63,6 +78,25 @@ export default function SemesterScreen() {
   // one it gives, so asking again would use up the day's limit. A failure
   // only hides the card.
   const [reminder, setReminder] = useState<Reminder | null>(null);
+  // US-50 (#166): the Moodle calendar, checked again in the background when
+  // Forecast opens. A row appears only when something changed or is new, or
+  // when the saved link stopped working. With no link saved, nothing shows.
+  const [calendar, setCalendar] = useState<CalendarChanges | null>(null);
+  const [calendarProblem, setCalendarProblem] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fromServer || courseCount === 0) return;
+    let cancelled = false;
+    fetchCalendarChanges()
+      .then((found) => {
+        if (!cancelled) setCalendar(found);
+      })
+      .catch((error: Error) => {
+        if (!cancelled) setCalendarProblem(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fromServer, courseCount]);
   useEffect(() => {
     if (!fromServer || courseCount === 0) return;
     let cancelled = false;
@@ -212,6 +246,34 @@ export default function SemesterScreen() {
             }
             onPress={() => router.push('/courses')}
           />
+          {calendarProblem !== null ? (
+            <>
+              <View style={styles.divider} />
+              <SummaryRow
+                testID="calendar-row"
+                icon="calendar"
+                tint={theme.heavy}
+                title="Moodle calendar link stopped working"
+                detail={calendarProblem}
+                onPress={() => router.push('/courses')}
+              />
+            </>
+          ) : (
+            calendar !== null &&
+            calendar.changes.length + calendar.newEvents > 0 && (
+              <>
+                <View style={styles.divider} />
+                <SummaryRow
+                  testID="calendar-row"
+                  icon="calendar"
+                  tint={theme.accent}
+                  title="Moodle calendar"
+                  detail={calendarSummary(calendar)}
+                  onPress={() => router.push('/calendar')}
+                />
+              </>
+            )
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
