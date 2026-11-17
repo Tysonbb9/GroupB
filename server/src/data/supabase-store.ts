@@ -166,6 +166,21 @@ async getTask(userId: string, id: string) {
   };
 }
 
+async deleteTask(userId: string, id: string) {
+  const { data, error } = await this.client
+    .from('tasks')
+    .delete()
+    .eq('user_id', userId)
+    .eq('id', id)
+    .select('id');
+
+  if (error) {
+    throw new DatabaseError(`Failed to delete task: ${error.message}`);
+  }
+
+  return data.length > 0;
+}
+
 async listTasks(userId: string, filters: TaskFilters) {
   let query = this.client
     .from('tasks')
@@ -591,6 +606,19 @@ async recordCalendarImports(userId: string, imports: CalendarImport[]) {
 
   if (error) {
     throw new DatabaseError(`Failed to record calendar imports: ${error.message}`);
+  }
+}
+
+async deleteCalendarImports(userId: string, eventIds: string[]) {
+  if (eventIds.length === 0) return;
+  const { error } = await this.client
+    .from('calendar_imports')
+    .delete()
+    .eq('user_id', userId)
+    .in('event_uid', eventIds);
+
+  if (error) {
+    throw new DatabaseError(`Failed to forget calendar imports: ${error.message}`);
   }
 }
 }

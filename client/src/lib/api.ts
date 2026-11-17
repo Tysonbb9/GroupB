@@ -591,6 +591,68 @@ export async function addCalendarEvents(tasks: NewCalendarTask[]): Promise<Task[
   return json.tasks as Task[];
 }
 
+/** A deadline that changed in Moodle since it was added (US-50, #166). */
+export type CalendarChange =
+  | { kind: 'moved'; eventId: string; taskId: string; title: string; fromWeek: number; toWeek: number }
+  | { kind: 'removed'; eventId: string; taskId: string; title: string; week: number };
+
+export type CalendarChanges = {
+  changes: CalendarChange[];
+  /** New events waiting for review (US-49). */
+  newEvents: number;
+};
+
+function isCalendarChange(value: unknown): value is CalendarChange {
+  if (!isObject(value) || typeof value.eventId !== 'string' || typeof value.taskId !== 'string' || typeof value.title !== 'string') {
+    return false;
+  }
+  if (value.kind === 'moved') return typeof value.fromWeek === 'number' && typeof value.toWeek === 'number';
+  return value.kind === 'removed' && typeof value.week === 'number';
+}
+
+/**
+ * GET /calendar/changes (US-50). Compares the events added before with a
+ * fresh copy of the Moodle calendar. null when no link is saved, since then
+ * there is nothing to check. Rejects with the server's message when the link
+ * stopped working, which is written for the student.
+ */
+export async function fetchCalendarChanges(): Promise<CalendarChanges | null> {
+  const response = await send('/calendar/changes');
+  if (response.status === 409) return null;
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isObject(json) || !Array.isArray(json.changes) || typeof json.newEvents !== 'number' || !json.changes.every(isCalendarChange)) {
+    throw new Error('The server sent something that is not a list of calendar changes');
+  }
+  return json as CalendarChanges;
+}
+
+/**
+ * POST /calendar/changes (US-50). Accepts some changes (a moved task changes
+ * week, a removed one is deleted) and keeps the student's own version of
+ * others. Returns the tasks that changed and the ids of those deleted.
+ */
+export async function settleCalendarChanges(choice: {
+  accept: string[];
+  keep: string[];
+}): Promise<{ tasks: Task[]; removedTaskIds: string[] }> {
+  const response = await send('/calendar/changes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(choice),
+  });
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isObject(json) || !Array.isArray(json.tasks) || !Array.isArray(json.removedTaskIds)) {
+    throw new Error('The server sent something that is not the settled changes');
+  }
+  return json as { tasks: Task[]; removedTaskIds: string[] };
+}
+
 /** A reminder the server handed out (#156, AI screen 3), within code's limits. */
 export type Reminder = {
   taskId: string;

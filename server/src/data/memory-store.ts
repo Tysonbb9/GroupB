@@ -98,6 +98,12 @@ async updateTask(userId: string, id: string, updates: TaskUpdates) {
   return this.getTask(userId, id);
 }
 
+async deleteTask(userId: string, id: string) {
+  const before = db.tasks.length;
+  db.tasks = db.tasks.filter(task => !(task.userId === userId && task.id === id));
+  return db.tasks.length < before;
+}
+
 // The route checks enrollment and every task first, so the batch cannot partly apply.
 async addTasks(userId: string, newTasks: NewTask[]) {
   const taken = new Set(db.tasks.filter(task => task.userId === userId).map(task => task.id));
@@ -220,6 +226,12 @@ async listCalendarImports(userId: string) {
 async recordCalendarImports(userId: string, imports: CalendarImport[]) {
   const rows = { ...details.calendarImports[userId] };
   for (const row of imports) rows[row.eventId] = { ...row };
+  details.calendarImports[userId] = rows;
+}
+
+async deleteCalendarImports(userId: string, eventIds: string[]) {
+  const rows = { ...details.calendarImports[userId] };
+  for (const id of eventIds) delete rows[id];
   details.calendarImports[userId] = rows;
 }
 

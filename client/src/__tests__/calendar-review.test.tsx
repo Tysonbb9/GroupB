@@ -19,6 +19,9 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('../lib/api', () => ({
+  // US-50: the screen also asks for changes; none in these tests.
+  fetchCalendarChanges: jest.fn(async () => ({ changes: [], newEvents: 0 })),
+  settleCalendarChanges: jest.fn(),
   fetchCalendarEvents: jest.fn(),
   addCalendarEvents: jest.fn(),
   fetchCalendarLinkStatus: jest.fn(),

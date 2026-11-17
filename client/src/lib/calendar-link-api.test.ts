@@ -1,4 +1,11 @@
-import { addCalendarEvents, fetchCalendarEvents, fetchCalendarLinkStatus, saveCalendarLink } from './api';
+import {
+  addCalendarEvents,
+  fetchCalendarChanges,
+  fetchCalendarEvents,
+  fetchCalendarLinkStatus,
+  saveCalendarLink,
+  settleCalendarChanges,
+} from './api';
 
 /**
  * The calendar link calls (US-48, #164). fetch is replaced so no server is
@@ -118,5 +125,61 @@ describe('addCalendarEvents (US-49)', () => {
   it('rejects a reply that is not a list of tasks', async () => {
     fetchMock.mockResolvedValue(reply({ ok: 1 }, 201));
     await expect(addCalendarEvents([task])).rejects.toThrow('The server sent something that is not a list of tasks');
+  });
+});
+
+describe('fetchCalendarChanges (US-50)', () => {
+  const changes = {
+    changes: [
+      { kind: 'moved', eventId: 'e1', taskId: 't1', title: 'Lab 9', fromWeek: 4, toWeek: 7 },
+      { kind: 'removed', eventId: 'e2', taskId: 't2', title: 'Quiz 3', week: 5 },
+    ],
+    newEvents: 1,
+  };
+
+  it('asks GET /calendar/changes and returns the changes', async () => {
+    fetchMock.mockResolvedValue(reply(changes));
+    await expect(fetchCalendarChanges()).resolves.toEqual(changes);
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/calendar\/changes$/);
+  });
+
+  it('is null when no link is saved (409), since there is nothing to check', async () => {
+    fetchMock.mockResolvedValue(reply({ error: 'Save your Moodle calendar link first.' }, 409));
+    await expect(fetchCalendarChanges()).resolves.toBeNull();
+  });
+
+  it("passes the server's message on when the link stopped working", async () => {
+    fetchMock.mockResolvedValue(reply({ error: 'Moodle did not accept that link. Copy a new calendar link from Moodle.' }, 422));
+    await expect(fetchCalendarChanges()).rejects.toThrow('Moodle did not accept that link.');
+  });
+
+  it.each([
+    ['missing the count', { changes: [] }],
+    ['a change of an unknown kind', { changes: [{ kind: 'renamed', eventId: 'e', taskId: 't', title: 'x' }], newEvents: 0 }],
+    ['a move without its weeks', { changes: [{ kind: 'moved', eventId: 'e', taskId: 't', title: 'x' }], newEvents: 0 }],
+  ])('rejects a reply with %s', async (_case, body) => {
+    fetchMock.mockResolvedValue(reply(body));
+    await expect(fetchCalendarChanges()).rejects.toThrow('The server sent something that is not a list of calendar changes');
+  });
+});
+
+describe('settleCalendarChanges (US-50)', () => {
+  it('posts the accepted and kept event ids, and returns what changed', async () => {
+    fetchMock.mockResolvedValue(reply({ tasks: [], removedTaskIds: ['t2'] }));
+    await expect(settleCalendarChanges({ accept: ['e2'], keep: ['e1'] })).resolves.toEqual({ tasks: [], removedTaskIds: ['t2'] });
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/calendar\/changes$/);
+    expect(options.method).toBe('POST');
+    expect(JSON.parse(options.body)).toEqual({ accept: ['e2'], keep: ['e1'] });
+  });
+
+  it("passes the server's message on", async () => {
+    fetchMock.mockResolvedValue(reply({ error: 'An event cannot be both accepted and kept' }, 400));
+    await expect(settleCalendarChanges({ accept: ['e1'], keep: ['e1'] })).rejects.toThrow('An event cannot be both accepted and kept');
+  });
+
+  it('rejects a reply that is not the settled changes', async () => {
+    fetchMock.mockResolvedValue(reply({ tasks: [] }));
+    await expect(settleCalendarChanges({ accept: ['e1'], keep: [] })).rejects.toThrow('The server sent something that is not the settled changes');
   });
 });

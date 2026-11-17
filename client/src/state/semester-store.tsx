@@ -17,6 +17,8 @@ type SemesterStore = {
   fromServer: boolean;
   /** Puts in tasks the server has just changed, matched by id (#155). */
   replaceTasks: (tasks: Task[]) => void;
+  /** Drops tasks the server has already deleted (US-50). */
+  removeTasks: (taskIds: string[]) => void;
   canLoadSample: boolean;
   loadingSample: boolean;
   sampleError: string | null;
@@ -187,6 +189,11 @@ function SemesterState({
       return {
         semester,
         fromServer,
+        removeTasks: (taskIds: string[]) =>
+          setSemester((current) => ({
+            ...current,
+            tasks: current.tasks.filter((t) => !taskIds.includes(t.id)),
+          })),
         replaceTasks: (changed: Task[]) =>
           setSemester((current) => ({
             ...current,

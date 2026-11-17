@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CalendarChanges } from '../components/CalendarChanges';
 import { DraftBlocker, DraftCard, DraftNotice } from '../components/DraftCard';
-import { addCalendarEvents, CalendarProposals, fetchCalendarEvents, NewCalendarTask } from '../lib/api';
+import {
+  addCalendarEvents,
+  CalendarChange,
+  CalendarProposals,
+  fetchCalendarChanges,
+  fetchCalendarEvents,
+  NewCalendarTask,
+} from '../lib/api';
 import { checkDraft, Draft } from '../lib/review';
 import { useSemester } from '../state/semester-store';
 import { theme } from '../theme';
@@ -25,10 +33,14 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * be matched, its course. Events that name no course of the student's wait
  * for them to place it. Events carry no hours, so tasks arrive without an
  * estimate unless the student types one (US-13). Nothing is saved until Add.
+ *
+ * US-50 (#166): above them, deadlines that changed in Moodle since they were
+ * added (moved or removed), each waiting for Accept or Keep mine.
  */
 export default function CalendarScreen() {
-  const { semester, addTasks } = useSemester();
+  const { semester, addTasks, replaceTasks, removeTasks } = useSemester();
   const [loaded, setLoaded] = useState<CalendarProposals | null>(null);
+  const [changes, setChanges] = useState<CalendarChange[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [errors, setErrors] = useState<(string | null)[]>([]);
@@ -37,10 +49,12 @@ export default function CalendarScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCalendarEvents()
-      .then((result) => {
+    // Both read the same calendar; a link that stopped working fails both, with one message.
+    Promise.all([fetchCalendarEvents(), fetchCalendarChanges()])
+      .then(([result, changed]) => {
         if (cancelled) return;
         setLoaded(result);
+        setChanges(changed?.changes ?? []);
         setRows(
           result.proposals.map((p) => ({
             eventId: p.eventId,
@@ -129,6 +143,14 @@ export default function CalendarScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+      <CalendarChanges
+        changes={changes}
+        onSettled={({ tasks, removedTaskIds }) => {
+          replaceTasks(tasks);
+          removeTasks(removedTaskIds);
+        }}
+      />
+
       {rows.length > 0 ? (
         <>
           <View testID="calendar-review-banner" style={styles.banner}>
@@ -139,7 +161,8 @@ export default function CalendarScreen() {
           </Text>
         </>
       ) : (
-        status === null && (
+        status === null &&
+        changes.length === 0 && (
           <Text testID="calendar-nothing-new" style={styles.text}>
             Nothing new in your Moodle calendar.
           </Text>
