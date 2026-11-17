@@ -4,7 +4,7 @@ import { semester as sample, DEFAULT_WEEKLY_CAPACITY } from './semester';
 import { DatabaseError } from './database-error';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { nextTaskId } from './task-ids';
-import type { CheckinAnswer, CoursePolicies, GradeWeight, Review, Task } from '../types';
+import type { CalendarImport, CheckinAnswer, CoursePolicies, GradeWeight, Review, Task } from '../types';
 
 /**
  * Refuses a course that does not exist, as the database's foreign keys do,
@@ -211,6 +211,16 @@ async saveCalendarLink(userId: string, url: string) {
   const link = { url, savedAt: new Date().toISOString() };
   details.calendarLinks[userId] = link;
   return { ...link };
+}
+
+async listCalendarImports(userId: string) {
+  return Object.values(details.calendarImports[userId] ?? {}).map((row) => ({ ...row }));
+}
+
+async recordCalendarImports(userId: string, imports: CalendarImport[]) {
+  const rows = { ...details.calendarImports[userId] };
+  for (const row of imports) rows[row.eventId] = { ...row };
+  details.calendarImports[userId] = rows;
 }
 
 }

@@ -92,6 +92,7 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 | `db/migration_127_users_enrollments.sql` | Adds the login tables and `enrollments` to a database that already has data. Leaves existing rows alone. |
 | `db/migration_144_course_tables.sql` | Adds the course tables for the AI screens (`syllabi`, `grade_weights`, `course_policies`, `course_checkins`, `week_hours`) to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
 | `db/migration_164_calendar_link.sql` | Adds `calendar_links`, each student's Moodle calendar link (US-48), to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
+| `db/migration_165_calendar_imports.sql` | Adds `calendar_imports`, the Moodle events each student added as tasks (US-49). Run it after the #127 migration. Leaves existing rows alone. |
 | `db/seed.sql` | Loads the shared calendar and catalog: 1 semester, 5 courses, no student tasks |
 | `db/migration_course_catalog.sql` | Backfills normalized code identity with a unique index and adds search and atomic create-and-enroll functions. Run after migration_own_semester.sql. |
 | `db/migration_own_semester.sql` | Adds student settings and task ownership, deletes only ownerless sample tasks and adds the transactional sample-copy function. Run after the existing migrations. |
@@ -252,6 +253,8 @@ curl -b cookies.txt http://localhost:3000/semester
 | GET | `/ai/status` | `{ available }`: whether the server has an AI to read syllabi with | 200 | |
 | GET | `/calendar/link` | Whether a Moodle calendar link is saved (US-48): `{ saved, savedAt }`. Never returns the link | 200 | |
 | POST | `/calendar/link` | Save a Moodle calendar link: `{ url }`. Checked (https, allowed host) and fetched once to make sure it is a calendar, then saved, replacing any earlier one | 200 `{ saved, savedAt }` | 400 not an allowed link, 422 not a calendar or refused by Moodle, 502 Moodle unreachable |
+| GET | `/calendar/events` | The saved Moodle calendar's events as tasks to review (US-49): `{ proposals: [{ eventId, title, dueWeek, courseId or null, alreadyInSemester }], alreadyAdded, outsideSemester }`. Saves nothing | 200 | 409 no saved link; 400, 422 or 502 when the link stopped working |
+| POST | `/calendar/events` | Add the kept events: `{ tasks: [{ eventId, courseId, title, dueWeek, estimatedHours? }] }`, all or nothing, recording each event so it is not offered again | 201 `{ tasks }` | 400 bad task, 409 event already added |
 | POST | `/reminders` | One reminder within code's limits (#156): at most 2 a day, never twice about one assignment. `{ reminder }` with the course, assignment, one line and `countToday`, or `{ reminder: null }`. Always null with no AI set up. It records the reminder it gives | 200 | |
 | POST | `/ai/syllabus` | Syllabus text in (`{ text }`), what the AI read out: `{ assignments, weights, policies, dropped }`, every field checked. Takes about 30 seconds | 200 | 400 no text, 413 over 30,000 characters, 502 the AI failed or gave an unusable answer, 503 no AI set up |
 | POST | `/courses/:id/reviews` | Add a review: assignment `title`, `hours` (over 0, up to 100), optional `comment` | 201 | 400 bad body, 404 |

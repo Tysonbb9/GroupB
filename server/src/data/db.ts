@@ -1,6 +1,6 @@
 // server/src/data/db.ts
 import { semester as seed } from './semester';
-import type { CalendarLink, CourseCheckin, CoursePolicies, GradeWeight, Inputs, Semester, Syllabus, Task } from '../types';
+import type { CalendarImport, CalendarLink, CourseCheckin, CoursePolicies, GradeWeight, Inputs, Semester, Syllabus, Task } from '../types';
 
 /**
  * The catalog and calendar are shared. Enrollments, tasks and capacity belong
@@ -30,6 +30,8 @@ export type CourseDetails = {
   weekHours: Record<string, Record<number, number>>;
   /** #164: each student's Moodle calendar link, by user id. */
   calendarLinks: Record<string, CalendarLink>;
+  /** #165: the events each student added as tasks, by user id, then event id. */
+  calendarImports: Record<string, Record<string, CalendarImport>>;
 };
 
 const noDetails = (): CourseDetails => ({
@@ -39,6 +41,7 @@ const noDetails = (): CourseDetails => ({
   checkins: {},
   weekHours: {},
   calendarLinks: {},
+  calendarImports: {},
 });
 
 /** Starts empty, like the database's new tables. */

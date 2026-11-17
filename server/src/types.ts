@@ -133,6 +133,16 @@ export type CalendarLink = {
   savedAt: string;
 };
 
+/**
+ * A Moodle calendar event the student added as a task (#165), so it is not
+ * offered again, and the week it had then, so a later move can be spotted (#166).
+ */
+export type CalendarImport = {
+  eventId: string;
+  taskId: string;
+  dueWeek: number;
+};
+
 /** A student's hours for one week, replacing their weekly number that week (#148). */
 export type WeekHours = {
   week: number;

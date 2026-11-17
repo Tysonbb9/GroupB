@@ -11,6 +11,7 @@ import type {
   Task,
   WeekHours,
   CalendarLink,
+  CalendarImport,
 } from '../types';
 
 export type TaskFilters = {
@@ -107,4 +108,9 @@ export interface Store {
   getCalendarLink(userId: string): Promise<CalendarLink | null>;
   /** Saves the link, replacing any earlier one, timed now. */
   saveCalendarLink(userId: string, url: string): Promise<CalendarLink>;
+
+  /** The Moodle events a student added as tasks (#165), each with its task and week. */
+  listCalendarImports(userId: string): Promise<CalendarImport[]>;
+  /** Records events just added as tasks. An event recorded before is replaced. */
+  recordCalendarImports(userId: string, imports: CalendarImport[]): Promise<void>;
 }

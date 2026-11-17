@@ -3,7 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { DatabaseError } from './database-error';
 import { semester as sample, DEFAULT_WEEKLY_CAPACITY } from './semester';
-import type { Category, CheckinAnswer, CoursePolicies, GradeWeight } from '../types';
+import type { CalendarImport, Category, CheckinAnswer, CoursePolicies, GradeWeight } from '../types';
 
 /** Postgres timestamps arrive as text with an offset; the API uses ISO in UTC. */
 const toIso = (timestamp: string) => new Date(timestamp).toISOString();
@@ -564,5 +564,33 @@ async saveCalendarLink(userId: string, url: string) {
   }
 
   return { url: data.url, savedAt: toIso(data.saved_at) };
+}
+
+async listCalendarImports(userId: string) {
+  const { data, error } = await this.client
+    .from('calendar_imports')
+    .select('event_uid, task_id, due_week')
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new DatabaseError(`Failed to load calendar imports: ${error.message}`);
+  }
+
+  return data.map((row) => ({ eventId: row.event_uid, taskId: row.task_id, dueWeek: row.due_week }));
+}
+
+async recordCalendarImports(userId: string, imports: CalendarImport[]) {
+  if (imports.length === 0) return;
+  const rows = imports.map((row) => ({
+    user_id: userId,
+    event_uid: row.eventId,
+    task_id: row.taskId,
+    due_week: row.dueWeek,
+  }));
+  const { error } = await this.client.from('calendar_imports').upsert(rows, { onConflict: 'user_id,event_uid' });
+
+  if (error) {
+    throw new DatabaseError(`Failed to record calendar imports: ${error.message}`);
+  }
 }
 }

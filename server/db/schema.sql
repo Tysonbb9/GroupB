@@ -236,6 +236,19 @@ create table calendar_links (
 );
 
 -- ---------------------------------------------------------------------------
+-- calendar_imports: one row per Moodle event a student added as a task
+-- (#165). event_uid is Moodle's id for the event; task_id is the task it
+-- became; due_week is its week when added. Deleting a student deletes theirs.
+-- ---------------------------------------------------------------------------
+create table calendar_imports (
+  user_id   text not null references "user" ("id") on delete cascade,
+  event_uid text not null check (length(btrim(event_uid)) > 0),
+  task_id   text not null,
+  due_week  int not null check (due_week between 1 and 15),
+  primary key (user_id, event_uid)
+);
+
+-- ---------------------------------------------------------------------------
 -- replace_grade_weights: swaps all of a course's weights in one call. The
 -- delete and the insert run in the same transaction, so a failure (an
 -- unknown course, a broken rule) leaves the old weights, never half of each.
@@ -471,5 +484,6 @@ alter table course_policies enable row level security;
 alter table course_checkins enable row level security;
 alter table week_hours      enable row level security;
 alter table calendar_links  enable row level security;
+alter table calendar_imports enable row level security;
 
 commit;
