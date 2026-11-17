@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CalendarLinkStatus, fetchCalendarLinkStatus, saveCalendarLink } from '../lib/api';
@@ -15,10 +16,11 @@ function shortDate(iso: string): string {
  * The server checks the link and fetches it once to make sure it gives a
  * calendar before saving it. The link holds a private token, so once saved
  * it is never shown again: the box empties and the card only says it is
- * connected, and when. Replace link takes a new one. The due dates
- * themselves are read in later stories (#165, #166).
+ * connected, and when. Replace link takes a new one. Once connected,
+ * Review calendar events opens the events to add (US-49, #165).
  */
 export function CalendarLinkCard() {
+  const router = useRouter();
   const [status, setStatus] = useState<CalendarLinkStatus | null>(null);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
@@ -92,6 +94,18 @@ export function CalendarLinkCard() {
             </Pressable>
           )}
         </View>
+      )}
+
+      {status.saved && !editing && (
+        <Pressable
+          testID="calendar-review"
+          accessibilityRole="button"
+          accessibilityLabel="Review the events in your Moodle calendar"
+          onPress={() => router.push('/calendar')}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>Review calendar events</Text>
+        </Pressable>
       )}
 
       {showForm && (
@@ -178,7 +192,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.bg,
   },
   inputProblem: { borderColor: theme.heavy },
-  button: { backgroundColor: theme.accent, borderRadius: 999, paddingHorizontal: theme.space.md, paddingVertical: 8 },
+  button: {
+    alignSelf: 'flex-start',
+    backgroundColor: theme.accent,
+    borderRadius: 999,
+    paddingHorizontal: theme.space.md,
+    paddingVertical: 8,
+  },
   off: { opacity: 0.6 },
   buttonText: { color: theme.surface, fontSize: 14, fontWeight: '700' },
   cancel: { fontSize: 13, color: theme.muted },

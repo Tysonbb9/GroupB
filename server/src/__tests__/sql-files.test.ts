@@ -283,3 +283,49 @@ describe('migration_164_calendar_link.sql (#164)', () => {
     expect(store).toMatch(/from\('calendar_links'\)/);
   });
 });
+
+describe('migration_165_calendar_imports.sql (#165)', () => {
+  const migration165 = read('migration_165_calendar_imports.sql');
+
+  it('creates calendar_imports, safe to run twice, in one transaction', () => {
+    expect(migration165).toMatch(/create table if not exists calendar_imports \(/);
+    expect(migration165.trim()).toMatch(/^(--.*\n|\s)*begin;[\s\S]*commit;$/);
+  });
+
+  it('does not touch tasks or any other table', () => {
+    for (const table of ['semester', 'courses', 'tasks', 'reviews', '"user"', 'enrollments', 'calendar_links']) {
+      expect(migration165).not.toMatch(new RegExp(`(alter|drop|truncate|delete from|update|insert into) (table )?${table}\\b`, 'i'));
+    }
+  });
+
+  it('keeps one row per student and event, deleted with the student, with a week from 1 to 15', () => {
+    const body = tableBody(migration165, 'calendar_imports') ?? '';
+    expect(body).toMatch(/user_id\s+text not null references "user" \("id"\) on delete cascade/);
+    expect(body).toMatch(/due_week\s+int not null check \(due_week between 1 and 15\)/);
+    expect(body).toMatch(/primary key \(user_id, event_uid\)/);
+  });
+
+  it('turns Row Level Security on', () => {
+    expect(migration165).toMatch(/alter table calendar_imports\s+enable row level security;/);
+    expect(schema).toMatch(/alter table calendar_imports\s+enable row level security;/);
+  });
+
+  it('schema.sql defines calendar_imports exactly as the migration does', () => {
+    expect(tableBody(schema, 'calendar_imports')).not.toBeNull();
+    expect(tableBody(schema, 'calendar_imports')).toBe(tableBody(migration165, 'calendar_imports'));
+  });
+
+  it('reset.sql drops it before "user", which it points at', () => {
+    const drops = [...reset.matchAll(/^drop table if exists [^;]+;/gm)].map((m) => m[0]).join('\n');
+    expect(drops.search(/[ ,]calendar_imports[,;]/)).toBeGreaterThan(-1);
+    expect(drops.search(/[ ,]calendar_imports[,;]/)).toBeLessThan(drops.search(/[ ,]"user"[,;]/));
+  });
+
+  it('the upsert conflict target is its primary key, and it has every column the store uses', () => {
+    const body = tableBody(schema, 'calendar_imports') ?? '';
+    for (const column of ['user_id', 'event_uid', 'task_id', 'due_week']) {
+      expect(body).toMatch(new RegExp(`^${column}\\s`, 'm'));
+    }
+    expect(store).toMatch(/onConflict: 'user_id,event_uid'/);
+  });
+});

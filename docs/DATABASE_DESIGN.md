@@ -466,7 +466,11 @@ One optional row per student: the Moodle calendar export link they pasted, so th
 
 The link holds a private Moodle token, so it is a secret. Only the server reads it, with the secret key; RLS is on with no policies, so the public key is refused. No route sends it back to the phone: `GET /calendar/link` says only whether one is saved and when. Before saving, the server checks it is an `https` link to an allowed Moodle host (`MOODLE_CALENDAR_HOSTS`, default `moodle.calvin.edu`) and fetches it once to make sure it is a calendar.
 
-### 3.10 Access: Row Level Security
+### 3.10 `calendar_imports` (#165, US-49)
+
+One row per Moodle calendar event a student added as a task: `user_id TEXT` (references `"user".id`, `ON DELETE CASCADE`), `event_uid TEXT` (Moodle's id for the event), `task_id TEXT` (the task it became) and `due_week INT CHECK (due_week BETWEEN 1 AND 15)` (its week when added), with `PRIMARY KEY (user_id, event_uid)`. It keeps an event from being offered twice, and its week lets a moved deadline be spotted later (#166). `tasks` itself is unchanged. Added by `migration_165_calendar_imports.sql`.
+
+### 3.11 Access: Row Level Security
 
 Supabase serves every table to anyone holding the project's **public**
 (publishable) key, which is not a secret. Tables made with SQL start with Row
@@ -534,7 +538,7 @@ forgotten.
 - **Weekly difficulty prediction** (US-25, FR-24): the `weekly_difficulty`
   table from the earlier `DB Schema.md` sketch. The app computes workload from
   tasks, not from a stored per-week difficulty score.
-- **Calendar feed** (input 02): the link is stored (`calendar_links`, #164), but no table for the calendar's events yet (#165, #166).
+- **Calendar feed** (input 02): the link is stored (`calendar_links`, #164) and added events are recorded (`calendar_imports`, #165); the calendar's other events are read fresh each time, not stored.
 - **Semester history**: a single `semester` row; no multi-semester history.
 
 These belong to later phases and later issues in the Supabase series. When they
