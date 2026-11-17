@@ -202,4 +202,15 @@ async setWeekHours(userId: string, week: number, hours: number | null) {
   return this.listWeekHours(userId);
 }
 
+async getCalendarLink(userId: string) {
+  const link = details.calendarLinks[userId];
+  return link ? { ...link } : null;
+}
+
+async saveCalendarLink(userId: string, url: string) {
+  const link = { url, savedAt: new Date().toISOString() };
+  details.calendarLinks[userId] = link;
+  return { ...link };
+}
+
 }

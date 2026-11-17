@@ -4,6 +4,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptySemesterScreen } from '../../components/EmptyState';
+import { CalendarLinkCard } from '../../components/CalendarLinkCard';
 import { CourseCards } from '../../components/CourseCards';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { SpikeNotice } from '../../components/SpikeNotice';
@@ -47,7 +48,7 @@ function SectionTitle({
  */
 export default function CoursesScreen() {
   const router = useRouter();
-  const { semester } = useSemester();
+  const { semester, fromServer } = useSemester();
   if (semester.courses.length === 0) {
     return <EmptySemesterScreen title="Courses" message="Start with courses, then add their syllabi to build your semester." />;
   }
@@ -95,6 +96,9 @@ export default function CoursesScreen() {
             <SpikeNotice notices={notices} capacity={capacityByWeek(semester)} />
           </>
         )}
+
+        {/* US-48: the link is saved on the server, so sample data on the device has none. */}
+        {fromServer && <CalendarLinkCard />}
 
         <SyllabusReminder />
       </ScrollView>

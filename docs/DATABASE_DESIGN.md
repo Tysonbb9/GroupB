@@ -460,7 +460,13 @@ One optional row per student holds `weekly_capacity NUMERIC NOT NULL CHECK (week
 
 On an existing database, `migration_own_semester.sql` removes only tasks whose `user_id` is null before setting the owner column non-null and replacing the primary key. A second run preserves all owned tasks. Courses, saved reviews and other shared course data stay intact. `seed.sql` creates only the calendar and five catalog courses; it does not seed tasks or student enrollments.
 
-### 3.9 Access: Row Level Security
+### 3.9 `calendar_links` (#164, US-48)
+
+One optional row per student: the Moodle calendar export link they pasted, so the app can read their due dates (#165, #166). `user_id TEXT PRIMARY KEY` references `"user".id` with `ON DELETE CASCADE`; `url TEXT NOT NULL CHECK (url LIKE 'https://%')`; `saved_at TIMESTAMPTZ NOT NULL DEFAULT now()`. A new link replaces the old (upsert on `user_id`). Added by `migration_164_calendar_link.sql`.
+
+The link holds a private Moodle token, so it is a secret. Only the server reads it, with the secret key; RLS is on with no policies, so the public key is refused. No route sends it back to the phone: `GET /calendar/link` says only whether one is saved and when. Before saving, the server checks it is an `https` link to an allowed Moodle host (`MOODLE_CALENDAR_HOSTS`, default `moodle.calvin.edu`) and fetches it once to make sure it is a calendar.
+
+### 3.10 Access: Row Level Security
 
 Supabase serves every table to anyone holding the project's **public**
 (publishable) key, which is not a secret. Tables made with SQL start with Row
@@ -528,7 +534,7 @@ forgotten.
 - **Weekly difficulty prediction** (US-25, FR-24): the `weekly_difficulty`
   table from the earlier `DB Schema.md` sketch. The app computes workload from
   tasks, not from a stored per-week difficulty score.
-- **Calendar feed** (input 02): no table for Moodle calendar events.
+- **Calendar feed** (input 02): the link is stored (`calendar_links`, #164), but no table for the calendar's events yet (#165, #166).
 - **Semester history**: a single `semester` row; no multi-semester history.
 
 These belong to later phases and later issues in the Supabase series. When they

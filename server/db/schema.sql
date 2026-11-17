@@ -225,6 +225,17 @@ create table week_hours (
 );
 
 -- ---------------------------------------------------------------------------
+-- calendar_links: one Moodle calendar export link per student (#164). A new
+-- link replaces the old. Only https links are stored; the server checks the
+-- host before saving. Deleting a student deletes their link.
+-- ---------------------------------------------------------------------------
+create table calendar_links (
+  user_id  text primary key references "user" ("id") on delete cascade,
+  url      text not null check (url like 'https://%'),
+  saved_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
 -- replace_grade_weights: swaps all of a course's weights in one call. The
 -- delete and the insert run in the same transaction, so a failure (an
 -- unknown course, a broken rule) leaves the old weights, never half of each.
@@ -459,5 +470,6 @@ alter table grade_weights   enable row level security;
 alter table course_policies enable row level security;
 alter table course_checkins enable row level security;
 alter table week_hours      enable row level security;
+alter table calendar_links  enable row level security;
 
 commit;

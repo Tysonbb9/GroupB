@@ -536,4 +536,33 @@ async setWeekHours(userId: string, week: number, hours: number | null) {
 
   return this.listWeekHours(userId);
 }
+
+async getCalendarLink(userId: string) {
+  const { data, error } = await this.client
+    .from('calendar_links')
+    .select('url, saved_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  // The message names the table, never the link, which holds a private token.
+  if (error) {
+    throw new DatabaseError(`Failed to load the calendar link: ${error.message}`);
+  }
+
+  return data ? { url: data.url, savedAt: toIso(data.saved_at) } : null;
+}
+
+async saveCalendarLink(userId: string, url: string) {
+  const { data, error } = await this.client
+    .from('calendar_links')
+    .upsert({ user_id: userId, url, saved_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    .select('url, saved_at')
+    .single();
+
+  if (error) {
+    throw new DatabaseError(`Failed to save the calendar link: ${error.message}`);
+  }
+
+  return { url: data.url, savedAt: toIso(data.saved_at) };
+}
 }

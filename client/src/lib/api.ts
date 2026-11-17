@@ -466,6 +466,52 @@ export type CheckinChange = { taskId: string; dueWeek: number; estimatedHours: n
  * there is none (no model key on the server, or nothing to ask). Rejects with
  * a message the user can read.
  */
+/** Whether the student has saved a Moodle calendar link (#164). The link itself never comes back. */
+export type CalendarLinkStatus = {
+  saved: boolean;
+  /** When it was saved, as an ISO date, or null when there is none. */
+  savedAt: string | null;
+};
+
+function isCalendarLinkStatus(value: unknown): value is CalendarLinkStatus {
+  return (
+    isObject(value) &&
+    typeof value.saved === 'boolean' &&
+    (value.savedAt === null || typeof value.savedAt === 'string')
+  );
+}
+
+/** GET /calendar/link (#164). Rejects with a message the user can read. */
+export async function fetchCalendarLinkStatus(): Promise<CalendarLinkStatus> {
+  const response = await send('/calendar/link');
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isCalendarLinkStatus(json)) throw new Error('The server sent an invalid calendar link status');
+  return json;
+}
+
+/**
+ * POST /calendar/link (US-48, #164). The server checks the link is a Moodle
+ * calendar link, fetches it once to make sure it gives a calendar, and saves
+ * it. Rejects with the server's message (for example "The link must be a
+ * calendar link from moodle.calvin.edu."), which is written for the student.
+ */
+export async function saveCalendarLink(url: string): Promise<CalendarLinkStatus> {
+  const response = await send('/calendar/link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isCalendarLinkStatus(json)) throw new Error('The server sent an invalid calendar link status');
+  return json;
+}
+
 /** A reminder the server handed out (#156, AI screen 3), within code's limits. */
 export type Reminder = {
   taskId: string;
