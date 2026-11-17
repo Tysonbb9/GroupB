@@ -1,6 +1,6 @@
 {
   "name": "crunch-week-monorepo",
-  "version": "0.1.0",
+  "version": "0.3.0-beta.1",
   "private": true,
   "description": "CS 262 Team B — Crunch Week",
   "scripts": {

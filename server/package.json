@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "1.0.0",
+  "version": "0.3.0-beta.1",
   "description": "Empty on purpose.",
   "main": "index.js",
   "scripts": {
