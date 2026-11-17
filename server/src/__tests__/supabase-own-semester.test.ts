@@ -45,18 +45,40 @@ test('course reads require an inner enrollment match and omit enrollment rows fr
   expect(courses).toEqual([{ id: 'cs262', code: 'CS 262', name: 'Software', attendance: null }]);
 });
 
-test('task id discovery is student-scoped and a batch writes that student on every row', async () => {
-  respond = (_url, method, body) => method === 'POST' ? body.map((row: any) => ({ ...row, done: false })) : [];
+test('task creation uses a student-scoped atomic RPC', async () => {
+  respond = (url, method, body) => {
+    if (url.pathname !== '/rest/v1/rpc/add_student_tasks') return [];
+    return body.p_tasks.map((task: any, i: number) => ({
+      id: `${task.courseId}-syl-${i + 1}`,
+      user_id: body.p_user_id,
+      course_id: task.courseId,
+      title: task.title,
+      due_week: task.dueWeek,
+      estimated_hours: task.estimatedHours,
+      spread_weeks: 1,
+      done: false,
+      category: null,
+    }));
+  };
+
   const store = create();
   const tasks = [{ courseId: 'cs262', title: 'Own task', dueWeek: 3, estimatedHours: 2 }];
+
   const first = await store.addTasks('alice', tasks);
   const second = await store.addTasks('bob', tasks);
+
   expect(first[0].id).toBe(second[0].id);
   expect(first[0]).not.toHaveProperty('user_id');
-  expect(calls[0].url.searchParams.get('user_id')).toBe('eq.alice');
-  expect(calls[2].url.searchParams.get('user_id')).toBe('eq.bob');
-  expect(calls[1].body.every((row: any) => row.user_id === 'alice')).toBe(true);
-  expect(calls[3].body.every((row: any) => row.user_id === 'bob')).toBe(true);
+  expect(calls).toHaveLength(2);
+
+  for (const [index, student] of ['alice', 'bob'].entries()) {
+    expect(calls[index].method).toBe('POST');
+    expect(calls[index].url.pathname).toBe('/rest/v1/rpc/add_student_tasks');
+    expect(calls[index].body).toEqual({
+      p_user_id: student,
+      p_tasks: tasks,
+    });
+  }
 });
 
 test('capacity is upserted by student and an absent settings row uses fifteen hours', async () => {

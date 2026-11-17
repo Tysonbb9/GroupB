@@ -93,6 +93,7 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 | `db/seed.sql` | Loads the shared calendar and catalog: 1 semester, 5 courses, no student tasks |
 | `db/migration_course_catalog.sql` | Backfills normalized code identity with a unique index and adds search and atomic create-and-enroll functions. Run after migration_own_semester.sql. |
 | `db/migration_own_semester.sql` | Adds student settings and task ownership, deletes only ownerless sample tasks and adds the transactional sample-copy function. Run after the existing migrations. |
+| `db/migration_atomic_task_ids.sql` | Adds atomic, student-scoped syllabus task creation. Run on existing databases after the student ownership migration and before deploying the matching server code. |
 | `db/reset.sql` | **Deletes every table and all data**, including saved reviews and accounts |
 
 On an empty project:
@@ -343,6 +344,20 @@ AI_MODEL=nvidia-qwen3-6-35b-a3b-nvfp4
 Every semester, course and task lookup takes the signed-in student's ID from the checked session. Course lookups return 404 unless the student is enrolled. Task reads, ticks, estimates and generated IDs are scoped to that student. A task's ID can therefore be the same in two accounts without sharing its contents. POST /tasks accepts only the student's enrolled courses. Shared reviews, syllabi, weights and course policies stay attached to the catalog course.
 
 Apply `db/migration_own_semester.sql` before using this server with an existing database. It runs in one transaction and can be repeated; only ownerless tasks are deleted. It does not delete saved course reviews. Do not run reset.sql on a database you want to keep.
+
+For existing Supabase databases, apply `db/migration_atomic_task_ids.sql`
+**before deploying** the server version that calls `add_student_tasks`.
+The function creates syllabus task IDs under a per-student transaction lock,
+checks course enrollment, and inserts each batch atomically. It preserves
+the `<courseId>-syl-N` ID format and allows different students to have
+the same task IDs. New databases already include the function in
+`db/schema.sql`. Coordinate migration deployment with the project owner;
+do not run `db/reset.sql` to apply this change.
+
+`createStore()` uses MemoryStore only when both Supabase environment
+variables are absent. If exactly one of `SUPABASE_URL` and
+`SUPABASE_SECRET_KEY` is configured, server initialization fails with
+a configuration error instead of silently using MemoryStore.
 
 PowerShell example after signing in and keeping the session in `$session`:
 
