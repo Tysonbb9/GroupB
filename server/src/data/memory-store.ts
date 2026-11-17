@@ -4,7 +4,7 @@ import { semester as sample, DEFAULT_WEEKLY_CAPACITY } from './semester';
 import { DatabaseError } from './database-error';
 import type { Store, TaskFilters, TaskUpdates, NewReview, NewTask, SemesterUpdates } from './store';
 import { nextTaskId } from './task-ids';
-import type { CalendarImport, CheckinAnswer, CoursePolicies, GradeWeight, Review, Task } from '../types';
+import type { CalendarImport, CheckinAnswer, Review, Task } from '../types';
 
 /**
  * Refuses a course that does not exist, as the database's foreign keys do,
@@ -146,38 +146,6 @@ async listReviews(courseId: string) {
 
 // Course details (#144). Each method hands back copies, like rows read from
 // a database, so a caller changing them cannot change what is saved.
-
-async getSyllabus(courseId: string) {
-  const syllabus = details.syllabi[courseId];
-  return syllabus ? { ...syllabus } : null;
-}
-
-async saveSyllabus(courseId: string, text: string) {
-  requireCourse(courseId, 'save syllabus');
-  details.syllabi[courseId] = { courseId, text };
-  return { ...details.syllabi[courseId] };
-}
-
-async listGradeWeights(courseId: string) {
-  return structuredClone(details.gradeWeights[courseId] ?? []);
-}
-
-async replaceGradeWeights(courseId: string, weights: GradeWeight[]) {
-  requireCourse(courseId, 'save grade weights');
-  details.gradeWeights[courseId] = structuredClone(weights);
-  return structuredClone(weights);
-}
-
-async getCoursePolicies(courseId: string) {
-  const policies = details.policies[courseId];
-  return policies ? structuredClone(policies) : null;
-}
-
-async saveCoursePolicies(courseId: string, policies: CoursePolicies) {
-  requireCourse(courseId, 'save course policies');
-  details.policies[courseId] = structuredClone(policies);
-  return structuredClone(policies);
-}
 
 async getCheckin(userId: string, courseId: string) {
   const checkin = details.checkins[userId]?.[courseId];

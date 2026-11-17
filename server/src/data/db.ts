@@ -1,6 +1,6 @@
 // server/src/data/db.ts
 import { semester as seed } from './semester';
-import type { CalendarImport, CalendarLink, CourseCheckin, CoursePolicies, GradeWeight, Inputs, Semester, Syllabus, Task } from '../types';
+import type { CalendarImport, CalendarLink, CourseCheckin, Inputs, Semester, Task } from '../types';
 
 /**
  * The catalog and calendar are shared. Enrollments, tasks and capacity belong
@@ -20,10 +20,6 @@ export let inputs: Inputs = { reviews: [] };
 
 /** #144: the course details the AI screens save, and each student's own answers and hours. */
 export type CourseDetails = {
-  /** By course id. */
-  syllabi: Record<string, Syllabus>;
-  gradeWeights: Record<string, GradeWeight[]>;
-  policies: Record<string, CoursePolicies>;
   /** By user id, then course id. */
   checkins: Record<string, Record<string, CourseCheckin>>;
   /** By user id, then week. */
@@ -35,9 +31,6 @@ export type CourseDetails = {
 };
 
 const noDetails = (): CourseDetails => ({
-  syllabi: {},
-  gradeWeights: {},
-  policies: {},
   checkins: {},
   weekHours: {},
   calendarLinks: {},

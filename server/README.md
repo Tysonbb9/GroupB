@@ -89,10 +89,11 @@ The tables follow `docs/DATABASE_DESIGN.md`. The SQL is in `db/`:
 | File | What it does |
 |---|---|
 | `db/schema.sql` | Creates the tables (the four live tables, Better Auth's four login tables, `enrollments`, and the course tables for the AI screens), their rules, and turns on Row Level Security |
-| `db/migration_127_users_enrollments.sql` | Adds the login tables and `enrollments` to a database that already has data. Leaves existing rows alone. |
-| `db/migration_144_course_tables.sql` | Adds the course tables for the AI screens (`syllabi`, `grade_weights`, `course_policies`, `course_checkins`, `week_hours`) to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
+| `db/migration.sql` | Adds the login tables and `enrollments` to a database that already has data. Leaves existing rows alone. |
+| `db/migration_144_course_tables.sql` | Adds `course_checkins` and `week_hours` (and three course tables later removed by `migration_remove_unused_tables.sql`) to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
 | `db/migration_164_calendar_link.sql` | Adds `calendar_links`, each student's Moodle calendar link (US-48), to a database that already has data. Run it after the #127 migration. Leaves existing rows alone. |
 | `db/migration_165_calendar_imports.sql` | Adds `calendar_imports`, the Moodle events each student added as tasks (US-49). Run it after the #127 migration. Leaves existing rows alone. |
+| `db/migration_remove_unused_tables.sql` | Removes `syllabi`, `grade_weights`, `course_policies`, `replace_grade_weights` and `semester.weekly_capacity`, which nothing used (project audit). Leaves every table with data alone. |
 | `db/seed.sql` | Loads the shared calendar and catalog: 1 semester, 5 courses, no student tasks |
 | `db/migration_course_catalog.sql` | Backfills normalized code identity with a unique index and adds search and atomic create-and-enroll functions. Run after migration_own_semester.sql. |
 | `db/migration_own_semester.sql` | Adds student settings and task ownership, deletes only ownerless sample tasks and adds the transactional sample-copy function. Run after the existing migrations. |

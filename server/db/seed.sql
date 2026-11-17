@@ -9,8 +9,8 @@
 
 begin;
 
-insert into semester (id, label, current_week, weekly_capacity) values
-  ('fall-2026', 'Fall 2026', 3, 15);
+insert into semester (id, label, current_week) values
+  ('fall-2026', 'Fall 2026', 3);
 
 insert into courses (id, code, code_key, name, attendance_allowed, attendance_used) values
   ('cs262', 'CS 262', 'CS262', 'Software Engineering', 4, 1),
