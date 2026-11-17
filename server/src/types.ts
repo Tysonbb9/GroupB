@@ -91,28 +91,6 @@ export type Inputs = {
  * tables, and src/rules.ts has the rules code checks.
  */
 
-/** The text read from one course's syllabus, kept so it isn't read again. */
-export type Syllabus = {
-  courseId: string;
-  text: string;
-};
-
-/** One graded part of a course, e.g. Exams, 30%. A course's parts add up to 100%. */
-export type GradeWeight = {
-  name: string;
-  /** A short note from the syllabus, e.g. "two midterms". null when there is none. */
-  detail: string | null;
-  percent: number;
-};
-
-/** How a course treats late work and dropped grades. Attendance stays on Course. */
-export type CoursePolicies = {
-  /** null when the syllabus has no late rule. */
-  late: { percentPerDay: number; maxDays: number } | null;
-  /** e.g. "lowest quiz". null when nothing is dropped. */
-  dropRule: string | null;
-};
-
 /** The answers to "Is this course still on schedule?" (the check-in screen). */
 export type CheckinAnswer = 'on-schedule' | 'changed' | 'none-of-these';
 
