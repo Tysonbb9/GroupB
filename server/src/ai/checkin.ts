@@ -40,7 +40,7 @@ export function buildSnapshot(semester: Semester, checkins: (CourseCheckin | nul
 export function checkModelAnswer(answer: unknown, snapshot: CheckinSnapshot) {
     if (typeof answer !== 'object' || answer === null) return null;
     const { courseId, reason } = answer as Record<string, unknown>;
-  
+
     if (typeof courseId !== 'string') return null;
     if (!snapshot.courses.some((c) => c.courseId === courseId)) return null;
 
@@ -51,7 +51,7 @@ export function checkModelAnswer(answer: unknown, snapshot: CheckinSnapshot) {
         checkedReason = trimmed;
       }
     }
-  
+
     return { courseId, reason: checkedReason };
   }
 

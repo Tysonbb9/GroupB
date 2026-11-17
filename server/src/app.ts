@@ -260,6 +260,13 @@ app.patch('/tasks/:id', async (req, res) => {
     return;
   }
 
+  if (done === undefined && estimatedHours === undefined) {
+    res.status(400).json({
+      error: 'Nothing to update: send done or estimatedHours',
+    });
+    return;
+  }
+
   const updatedTask = await store.updateTask(studentId(res), req.params.id, {
     done,
     estimatedHours,

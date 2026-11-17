@@ -503,4 +503,3 @@ export async function createCourse(input: { code: string; name: string }): Promi
   if (!isCourse(json)) throw new Error('The server sent invalid course data');
   return { created: true, course: json };
 }
-
