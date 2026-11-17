@@ -20,22 +20,29 @@ type Session = {
   /** Resolves to the message to show, or to null once signed up and signed in. */
   signUp: (name: string, email: string, password: string) => Promise<string | null>;
   signOut: () => void;
+  /**
+  * True right after this student created their account, until the welcome
+  * (US-47) has been opened for them. Signing in or a kept session never sets it.
+  */
+  newAccount: boolean;
+  /** Says the welcome has been opened, so it is not opened again. */
+  welcomed: () => void;
 };
 
 type State = {
   status: 'checking' | 'signedOut' | 'signedIn';
   email: string | null;
   notice: string | null;
+  newAccount: boolean;
 };
 
 const SessionContext = createContext<Session | null>(null);
 
 /** The state a provider opens with. */
 function openingState(auth: Auth, initialEmail: string | null): State {
-  if (initialEmail !== null) return { status: 'signedIn', email: initialEmail, notice: null };
-  return { status: auth.restore ? 'checking' : 'signedOut', email: null, notice: null };
+  if (initialEmail !== null) return { status: 'signedIn', email: initialEmail, notice: null, newAccount: false };
+  return { status: auth.restore ? 'checking' : 'signedOut', email: null, notice: null, newAccount: false };
 }
-
 /**
  * Who is signed in (US-20). `auth` is how: the server through Better Auth
  * in the app, or local sign-in in sample-data mode and tests (the default),
@@ -62,11 +69,11 @@ export function SessionProvider({
       .then(
         (restored): State =>
           restored === null
-            ? { status: 'signedOut', email: null, notice: null }
-            : { status: 'signedIn', email: restored.email, notice: null },
+                      ? { status: 'signedOut', email: null, notice: null, newAccount: false }
+                      : { status: 'signedIn', email: restored.email, notice: null, newAccount: false },
         (error: unknown): State => {
           console.error('session: could not check for a saved session:', error);
-          return { status: 'signedOut', email: null, notice: null };
+          return { status: 'signedOut', email: null, notice: null, newAccount: false };
         }
       )
       .then((next) => {
@@ -86,13 +93,14 @@ export function SessionProvider({
     setRequestAuth({
       options: auth.requestOptions,
       onResponse: auth.receiveResponse,
-      onSessionEnded: () => setState({ status: 'signedOut', email: null, notice: SESSION_ENDED_MESSAGE }),
+      onSessionEnded: () => setState({ status: 'signedOut', email: null, notice: SESSION_ENDED_MESSAGE, newAccount: false }),
     });
     return () => setRequestAuth(null);
   }, [auth]);
 
   const value = useMemo<Session>(() => {
-    const signedInAs = (email: string) => setState({ status: 'signedIn', email, notice: null });
+    const signedInAs = (email: string, newAccount = false) =>
+      setState({ status: 'signedIn', email, notice: null, newAccount });
     return {
       checking: state.status === 'checking',
       signedIn: state.status === 'signedIn',
@@ -108,14 +116,17 @@ export function SessionProvider({
       signUp: async (name, email, password) => {
         const result = await auth.signUp(name, email, password);
         if (!result.ok) return result.message;
-        signedInAs(result.email);
+        signedInAs(result.email, true);
         return null;
       },
       signOut: () => {
         // Leave at once; ending the session on the server never fails loudly.
-        setState({ status: 'signedOut', email: null, notice: null });
+        setState({ status: 'signedOut', email: null, notice: null, newAccount: false });
         void auth.signOut();
       },
+
+      newAccount: state.newAccount,
+     welcomed: () => setState((current) => ({ ...current, newAccount: false })),
     };
   }, [auth, state]);
 

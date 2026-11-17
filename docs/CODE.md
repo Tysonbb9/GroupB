@@ -259,6 +259,7 @@ For now `toggleDone` and `setEstimate` change the semester in memory only. Savin
 ### `src/state/session.tsx`
 
 Who is signed in (US-20), in a React context: `checking` (still looking for a saved session), `signedIn`, `email`, `notice` (why the student was sent back to Log in, such as a session that ended), `signIn(email, password)`, `signUp(name, email, password)` and `signOut()`. `signIn` and `signUp` resolve to the message to show, or to null once signed in. The `auth` prop says how: the root layout passes `serverAuth()`, or `localAuth` in sample-data mode, which is also the default, so tests need nothing. While signed in with the server, the provider registers the session with `api.ts`, in a layout effect so it is in place before the semester's first request. `useSession()` is for screens that need a session (Log in, the root layout). `useOptionalSession()` returns null outside a `SessionProvider`, so `LogOutButton` simply draws nothing when a screen is shown on its own in tests.
+`newAccount` is true right after `signUp` succeeds (never after `signIn` or a kept session), until `welcomed()` says the welcome has been opened (US-47).
 
 ### `src/components/WeekStrip.tsx`
 
@@ -371,6 +372,20 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 
 `LogOutButton` is the log-out icon beside the Forecast title, and `LogOutLink` is the same action as a line of text, for the loading and error screens. Both call `signOut()`, and the root layout takes the student back to Log in. Both draw nothing when there is no session around the screen.
 
+### `src/components/LogOutButton.tsx`
+
+`LogOutButton` is the log-out icon ... no session around the screen.
+
+### `src/components/Welcome.tsx`
+
+The first-run welcome (US-47, #162) in three steps: what the app does, the hours a week (the same rule and messages as `CapacityEditor`, from `lib/capacity.ts`), and Add a course. Skip on steps 1 and 2 and Later on step 3 call `onClose`. It takes the hours and three callbacks as props, so it is tested on its own.
+
+### `src/components/HelpButton.tsx`
+
+The ? icon beside Log out on Forecast and on the empty screens. It opens the welcome again.
+
+### `src/components/DraftCard.tsx`
+
 ### `src/components/DraftCard.tsx`
 
 Issue #146: the editable assignment card used by the syllabus review screen. It
@@ -429,6 +444,12 @@ The courses first (`CourseCards`), then **Heads up** (`SpikeNotice`) for the nex
 Route: `/login`, the first screen of the app (US-27). Log out on Forecast comes back to it.
 
 Two forms on one screen: **Log in** (email and password) and **Create account** (also a name), switched with the link under the button (US-20). Before asking the server it checks that every field is filled in, that the email looks like an email, and, for a new account, that the password has the 8 characters the server asks for. While waiting the button says "Logging in…" or "Creating account…" and cannot be pressed twice. Anything the server refuses shows the server's own message, and a session that ended shows a notice at the top until the student starts typing. On success the root layout opens the app. In sample-data mode a note under the form says any email and password open the app. Anything refused (by the checks or by the server) shows its message in red at the top of the form, above every field, and closes the keyboard (issue #157). The field being typed in always stays above the keyboard, so the message does too, even when a field is tapped again to fix the mistake. Dragging the page also closes the keyboard, and the form scrolls clear of it.
+
+### `src/app/welcome.tsx` — First run (US-47)
+
+The welcome as a screen, opened as a modal with no header. It gives `Welcome` the semester's weekly hours and `setWeeklyCapacity`, opens Add a course in its place, and goes back (or to Forecast) when closed. `app/(tabs)/_layout.tsx` opens it once for a new account: when the session says `newAccount`, it calls `welcomed()` first and then pushes `/welcome`, so it never opens twice.
+
+### `src/app/syllabus.tsx` — Add a syllabus
 
 ### `src/app/syllabus.tsx` — Add a syllabus
 
@@ -642,6 +663,8 @@ npx jest --watch              # while you work
 | `src/lib/update-task-api.test.ts` | 12 | `updateTask`: a JSON PATCH to /tasks/:id with only the given fields, a new due week, null to clear hours, an id kept inside its part of the address, the server's message, a missing task, an unreachable server, and replies that are not that task |
 | `src/__tests__/marked-done.test.tsx` | 8 | US-45: the ticked task staying in place marked done with Undo and not yet in Completed, the hours question directly under it, the figures dropping straight away, moving to Completed on Skip and on Save then Close, Undo and the filled circle putting it back, and a second tick moving the first task on |
 | `src/__tests__/current-week.test.tsx` | 22 | US-46: the Week N of 15 chip on Forecast, This week and Courses, following `currentWeek` rather than a fixed number, the semester name kept above the title, the old line gone, and "Now" under the current week on the strip, in its own column, moving with the semester, with every week number still drawn |
+| `src/__tests__/welcome.test.tsx `| 8 | US-47: the welcome's three steps on their own: step 1 text, Skip, the hours box filled with the current hours, saving new hours, the same hours not saved, a bad number and a failed save staying on step 2, Add a course and Later on step 3 | 
+|`src/__tests__/first-run.test.tsx `| 7 | US-47 with the real router: a new account lands on the welcome after Create account, Skip goes to Forecast and it does not open again, never after Log in or a kept session, the hours set there reach Forecast, Add a course opens, and Help opens it again |
 
 
 

@@ -14,6 +14,7 @@ import { WeekDetail } from '../../components/WeekDetail';
 import { WeekHoursEditor } from '../../components/WeekHoursEditor';
 import { WeekFigures } from '../../components/WeekFigures';
 import { WeekStrip } from '../../components/WeekStrip';
+import { HelpButton } from '../../components/HelpButton';
 import {
   CalendarChanges,
   CheckinQuestion,
@@ -149,6 +150,7 @@ export default function SemesterScreen() {
           right={
             <>
               <LoadPill hours={thisWeekHours} capacity={thisWeekCapacity} />
+               <HelpButton />
               <LogOutButton />
             </>
           }

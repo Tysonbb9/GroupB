@@ -9,6 +9,7 @@ import { fetchSemester, SESSION_ENDED_MESSAGE } from '../lib/api';
 import { Auth, AuthResult, RestoredSession } from '../lib/auth';
 import { useSemester } from '../state/semester-store';
 import { useSession } from '../state/session';
+import WelcomeScreen from '@/app/welcome';
 
 jest.setTimeout(30000);
 
@@ -77,6 +78,7 @@ function renderApp(initialUrl = '/') {
       '(tabs)/week': () => <Text>This week</Text>,
       '(tabs)/courses': () => <Text>Courses</Text>,
       syllabus: () => <Text>Add a syllabus</Text>,
+      welcome: WelcomeScreen,
     },
     { initialUrl }
   );
@@ -152,15 +154,16 @@ describe('Accounts at the front door (US-20)', () => {
     expect(screen.queryByText(/Forecast for/)).toBeNull();
   });
 
-  it('opens the app for a student who has just created an account', async () => {
-    await renderApp();
+  it('opens the app, on the welcome (US-47), for a student who has just created an account', async () => {
+  const app = await renderApp();
     fireEvent.press(screen.getByTestId('switch-mode'));
     fireEvent.changeText(screen.getByTestId('login-name'), 'New Student');
     fireEvent.changeText(screen.getByTestId('login-email'), 'new@example.edu');
     fireEvent.changeText(screen.getByTestId('login-password'), 'new-password');
     fireEvent.press(screen.getByTestId('login-submit'));
 
-    expect(await screen.findByText('Forecast for Fall 2026')).toBeTruthy();
+    expect(await screen.findByTestId('welcome')).toBeTruthy();
+    expect(app.getPathname()).toBe('/welcome');
     expect(mockAuth.signUp).toHaveBeenCalledWith('New Student', 'new@example.edu', 'new-password');
   });
 
