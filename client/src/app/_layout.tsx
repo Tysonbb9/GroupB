@@ -53,6 +53,7 @@ function RootNavigator() {
         {/* The back button says Back, not the name of the screen before it, which was "(tabs)" (issue #163). */}
         <Stack.Screen name="syllabus" options={{ title: 'Add a Syllabus', headerBackTitle: 'Back' }} />
         <Stack.Screen name="task/[id]" options={{ title: 'Assignment', headerBackTitle: 'Back' }} />
+        <Stack.Screen name="calendar" options={{ title: 'Moodle calendar', headerBackTitle: 'Back' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false }} />

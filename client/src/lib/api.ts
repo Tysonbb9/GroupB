@@ -512,6 +512,85 @@ export async function saveCalendarLink(url: string): Promise<CalendarLinkStatus>
   return json;
 }
 
+/** One Moodle calendar event, proposed as a task to review (US-49, #165). */
+export type CalendarProposal = {
+  /** Moodle's id for the event, so it is never added twice. */
+  eventId: string;
+  title: string;
+  dueWeek: number;
+  /** The course it was matched to, or null when the student has to place it. */
+  courseId: string | null;
+  /** The same course already has a task with this title in this week. */
+  alreadyInSemester: boolean;
+};
+
+export type CalendarProposals = {
+  proposals: CalendarProposal[];
+  /** Events skipped because they were added before. */
+  alreadyAdded: number;
+  /** Events skipped because they fall outside weeks 1 to 15. */
+  outsideSemester: number;
+};
+
+/**
+ * GET /calendar/events (US-49). Reads the saved Moodle calendar and proposes
+ * its events as tasks. Nothing is saved. Rejects with the server's message,
+ * such as "Save your Moodle calendar link first." or a link that stopped working.
+ */
+export async function fetchCalendarEvents(): Promise<CalendarProposals> {
+  const response = await send('/calendar/events');
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (
+    !isObject(json) ||
+    !Array.isArray(json.proposals) ||
+    typeof json.alreadyAdded !== 'number' ||
+    typeof json.outsideSemester !== 'number' ||
+    !json.proposals.every(
+      (p) =>
+        isObject(p) &&
+        typeof p.eventId === 'string' &&
+        typeof p.title === 'string' &&
+        typeof p.dueWeek === 'number' &&
+        (p.courseId === null || typeof p.courseId === 'string')
+    )
+  ) {
+    throw new Error('The server sent something that is not a list of calendar events');
+  }
+  return json as CalendarProposals;
+}
+
+/** A calendar event the student kept, as it will be added. */
+export type NewCalendarTask = {
+  eventId: string;
+  courseId: string;
+  title: string;
+  dueWeek: number;
+  estimatedHours: number | null;
+};
+
+/**
+ * POST /calendar/events (US-49). Adds the kept events as tasks, all or
+ * nothing, and returns them with their ids. Rejects with the server's message.
+ */
+export async function addCalendarEvents(tasks: NewCalendarTask[]): Promise<Task[]> {
+  const response = await send('/calendar/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tasks }),
+  });
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isObject(json) || !Array.isArray(json.tasks)) {
+    throw new Error('The server sent something that is not a list of tasks');
+  }
+  return json.tasks as Task[];
+}
+
 /** A reminder the server handed out (#156, AI screen 3), within code's limits. */
 export type Reminder = {
   taskId: string;

@@ -1,4 +1,4 @@
-import { fetchCalendarLinkStatus, saveCalendarLink } from './api';
+import { addCalendarEvents, fetchCalendarEvents, fetchCalendarLinkStatus, saveCalendarLink } from './api';
 
 /**
  * The calendar link calls (US-48, #164). fetch is replaced so no server is
@@ -66,5 +66,57 @@ describe('saveCalendarLink', () => {
   it('rejects a reply that is not a status', async () => {
     fetchMock.mockResolvedValue(reply({ ok: 1 }));
     await expect(saveCalendarLink(LINK)).rejects.toThrow('The server sent an invalid calendar link status');
+  });
+});
+
+describe('fetchCalendarEvents (US-49)', () => {
+  const proposals = {
+    proposals: [{ eventId: 'e1', title: 'Lab 9', dueWeek: 4, courseId: 'cs262', alreadyInSemester: false }],
+    alreadyAdded: 1,
+    outsideSemester: 0,
+  };
+
+  it('asks GET /calendar/events and returns the proposals', async () => {
+    fetchMock.mockResolvedValue(reply(proposals));
+    await expect(fetchCalendarEvents()).resolves.toEqual(proposals);
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/calendar\/events$/);
+  });
+
+  it("passes the server's message on, such as no saved link", async () => {
+    fetchMock.mockResolvedValue(reply({ error: 'Save your Moodle calendar link first.' }, 409));
+    await expect(fetchCalendarEvents()).rejects.toThrow('Save your Moodle calendar link first.');
+  });
+
+  it.each([
+    ['not an object', 'hello'],
+    ['missing the counts', { proposals: [] }],
+    ['a proposal without a week', { ...proposals, proposals: [{ eventId: 'e1', title: 'x', courseId: null }] }],
+  ])('rejects a reply that is %s', async (_case, body) => {
+    fetchMock.mockResolvedValue(reply(body));
+    await expect(fetchCalendarEvents()).rejects.toThrow('The server sent something that is not a list of calendar events');
+  });
+});
+
+describe('addCalendarEvents (US-49)', () => {
+  const task = { eventId: 'e1', courseId: 'cs262', title: 'Lab 9', dueWeek: 4, estimatedHours: null };
+
+  it('posts the kept events as JSON and returns the tasks with their ids', async () => {
+    const saved = [{ id: 'cs262-syl-1', courseId: 'cs262', title: 'Lab 9', dueWeek: 4, estimatedHours: null, done: false }];
+    fetchMock.mockResolvedValue(reply({ tasks: saved }, 201));
+    await expect(addCalendarEvents([task])).resolves.toEqual(saved);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/calendar\/events$/);
+    expect(options.method).toBe('POST');
+    expect(JSON.parse(options.body)).toEqual({ tasks: [task] });
+  });
+
+  it("passes the server's message on", async () => {
+    fetchMock.mockResolvedValue(reply({ error: 'Task 1: that calendar event was already added' }, 409));
+    await expect(addCalendarEvents([task])).rejects.toThrow('Task 1: that calendar event was already added');
+  });
+
+  it('rejects a reply that is not a list of tasks', async () => {
+    fetchMock.mockResolvedValue(reply({ ok: 1 }, 201));
+    await expect(addCalendarEvents([task])).rejects.toThrow('The server sent something that is not a list of tasks');
   });
 });
