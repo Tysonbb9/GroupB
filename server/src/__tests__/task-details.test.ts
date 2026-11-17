@@ -98,6 +98,29 @@ describe('PATCH /tasks/:id: several fields at once', () => {
   });
 });
 
+describe('PATCH /tasks/:id: nothing to update (TP-28)', () => {
+  it.each([
+    ['an empty body', {}],
+    ['only fields it does not know', { courseId: 'cs262', colour: 'red' }],
+  ])('refuses %s, and changes nothing', async (_case, body) => {
+    const res = await patch(body);
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Nothing to update: send done, estimatedHours, title or dueWeek' });
+    expect((await api.get('/tasks/m-1')).body).toMatchObject({ title: 'Problem set 1', dueWeek: 3, estimatedHours: 3 });
+  });
+
+  it.each([
+    ['a title alone', { title: 'PS 1' }],
+    ['a due week alone', { dueWeek: 4 }],
+    ['hours alone', { estimatedHours: 5 }],
+    ['done alone', { done: true }],
+    ['null hours alone, which clears them', { estimatedHours: null }],
+  ])('accepts %s', async (_case, body) => {
+    const res = await patch(body);
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('the Supabase store sends every changed field', () => {
   let calls: { method: string; body: unknown }[];
   beforeEach(() => {

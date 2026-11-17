@@ -236,7 +236,8 @@ app.get('/tasks', async (req, res) => {
  * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null,
  *         title?: string (not blank), dueWeek?: whole number from 1 to 15 }.
  * Title and due week can be corrected on the task's details (US-44).
- * Returns the updated task, 400 if a field is invalid, 404 if the id is unknown.
+ * Returns the updated task, 400 if a field is invalid or none is sent (TP-28),
+ * 404 if the id is unknown.
  */
 app.patch('/tasks/:id', async (req, res) => {
   const task = await store.getTask(studentId(res), req.params.id);
@@ -246,6 +247,12 @@ app.patch('/tasks/:id', async (req, res) => {
   }
 
   const { done, estimatedHours, title, dueWeek } = req.body ?? {};
+
+  // A body with none of the fields would change nothing (TP-28).
+  if ([done, estimatedHours, title, dueWeek].every((field) => field === undefined)) {
+    res.status(400).json({ error: 'Nothing to update: send done, estimatedHours, title or dueWeek' });
+    return;
+  }
 
   // Check every field before changing anything, so a bad request
   // never leaves a task half-updated.
