@@ -343,18 +343,17 @@ export async function addTasks(tasks: NewTask[]): Promise<Task[]> {
   }
   return json as Task[];
 }
-/** What the task details can change (US-44): any of these, the rest stay. */
+/** What the task details can change (US-44): either or both, the rest stay. */
 export type TaskChange = {
   /** null clears the hours. */
   estimatedHours?: number | null;
-  title?: string;
   dueWeek?: number;
 };
 
 /**
  * PATCH /tasks/:id (US-44). Saves a task's changed fields (its hours, which
- * null clears, its title or its due week) and returns the task as the server
- * now holds it. Rejects with a message the user can read.
+ * null clears, or its due week) and returns the task as the server now holds
+ * it. Rejects with a message the user can read.
  */
 export async function updateTask(id: string, change: TaskChange): Promise<Task> {
   const response = await send(`/tasks/${encodeURIComponent(id)}`, {

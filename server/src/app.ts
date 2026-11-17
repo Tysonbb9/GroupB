@@ -234,8 +234,9 @@ app.get('/tasks', async (req, res) => {
 /**
  * PATCH /tasks/:id
  * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null,
- *         title?: string (not blank), dueWeek?: whole number from 1 to 15 }.
- * Title and due week can be corrected on the task's details (US-44).
+ *         dueWeek?: whole number from 1 to 15 }.
+ * The due week can be corrected on the task's details (US-44).
+ * Any other field, such as title, is ignored.
  * Returns the updated task, 400 if a field is invalid or none is sent (TP-28),
  * 404 if the id is unknown.
  */
@@ -246,11 +247,11 @@ app.patch('/tasks/:id', async (req, res) => {
     return;
   }
 
-  const { done, estimatedHours, title, dueWeek } = req.body ?? {};
+  const { done, estimatedHours, dueWeek } = req.body ?? {};
 
   // A body with none of the fields would change nothing (TP-28).
-  if ([done, estimatedHours, title, dueWeek].every((field) => field === undefined)) {
-    res.status(400).json({ error: 'Nothing to update: send done, estimatedHours, title or dueWeek' });
+  if ([done, estimatedHours, dueWeek].every((field) => field === undefined)) {
+    res.status(400).json({ error: 'Nothing to update: send done, estimatedHours or dueWeek' });
     return;
   }
 
@@ -268,10 +269,6 @@ app.patch('/tasks/:id', async (req, res) => {
     res.status(400).json({ error: 'estimatedHours must be a number more than 0 and up to 100, or null' });
     return;
   }
-  if (title !== undefined && (typeof title !== 'string' || title.trim() === '')) {
-    res.status(400).json({ error: 'title must name the assignment' });
-    return;
-  }
   if (
     dueWeek !== undefined &&
     (!Number.isInteger(dueWeek) || dueWeek < 1 || dueWeek > WEEKS_IN_SEMESTER)
@@ -283,7 +280,6 @@ app.patch('/tasks/:id', async (req, res) => {
   const updatedTask = await store.updateTask(studentId(res), req.params.id, {
     done,
     estimatedHours,
-    title: title === undefined ? undefined : title.trim(),
     dueWeek,
   });
 

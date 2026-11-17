@@ -204,7 +204,7 @@ async listTasks(userId: string, filters: TaskFilters) {
 }
 
 async updateTask(userId: string, id: string, updates: TaskUpdates) {
-  const changes: Record<string, boolean | number | string | null> = {};
+  const changes: Record<string, boolean | number | null> = {};
 
   if (updates.done !== undefined) {
     changes.done = updates.done;
@@ -216,10 +216,6 @@ async updateTask(userId: string, id: string, updates: TaskUpdates) {
 
   if (updates.dueWeek !== undefined) {
     changes.due_week = updates.dueWeek;
-  }
-
-  if (updates.title !== undefined) {
-    changes.title = updates.title;
   }
 
   // Every field is gathered before this check. It used to come before due_week,

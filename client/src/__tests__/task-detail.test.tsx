@@ -82,7 +82,7 @@ async function renderDetailFromServer(id: string) {
 }
 
 /** Types into one box of the edit card. */
-const typeIn = (box: 'title' | 'week' | 'hours', text: string) =>
+const typeIn = (box: 'week' | 'hours', text: string) =>
   fireEvent.changeText(screen.getByTestId(`task-${box}-input`), text);
 const typeHours = (text: string) => typeIn('hours', text);
 const pressSave = () => fireEvent.press(screen.getByRole('button', { name: /^Save changes to/ }));
@@ -273,27 +273,16 @@ describe('changing the hours', () => {
   });
 });
 
-describe('changing the title and the due week', () => {
-  it('starts the boxes at the title and the due week', () => {
+describe('changing the due week', () => {
+  it('starts the box at the due week', () => {
     renderDetail('exam');
-    expect(screen.getByTestId('task-title-input').props.value).toBe('Midterm');
     expect(screen.getByTestId('task-week-input').props.value).toBe('6');
   });
 
-  it('renames the assignment', async () => {
+  it('has no box for the title, which is left out for now', () => {
     renderDetail('exam');
-    typeIn('title', 'Midterm 1');
-    pressSave();
-    await screen.findByTestId('task-saved');
-    expect(screen.getByTestId('task-title')).toHaveTextContent('Midterm 1');
-  });
-
-  it('trims the spaces around a new title', async () => {
-    renderDetail('exam');
-    typeIn('title', '  Midterm 1  ');
-    pressSave();
-    await screen.findByTestId('task-saved');
-    expect(screen.getByTestId('task-title')).toHaveTextContent(/^Midterm 1$/);
+    expect(screen.queryByTestId('task-title-input')).toBeNull();
+    expect(screen.getByTestId('task-title')).toHaveTextContent('Midterm');
   });
 
   it('moves the assignment to another week, and the forecast with it', async () => {
@@ -306,24 +295,14 @@ describe('changing the title and the due week', () => {
     expect(screen.getByLabelText('Week 8, 8 hours')).toBeTruthy();
   });
 
-  it('changes all three at once', async () => {
+  it('changes the week and the hours at once', async () => {
     renderDetail('exam');
-    typeIn('title', 'Final');
     typeIn('week', '15');
     typeHours('20');
     pressSave();
     await screen.findByTestId('task-saved');
-    expect(screen.getByTestId('task-title')).toHaveTextContent('Final');
     expect(screen.getByLabelText('Due: Week 15')).toBeTruthy();
     expect(screen.getByLabelText('Week 15, 20 hours')).toBeTruthy();
-  });
-
-  it.each(['', '   '])('refuses a blank title (%p) and changes nothing', (title) => {
-    renderDetail('exam');
-    typeIn('title', title);
-    pressSave();
-    expect(screen.getByTestId('task-problem')).toHaveTextContent('Give the assignment a title.');
-    expect(screen.getByTestId('task-title')).toHaveTextContent('Midterm');
   });
 
   it.each(['0', '16', '2.5', 'six', ''])('refuses week %p and changes nothing', (week) => {
@@ -334,12 +313,12 @@ describe('changing the title and the due week', () => {
     expect(screen.getByLabelText('Due: Week 6')).toBeTruthy();
   });
 
-  it('saves nothing when one box is wrong, even if another is right', () => {
+  it('saves nothing when one box is wrong, even if the other is right', () => {
     renderDetail('exam');
-    typeIn('title', 'Midterm 1');
+    typeHours('12');
     typeIn('week', '99');
     pressSave();
-    expect(screen.getByTestId('task-title')).toHaveTextContent(/^Midterm$/);
+    expect(screen.getByLabelText('Hours: 8 hours')).toBeTruthy();
   });
 });
 
@@ -359,26 +338,25 @@ describe('saving on the server', () => {
   });
 
   it('sends only what changed', async () => {
-    mockUpdateTask.mockResolvedValue({ ...midterm, title: 'Midterm 1', dueWeek: 7 });
+    mockUpdateTask.mockResolvedValue({ ...midterm, dueWeek: 7 });
     await renderDetailFromServer('exam');
 
-    typeIn('title', 'Midterm 1');
     typeIn('week', '7');
     pressSave();
 
     await screen.findByTestId('task-saved');
-    expect(mockUpdateTask).toHaveBeenCalledWith('exam', { title: 'Midterm 1', dueWeek: 7 });
+    expect(mockUpdateTask).toHaveBeenCalledWith('exam', { dueWeek: 7 });
   });
 
   it('uses what the server kept', async () => {
-    mockUpdateTask.mockResolvedValue({ ...midterm, title: 'Midterm (kept)', estimatedHours: 11 });
+    mockUpdateTask.mockResolvedValue({ ...midterm, dueWeek: 7, estimatedHours: 11 });
     await renderDetailFromServer('exam');
 
     typeHours('12');
     pressSave();
 
     expect(await screen.findByLabelText('Hours: 11 hours')).toBeTruthy();
-    expect(screen.getByTestId('task-title')).toHaveTextContent('Midterm (kept)');
+    expect(screen.getByLabelText('Due: Week 7')).toBeTruthy();
   });
 
   it('sends null to clear the hours', async () => {
@@ -396,14 +374,14 @@ describe('saving on the server', () => {
     mockUpdateTask.mockRejectedValue(new Error('Could not reach the server at http://x'));
     await renderDetailFromServer('exam');
 
-    typeIn('title', 'Midterm 1');
+    typeIn('week', '7');
     typeHours('12');
     pressSave();
 
     expect(await screen.findByTestId('task-problem')).toHaveTextContent(
       'Could not save, so nothing has changed. Could not reach the server at http://x'
     );
-    expect(screen.getByTestId('task-title')).toHaveTextContent(/^Midterm$/);
+    expect(screen.getByLabelText('Due: Week 6')).toBeTruthy();
     expect(screen.getByLabelText('Hours: 8 hours')).toBeTruthy();
     expect(screen.getByLabelText('Week 6, 18 hours')).toBeTruthy();
     expect(screen.queryByTestId('task-saved')).toBeNull();

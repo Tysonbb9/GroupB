@@ -25,7 +25,7 @@ type SemesterStore = {
   addCourse: (course: Course) => void;
   toggleDone: (taskId: string) => void;
   /**
-   * Saves a task's hours, title or due week (US-44), then uses them
+   * Saves a task's hours or due week (US-44), then uses them
    * everywhere. Rejects, changing nothing, when they could not be saved.
    */
   saveTask: (taskId: string, change: TaskChange) => Promise<void>;
@@ -57,8 +57,8 @@ const keepTaskOnDevice: SaveTask = async (_taskId, change) => change;
 
 /** With the server, PATCH /tasks/:id saves them, and the task it returns is what was kept. */
 const saveTaskOnServer: SaveTask = async (taskId, change) => {
-  const { title, dueWeek, estimatedHours } = await updateTask(taskId, change);
-  return { title, dueWeek, estimatedHours };
+  const { dueWeek, estimatedHours } = await updateTask(taskId, change);
+  return { dueWeek, estimatedHours };
 };
 
 /**

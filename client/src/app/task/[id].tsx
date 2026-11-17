@@ -45,7 +45,6 @@ function Field({
   value,
   onChange,
   numeric,
-  wide,
   problem,
 }: {
   label: string;
@@ -53,11 +52,10 @@ function Field({
   value: string;
   onChange: (text: string) => void;
   numeric?: 'number-pad' | 'decimal-pad';
-  wide?: boolean;
   problem: boolean;
 }) {
   return (
-    <View style={[styles.field, wide && styles.fieldWide]}>
+    <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         testID={testID}
@@ -75,8 +73,9 @@ function Field({
  * US-44 (#159): an assignment's details, opened by tapping it on This week.
  *
  * It shows what the app knows about the task: its title, course, kind, due
- * week, the weeks a long task is spread over, and its hours. The title, due
- * week and hours can be corrected here, with one Save. Only what changed is
+ * week, the weeks a long task is spread over, and its hours. The due week
+ * and hours can be corrected here, with one Save. The title is left out for
+ * now. Only what changed is
  * sent, and it is saved on the server first, so the forecast only changes to
  * what was kept; if saving fails, nothing changes and the screen says so.
  */
@@ -86,7 +85,7 @@ export default function TaskDetailScreen() {
   const task = semester.tasks.find((t) => t.id === id);
 
   const [text, setText] = useState<TaskEditText>(
-    task === undefined ? { title: '', dueWeek: '', hours: '' } : editTextFor(task)
+    task === undefined ? { dueWeek: '', hours: '' } : editTextFor(task)
   );
   const [problem, setProblem] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -158,14 +157,6 @@ export default function TaskDetailScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>Change the details</Text>
-        <Field
-          label="Title"
-          testID="task-title-input"
-          value={text.title}
-          onChange={type('title')}
-          wide
-          problem={problem !== null}
-        />
         <View style={styles.row}>
           <Field
             label="Due week"
@@ -235,7 +226,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '700', color: theme.ink },
   row: { flexDirection: 'row', gap: theme.space.sm },
   field: { gap: 4, width: 110 },
-  fieldWide: { width: '100%' },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: theme.muted },
   input: {
     borderWidth: 1,

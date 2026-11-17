@@ -44,13 +44,10 @@ describe('updateTask', () => {
     expect(JSON.parse(options.body)).toEqual({ estimatedHours: 12 });
   });
 
-  it('sends a new title and due week (US-44)', async () => {
-    fetchMock.mockResolvedValue(reply({ ...midterm, title: 'Midterm 1', dueWeek: 7 }));
-    await expect(updateTask('exam', { title: 'Midterm 1', dueWeek: 7 })).resolves.toMatchObject({
-      title: 'Midterm 1',
-      dueWeek: 7,
-    });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ title: 'Midterm 1', dueWeek: 7 });
+  it('sends a new due week (US-44)', async () => {
+    fetchMock.mockResolvedValue(reply({ ...midterm, dueWeek: 7 }));
+    await expect(updateTask('exam', { dueWeek: 7 })).resolves.toMatchObject({ dueWeek: 7 });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ dueWeek: 7 });
   });
 
   it('rejects a reply with no title or due week', async () => {
