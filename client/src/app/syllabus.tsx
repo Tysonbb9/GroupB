@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { DraftBlocker, DraftCard, DraftNotice } from '../components/DraftCard';
+import { SectionHeader } from '../components/SectionHeader';
 import { EmptyAction, EmptyState } from '../components/EmptyState';
 import { addTasks, AiReading, extractSyllabusText, getAiStatus, readSyllabusWithAi } from '../lib/api';
 import { scanSyllabus } from '../lib/inputs';
@@ -306,85 +308,59 @@ export default function SyllabusScreen() {
 
       {drafts !== null && (
         <View style={styles.results}>
-          <Text style={styles.heading}>
+          <View testID="syllabus-review-banner" style={styles.banner}>
+            <Text style={styles.bannerText}>What we found. Check it before it reaches your forecast.</Text>
+          </View>
+          <View style={styles.sectionRow}>
+            <View style={styles.sectionLabel}><SectionHeader label="ASSIGNMENTS" /></View>
+            <Text style={styles.count}>{drafts.length} FOUND</Text>
+          </View>
+          <Text style={styles.faint}>
             Found {drafts.length} {drafts.length === 1 ? 'assignment' : 'assignments'} for {course?.code}
           </Text>
 
           {mentionedCourse !== null && (
-            <Text testID="syllabus-course-warning" style={styles.faint}>
+            <DraftNotice testID="syllabus-course-warning">
               {`This syllabus mentions ${mentionedCourse}, but ${course?.code} is chosen. Check the course before adding.`}
-            </Text>
+            </DraftNotice>
           )}
 
           {aiReading !== null && aiReading.dropped > 0 && (
-            <Text testID="syllabus-ai-partial" style={styles.error}>
+            <DraftNotice testID="syllabus-ai-partial" error>
               {`${aiReading.dropped} ${aiReading.dropped === 1 ? 'item' : 'items'} in the AI's answer could not be used, so this list may be incomplete. Check it against your syllabus.`}
-            </Text>
+            </DraftNotice>
           )}
 
           {drafts.map((draft, i) => (
-            <View key={i} style={[styles.draft, (errors[i] || draft.week.trim() === '') && styles.draftBad]}>
-              <TextInput
-                testID={`draft-title-${i}`}
-                accessibilityLabel={`Title of assignment ${i + 1}`}
-                value={draft.title}
-                onChangeText={(v) => edit(i, 'title', v)}
-                style={styles.field}
-              />
-              <View style={styles.row}>
-                <Text style={styles.faint}>Week</Text>
-                <TextInput
-                  testID={`draft-week-${i}`}
-                  accessibilityLabel={`Due week of assignment ${i + 1}`}
-                  value={draft.week}
-                  onChangeText={(v) => edit(i, 'week', v)}
-                  keyboardType="number-pad"
-                  style={[styles.field, styles.small]}
-                />
-                <Text style={styles.faint}>Hours</Text>
-                <TextInput
-                  testID={`draft-hours-${i}`}
-                  accessibilityLabel={`Estimated hours of assignment ${i + 1}`}
-                  value={draft.hours}
-                  onChangeText={(v) => edit(i, 'hours', v)}
-                  placeholder="?"
-                  keyboardType="decimal-pad"
-                  style={[styles.field, styles.small]}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${draft.title || `assignment ${i + 1}`}`}
-                  onPress={() => remove(i)}
-                >
-                  <Text style={styles.link}>Remove</Text>
-                </Pressable>
-              </View>
-              {isDuplicate(draft, semester.tasks, courseId) && (
-                <Text testID={`draft-duplicate-hint-${i}`} style={styles.faint}>
-                  {`Already in your semester for ${course?.code}, week ${Number(draft.week)}.`}
-                </Text>
-              )}
-              {draft.week.trim() === '' && !errors[i] && (
-                <Text testID={`draft-week-hint-${i}`} style={styles.faint}>
-                  The syllabus does not say which week. Enter it before adding.
-                </Text>
-              )}
-              {errors[i] && <Text style={styles.error}>{errors[i]}</Text>}
-            </View>
+            <DraftCard key={i} draft={draft} index={i} error={errors[i]}
+              onChange={(field, value) => edit(i, field, value)} onRemove={() => remove(i)}
+              duplicateHint={isDuplicate(draft, semester.tasks, courseId)
+                ? `Already in your semester for ${course?.code}, week ${Number(draft.week)}.` : undefined} />
           ))}
 
           {aiReading !== null && (aiReading.weights.length > 0 || aiReading.policies.absencesAllowed !== null || aiReading.policies.dropRule !== null) && (
-            <View testID="syllabus-ai-extras" style={styles.draft}>
+            <View testID="syllabus-ai-extras" style={styles.extras}>
               <Text style={styles.heading}>Also found in the syllabus</Text>
               <Text style={styles.faint}>For your information. These are not saved yet.</Text>
+              {aiReading.weights.length > 0 && <SectionHeader label="GRADE WEIGHTS" />}
               {aiReading.weights.map((weight, i) => (
-                <Text key={i} style={styles.text}>{`${weight.label}: ${weight.percent}%`}</Text>
+                <View key={i} style={styles.valueRow}>
+                  <Text style={styles.valueLabel}>{weight.label}</Text>
+                  <Text style={styles.value}>{weight.percent}%</Text>
+                </View>
               ))}
+              {(aiReading.policies.absencesAllowed !== null || aiReading.policies.dropRule !== null) && <SectionHeader label="POLICIES" />}
               {aiReading.policies.absencesAllowed !== null && (
-                <Text style={styles.text}>{`Absences allowed: ${aiReading.policies.absencesAllowed}`}</Text>
+                <View style={styles.valueRow}>
+                  <Text style={styles.valueLabel}>Absences allowed</Text>
+                  <Text style={styles.value}>{aiReading.policies.absencesAllowed}</Text>
+                </View>
               )}
               {aiReading.policies.dropRule !== null && (
-                <Text style={styles.text}>{aiReading.policies.dropRule}</Text>
+                <View style={styles.valueRow}>
+                  <Text style={styles.valueLabel}>Drop rule</Text>
+                  <Text style={styles.policy}>{aiReading.policies.dropRule}</Text>
+                </View>
               )}
             </View>
           )}
@@ -401,6 +377,8 @@ export default function SyllabusScreen() {
             <Text style={styles.buttonText}>Add to semester</Text>
           </Pressable>
           )}
+
+          {drafts.length > 0 && <DraftBlocker drafts={drafts} />}
 
           {skipped.length > 0 && (
             <>
@@ -435,13 +413,18 @@ const styles = StyleSheet.create({
   button: { backgroundColor: theme.accent, borderRadius: 999, paddingVertical: 14, alignItems: 'center' },
   buttonText: { color: theme.surface, fontSize: 15, fontWeight: '700' },
   buttonOff: { opacity: 0.6 },
-  results: { gap: theme.space.sm, marginTop: theme.space.md },
+  results: { gap: theme.space.md, marginTop: theme.space.md },
   faint: { color: theme.faint, fontSize: 13 },
-  draft: { gap: theme.space.xs, padding: theme.space.sm, borderWidth: 1, borderColor: theme.rule, borderRadius: theme.radius },
-  draftBad: { borderColor: theme.heavy },
-  field: { borderWidth: 1, borderColor: theme.rule, color: theme.ink, padding: theme.space.xs },
-  small: { width: 56 },
-  link: { color: theme.accent, fontWeight: '600' },
+  banner: { backgroundColor: theme.accentSoft, borderRadius: 14, padding: theme.space.md },
+  bannerText: { color: theme.accent, fontSize: 17, lineHeight: 24, fontWeight: '600' },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space.sm },
+  sectionLabel: { flex: 1 },
+  count: { color: theme.faint, fontSize: 10, letterSpacing: 1.2, fontWeight: '700' },
+  extras: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.rule, borderRadius: 14, padding: theme.space.md, gap: theme.space.sm },
+  valueRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.space.md, paddingVertical: theme.space.xs },
+  valueLabel: { flex: 1, color: theme.muted, fontSize: 14, lineHeight: 20 },
+  value: { color: theme.ink, fontSize: 14, lineHeight: 20, fontWeight: '600', textAlign: 'right' },
+  policy: { flex: 1, color: theme.ink, fontSize: 14, lineHeight: 20, textAlign: 'right' },
   error: { color: theme.heavy, fontSize: 13 },
   label: { color: theme.ink, fontSize: 14, fontWeight: '600' },
 });
