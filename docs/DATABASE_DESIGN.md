@@ -18,7 +18,7 @@ screens (#145), which save into them. Anything the app does not use yet is liste
 The SQL that builds this design is in `server/db/` (`schema.sql`, `seed.sql`,
 `reset.sql`); `server/README.md` says how to run it. To add tables to a database
 that already holds data, use a migration file such as
-`migration_127_users_enrollments.sql`, which leaves existing rows alone.
+`migration.sql` (#127), which leaves existing rows alone.
 
 ---
 
@@ -369,46 +369,19 @@ FOREIGN KEY (course_id) REFERENCES courses (id)  ON DELETE RESTRICT
 CREATE INDEX enrollments_course_id_idx ON enrollments (course_id)
 ```
 
-### 3.7 Course details for the AI screens (#144)
+### 3.7 Each student's check-ins and week hours (#144)
 
-What the AI screens (#123, `docs/ui/ai-screens.html`) save. The first three
-belong to a **course**: the syllabus screen reads them and the student confirms
-them. The last two belong to a **student**, so they point at `"user"`: they are
-the first per-student tables. Added by `server/db/migration_144_course_tables.sql`.
+Two per-student tables, so they point at `"user"`: each student's check-in
+answers (#155) and their hours for single weeks (#148). Added by
+`server/db/migration_144_course_tables.sql`. Neither has its own id: a row is
+found by its student and course or week, which is its primary key.
 
-None of them has its own id: each row is found by its course, or by its student
-and course or week, which is its primary key. Those keys are text like every
-other id (section 4).
-
-**`syllabi`**: the text read from a course's syllabus, kept so it isn't read again.
-
-| Column | Type | Null | Default | Notes |
-|--------|------|------|---------|-------|
-| `course_id` | `TEXT` | no | — | Primary key. Foreign key → `courses.id`. One syllabus per course; a new one replaces it. |
-| `text` | `TEXT` | no | — | Every line of the syllabus. Not empty. |
-
-**`grade_weights`**: a course's graded parts, in the syllabus's order.
-
-| Column | Type | Null | Default | Notes |
-|--------|------|------|---------|-------|
-| `course_id` | `TEXT` | no | — | Foreign key → `courses.id`. Part of the primary key. |
-| `position` | `INT` | no | — | 1 for the first part. Part of the primary key. |
-| `name` | `TEXT` | no | — | e.g. `"Exams"`. Not empty. |
-| `detail` | `TEXT` | yes | — | e.g. `"two midterms"`. Null when there is none. |
-| `percent` | `NUMERIC` | no | — | More than 0 and at most 100. |
-
-**`course_policies`**: the late rule and the drop rule. Absences allowed stay on
-`courses.attendance_allowed`.
-
-| Column | Type | Null | Default | Notes |
-|--------|------|------|---------|-------|
-| `course_id` | `TEXT` | no | — | Primary key. Foreign key → `courses.id`. |
-| `late_percent_per_day` | `NUMERIC` | yes | — | e.g. `10` for −10% a day. More than 0 and at most 100. |
-| `late_max_days` | `INT` | yes | — | e.g. `2`: late work accepted for 2 days. At least 1. |
-| `drop_rule` | `TEXT` | yes | — | e.g. `"lowest quiz"`. Null when nothing is dropped; never empty. |
-
-No row means the policies were never saved. A row with every column null means
-the course has neither rule.
+#144 also added `syllabi`, `grade_weights` and `course_policies` (with
+`replace_grade_weights`) for the syllabus screen. No route or screen ever saved
+or read them (the syllabus screen shows the weights and policies the AI found
+without saving them), so the project audit removed them
+(`server/db/migration_remove_unused_tables.sql`). They can come back with the
+feature that needs them.
 
 **`course_checkins`**: each student's latest answer to "Is this course still on
 schedule?" (screen 2).
@@ -431,25 +404,12 @@ that week (#148). No row means the weekly number applies.
 
 **Rules**
 
-- **Grade weights add up to 100%.** A `CHECK` sees one row at a time, so code
-  checks the total (`gradeWeightsProblem` in `server/src/rules.ts`), with a
-  message the screen can show: "They add up to 95%."
-- **Weights are replaced all at once.** `replace_grade_weights(course_id,
-  weights)` deletes and inserts in one transaction, so a failure keeps the old
-  weights. Only the server (the secret key) may call it.
-- **Course details go with their course** (`ON DELETE CASCADE`): they mean
-  nothing without it. A course with tasks, reviews or students still cannot be
-  deleted, because those tables restrict it.
 - **A student's answers and hours go with the student** (`ON DELETE CASCADE`),
-  like their enrollments.
+  like their enrollments. A check-in also goes with its course.
 
 ```sql
-PRIMARY KEY (course_id)                    -- syllabi, course_policies
-PRIMARY KEY (course_id, position)          -- grade_weights
 PRIMARY KEY (user_id, course_id)           -- course_checkins
 PRIMARY KEY (user_id, week)                -- week_hours, student_settings
-CONSTRAINT late_both_or_neither
-  CHECK ((late_percent_per_day IS NULL) = (late_max_days IS NULL))
 ```
 
 ### 3.8 `student_settings`
@@ -485,8 +445,8 @@ session and decides what each student may see (US-21).
 ```sql
 ALTER TABLE semester ENABLE ROW LEVEL SECURITY;
 -- and courses, tasks, reviews, "user", "session", "account", "verification",
--- enrollments, syllabi, grade_weights, course_policies, course_checkins,
--- week_hours, student_settings
+-- enrollments, course_checkins, week_hours, student_settings,
+-- calendar_links, calendar_imports
 ```
 
 ---
@@ -517,9 +477,6 @@ Text ids keep the API contract byte-for-byte identical.
 | `review.hours` 0 < h ≤ 100 | `CHECK` on `reviews` | POST rejects `!(hours > 0) \|\| hours > 100` | — |
 | `category` closed set | `CHECK` on `tasks` | — | `categories.ts` closed union |
 | attendance both-null-or-both-set | `CHECK` on `courses` | — | `attendance: {...} \| null` |
-| grade weight named, 0 < p ≤ 100 | `CHECK` on `grade_weights` | `gradeWeightsProblem` (`rules.ts`) | — (#145) |
-| grade weights add up to 100% | — (spans rows) | `gradeWeightsProblem` (`rules.ts`) | — (#145) |
-| late rule both-null-or-both-set, 0 < p ≤ 100, days ≥ 1 | `CHECK` on `course_policies` | — (#145 adds its route) | — (#145) |
 | check-in answer closed set | `CHECK` on `course_checkins` | `CheckinAnswer` type (`types.ts`) | — (#145) |
 | week hours: week 1–15, hours whole 1–80 | `CHECK` on `week_hours` | `PATCH /semester/weeks/:week` (#148; same 80 as `MAX_WEEKLY_CAPACITY`) | `WeekHoursEditor` (#148) |
 
@@ -533,8 +490,9 @@ forgotten.
 
 - **Email check and forgot-password**: not this sprint (see
   `docs/LOGIN_DESIGN.md`). The `"verification"` table is ready for them.
-- **Syllabus files**: `syllabi` keeps the text read from a syllabus, not the
-  PDF itself.
+- **Syllabus text, grade weights and course policies**: shown on the syllabus
+  screen but not saved (their tables were removed in the project audit; see
+  section 3.7). Neither is the PDF itself.
 - **Weekly difficulty prediction** (US-25, FR-24): the `weekly_difficulty`
   table from the earlier `DB Schema.md` sketch. The app computes workload from
   tasks, not from a stored per-week difficulty score.
@@ -544,5 +502,4 @@ forgotten.
 These belong to later phases and later issues in the Supabase series. When they
 land, the `DB Schema.md` sketch (semesters, classes, syllabi, weekly_difficulty)
 is the starting point to extend this design. Its `students` and `enrollments`
-tables are replaced by `"user"` and `enrollments` above, and its `syllabi` by
-the course tables in section 3.7 (#144).
+tables are replaced by `"user"` and `enrollments` above.

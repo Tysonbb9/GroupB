@@ -18,6 +18,10 @@ const migration144 = read('migration_144_course_tables.sql');
 const store = fs.readFileSync(path.join(__dirname, '..', 'data', 'supabase-store.ts'), 'utf8');
 
 const NEW_TABLES = ['syllabi', 'grade_weights', 'course_policies', 'course_checkins', 'week_hours'];
+/** The #144 tables still in use; the others were removed (migration_remove_unused_tables.sql). */
+const KEPT_TABLES = ['course_checkins', 'week_hours'];
+const REMOVED_TABLES = ['syllabi', 'grade_weights', 'course_policies'];
+const cleanup = read('migration_remove_unused_tables.sql');
 
 /** The text between `create table <name> (` and its closing `);`, without comments. */
 function tableBody(sql: string, table: string): string | null {
@@ -84,19 +88,13 @@ describe('migration_144_course_tables.sql (#144)', () => {
 });
 
 describe('schema.sql builds the same database from scratch', () => {
-  it.each(NEW_TABLES)('defines %s exactly as the migration does', (table) => {
+  it.each(KEPT_TABLES)('defines %s exactly as the migration does', (table) => {
     const fromScratch = tableBody(schema, table);
     expect(fromScratch).not.toBeNull();
     expect(fromScratch).toBe(tableBody(migration144, table));
   });
 
-  it('defines replace_grade_weights exactly as the migration does', () => {
-    const fn = (sql: string) => /create or replace function replace_grade_weights[\s\S]*?\$\$;/.exec(sql)?.[0];
-    expect(fn(schema)).toBeDefined();
-    expect(fn(schema)).toBe(fn(migration144));
-  });
-
-  it.each(NEW_TABLES)('turns Row Level Security on for %s', (table) => {
+  it.each(KEPT_TABLES)('turns Row Level Security on for %s', (table) => {
     expect(schema).toMatch(new RegExp(`alter table ${table}\\s+enable row level security;`));
   });
 });
@@ -115,7 +113,7 @@ describe('reset.sql', () => {
     // Only the drop statements count, not the comments that mention the tables.
     const drops = [...reset.matchAll(/^drop table if exists [^;]+;/gm)].map((m) => m[0]).join('\n');
     const order = (name: string) => drops.search(new RegExp(`[ ,]${name.replace(/"/g, '"')}[,;]`));
-    for (const table of NEW_TABLES) {
+    for (const table of KEPT_TABLES) {
       expect(order(table)).toBeGreaterThan(-1);
       expect(order(table)).toBeLessThan(order('courses'));
       expect(order(table)).toBeLessThan(order('"user"'));
@@ -133,9 +131,6 @@ describe('the Supabase store and the SQL agree', () => {
   });
 
   it.each([
-    ['syllabi', ['course_id', 'text']],
-    ['grade_weights', ['course_id', 'position', 'name', 'detail', 'percent']],
-    ['course_policies', ['course_id', 'late_percent_per_day', 'late_max_days', 'drop_rule']],
     ['course_checkins', ['user_id', 'course_id', 'answer', 'answered_at']],
     ['week_hours', ['user_id', 'week', 'hours']],
   ])('%s has every column the store reads or writes', (table, columns) => {
@@ -146,17 +141,37 @@ describe('the Supabase store and the SQL agree', () => {
   });
 
   it('the conflict targets the store upserts on are each a primary key', () => {
-    expect(tableBody(schema, 'syllabi')).toMatch(/course_id\s+text primary key/);
-    expect(tableBody(schema, 'course_policies')).toMatch(/course_id\s+text primary key/);
     expect(tableBody(schema, 'course_checkins')).toMatch(/primary key \(user_id, course_id\)/);
     expect(tableBody(schema, 'week_hours')).toMatch(/primary key \(user_id, week\)/);
   });
 
   it('has no column or rule the card and the AI screens did not ask for', () => {
     // types.ts: a field that no function uses and no screen draws does not belong yet.
-    expect(tableBody(schema, 'syllabi')).not.toMatch(/read_at/);
-    expect(schema).not.toMatch(/grade_weights_name_once/);
+    expect(schema).not.toMatch(/grade_weights_name_once|read_at/);
     expect(migration144).not.toMatch(/grade_weights_name_once|read_at/);
+  });
+
+  it('every database function the store calls is in schema.sql and in a migration file', () => {
+    // A function in schema.sql alone is only made when the database is built
+    // from scratch; an existing database gets it from a migration. add_student_tasks
+    // was missing from the hosted database for exactly this reason.
+    const migrations = fs
+      .readdirSync(dbDir)
+      .filter((name) => name.startsWith('migration'))
+      .map((name) => read(name))
+      .join('\n');
+    const called = [...new Set([...store.matchAll(/\.rpc\('(\w+)'/g)].map((m) => m[1]))];
+    expect(called.length).toBeGreaterThan(0);
+    for (const fn of called) {
+      expect(schema).toMatch(new RegExp(`create or replace function ${fn}\\(`));
+      expect(migrations).toMatch(new RegExp(`create or replace function ${fn}\\(`));
+    }
+  });
+
+  it('every database function in schema.sql is dropped by reset.sql', () => {
+    for (const [, fn] of schema.matchAll(/create or replace function (\w+)\(/g)) {
+      expect(reset).toMatch(new RegExp(`drop function if exists ${fn}\\(`));
+    }
   });
 
   it('the check-in answers match the code', () => {
@@ -327,5 +342,38 @@ describe('migration_165_calendar_imports.sql (#165)', () => {
       expect(body).toMatch(new RegExp(`^${column}\\s`, 'm'));
     }
     expect(store).toMatch(/onConflict: 'user_id,event_uid'/);
+  });
+});
+
+describe('migration_remove_unused_tables.sql (the audit)', () => {
+  it('runs in one transaction, safe to run twice', () => {
+    expect(cleanup.trim()).toMatch(/^(--.*\n|\s)*begin;[\s\S]*commit;$/);
+    for (const line of cleanup.split('\n').filter((l) => /^(drop|alter)/.test(l))) {
+      expect(line).toMatch(/if exists/);
+    }
+  });
+
+  it.each(REMOVED_TABLES)('drops %s, which nothing saves or reads', (table) => {
+    expect(cleanup).toMatch(new RegExp(`drop table if exists ${table};`));
+    expect(tablesIn(schema)).not.toContain(table);
+    expect(store).not.toMatch(new RegExp(`from\\('${table}'\\)`));
+  });
+
+  it('drops replace_grade_weights, and schema.sql no longer makes it', () => {
+    expect(cleanup).toMatch(/drop function if exists replace_grade_weights\(text, jsonb\);/);
+    expect(schema).not.toMatch(/replace_grade_weights/);
+    expect(store).not.toMatch(/replace_grade_weights/);
+  });
+
+  it("drops semester's weekly_capacity, which student_settings replaced", () => {
+    expect(cleanup).toMatch(/alter table semester drop column if exists weekly_capacity;/);
+    expect(tableBody(schema, 'semester')).not.toMatch(/weekly_capacity/);
+    expect(read('seed.sql')).not.toMatch(/insert into semester \([^)]*weekly_capacity/);
+  });
+
+  it('touches nothing that holds data', () => {
+    for (const table of ['courses', 'tasks', 'reviews', '"user"', 'enrollments', 'student_settings', 'course_checkins', 'week_hours', 'calendar_links', 'calendar_imports']) {
+      expect(cleanup).not.toMatch(new RegExp(`(drop table|truncate|delete from|update) (if exists )?${table}\\b`, 'i'));
+    }
   });
 });
