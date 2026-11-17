@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Semester, Task } from './types';
+import { Course, Semester, Task } from './types';
 
 /**
  * Talking to the server. Everything the app knows about the outside world
@@ -86,6 +86,7 @@ export type RequestAuth = {
   options: () => Promise<RequestInit>;
   /** Called when the server answers 401: the student has to log in again. */
   onSessionEnded: () => void;
+  onResponse?: (response: Response, sent: RequestInit) => void;
 };
 
 let requestAuth: RequestAuth | null = null;
@@ -120,6 +121,7 @@ async function send(path: string, init: RequestInit & { headers?: Record<string,
     auth.onSessionEnded();
     throw new Error(SESSION_ENDED_MESSAGE);
   }
+  auth?.onResponse?.(response, extra);
   return response;
 }
 
@@ -136,6 +138,18 @@ export async function fetchSemester(): Promise<Semester> {
   if (!isSemester(json)) {
     throw new Error('The server sent invalid semester data');
   }
+  return json;
+}
+
+/** Loads the sample, or the semester already saved if another request got there first. */
+export async function loadSampleSemester(): Promise<Semester> {
+  const response = await send('/semester/sample', { method: 'POST' });
+  if (response.status === 409) return fetchSemester();
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isSemester(json)) throw new Error('The server sent invalid semester data');
   return json;
 }
 
@@ -219,6 +233,83 @@ export async function extractSyllabusText(pdf: Blob | ArrayBuffer | Uint8Array):
   }
   return json;
 }
+/** An assignment the AI read in a syllabus. A week or hours it was not sure of are null. */
+export type AiAssignment = {
+  title: string;
+  dueWeek: number | null;
+  estimatedHours: number | null;
+};
+
+/** What the AI read in a syllabus, already checked by the server (issue #145). */
+export type AiReading = {
+  assignments: AiAssignment[];
+  weights: { label: string; percent: number }[];
+  policies: { absencesAllowed: number | null; dropRule: string | null };
+  /** Items in the AI's answer the server threw away for not fitting. */
+  dropped: number;
+};
+
+const isNumberOrNull = (value: unknown): value is number | null =>
+  value === null || typeof value === 'number';
+
+function isAiReading(value: unknown): value is AiReading {
+  return (
+    isObject(value) &&
+    Array.isArray(value.assignments) &&
+    value.assignments.every(
+      (a) =>
+        isObject(a) && typeof a.title === 'string' && isNumberOrNull(a.dueWeek) && isNumberOrNull(a.estimatedHours)
+    ) &&
+    Array.isArray(value.weights) &&
+    value.weights.every((w) => isObject(w) && typeof w.label === 'string' && typeof w.percent === 'number') &&
+    isObject(value.policies) &&
+    isNumberOrNull(value.policies.absencesAllowed) &&
+    (value.policies.dropRule === null || typeof value.policies.dropRule === 'string') &&
+    typeof value.dropped === 'number'
+  );
+}
+
+/**
+ * GET /ai/status. True when the server has an AI to read syllabi with. Any
+ * problem (no server, no session, an older server) counts as "no", so the
+ * app falls back to its simple scanner and never shows an error for this.
+ */
+export async function getAiStatus(): Promise<boolean> {
+  try {
+    const response = await send('/ai/status');
+    if (!response.ok) return false;
+    const json: unknown = await response.json();
+    return isObject(json) && json.available === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * POST /ai/syllabus. Sends syllabus text and gets back what the AI read in
+ * it. This takes about 30 seconds, so the caller shows a waiting message.
+ *
+ * Rejects with a message the user can read. The server's own message is used
+ * when it sent one, since it says what to do.
+ */
+export async function readSyllabusWithAi(text: string): Promise<AiReading> {
+  const response = await send('/ai/syllabus', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isAiReading(json)) {
+    throw new Error('The server sent an invalid reading');
+  }
+  return json;
+}
+
 /** One assignment to add with POST /tasks. The server gives it its id. */
 export type NewTask = {
   courseId: string;
@@ -288,4 +379,127 @@ export async function addReview(
     throw new Error('The server sent something that is not a review');
   }
   return json as Review;
+
+}
+/** #155: the one check-in question the server chose, worded by code. */
+export type CheckinQuestion = {
+  courseId: string;
+  /** e.g. "CS 262". */
+  code: string;
+  /** e.g. "Is CS 262 still on schedule?" */
+  text: string;
+  /** One line of why now, or null when there is none to show. */
+  reason: string | null;
+};
+
+/** What the student told us: "Yes", "Something changed", or "None of these". */
+export type CheckinAnswer = 'on-schedule' | 'changed' | 'none-of-these';
+
+/** A new week and hours for one task, from "Something changed". */
+export type CheckinChange = { taskId: string; dueWeek: number; estimatedHours: number | null };
+
+/**
+ * GET /checkin (#155). The question to show on the Forecast tab, or null when
+ * there is none (no model key on the server, or nothing to ask). Rejects with
+ * a message the user can read.
+ */
+export async function fetchCheckinQuestion(): Promise<CheckinQuestion | null> {
+  const response = await send('/checkin');
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isObject(json) || !('question' in json)) {
+    throw new Error('The server sent something that is not a check-in question');
+  }
+  const q = json.question;
+  if (q === null) return null;
+  if (!isObject(q) || typeof q.courseId !== 'string' || typeof q.text !== 'string') {
+    throw new Error('The server sent something that is not a check-in question');
+  }
+  return q as CheckinQuestion;
+}
+
+/**
+ * POST /checkin (#155). Saves the student's answer, and for "changed" the new
+ * weeks and hours. Returns the tasks as the server saved them. Rejects with a
+ * message the user can read.
+ */
+export async function answerCheckin(
+  courseId: string,
+  answer: CheckinAnswer,
+  changes?: CheckinChange[]
+): Promise<Task[]> {
+  const response = await send('/checkin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes === undefined ? { courseId, answer } : { courseId, answer, changes }),
+  });
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (!isObject(json) || !Array.isArray(json.tasks)) {
+    throw new Error('The server sent something that is not a check-in answer');
+  }
+  return json.tasks as Task[];
+}
+
+
+
+/** A shared course, with the current student's enrollment status. */
+export type CatalogCourse = Course & { enrolled: boolean };
+
+function isCourse(value: unknown): value is Course {
+  return isObject(value) && typeof value.id === 'string' && typeof value.code === 'string' &&
+    typeof value.name === 'string' && (value.attendance === null ||
+      (isObject(value.attendance) && typeof value.attendance.allowed === 'number' &&
+        typeof value.attendance.used === 'number'));
+}
+
+/** GET /catalog. Searching never joins a course. */
+export async function searchCatalog(q: string): Promise<CatalogCourse[]> {
+  const response = await send('/catalog?q=' + encodeURIComponent(q));
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!Array.isArray(json) || !json.every((course) => isObject(course) && typeof course.enrolled === 'boolean' && isCourse(course))) {
+    throw new Error('The server sent invalid course data');
+  }
+  return json as CatalogCourse[];
+}
+
+/** POST /courses/:id/enroll. A repeated enrollment returns the same course. */
+export async function enrollInCourse(id: string): Promise<Course> {
+  const response = await send('/courses/' + encodeURIComponent(id) + '/enroll', { method: 'POST' });
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isCourse(json)) throw new Error('The server sent invalid course data');
+  return json;
+}
+
+/** POST /courses. An existing code requires a separate, explicit enrollment. */
+export async function createCourse(input: { code: string; name: string }): Promise<
+  { created: true; course: Course } | { created: false; course: Course }
+> {
+  const response = await send('/courses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  });
+  if (response.status === 409) {
+    const json: unknown = await response.json();
+    if (!isObject(json) || !isCourse(json.course)) throw new Error('The server sent invalid course data');
+    return { created: false, course: json.course };
+  }
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+  const json: unknown = await response.json();
+  if (!isCourse(json)) throw new Error('The server sent invalid course data');
+  return { created: true, course: json };
 }

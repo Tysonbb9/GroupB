@@ -1,12 +1,13 @@
-import { resetDb } from "../data/db";
-import { signedIn, type Api } from "../testing/session";
+import { resetDb } from '../data/db';
+import { withSample, signedIn, type Api } from '../testing/session';
+
 
 let api: Api;
 beforeAll(async () => {
   api = await signedIn(); // every route outside /api/auth needs a session
 });
 
-beforeEach(() => resetDb());
+beforeEach(async () => { resetDb(); await withSample(api); });
 
 describe("GET /tasks", () => {
   it("returns every task when no filters are given", async () => {

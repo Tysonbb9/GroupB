@@ -1,5 +1,5 @@
 import { db, resetDb } from '../data/db';
-import { signedIn, type Api } from '../testing/session';
+import { withSample, signedIn, type Api } from '../testing/session';
 
 let api: Api;
 beforeAll(async () => {
@@ -7,7 +7,7 @@ beforeAll(async () => {
 });
 
 // Every test starts from the same sample semester.
-beforeEach(() => resetDb());
+beforeEach(async () => { resetDb(); await withSample(api); });
 
 const labReport = { courseId: 'cs262', title: 'Lab report', dueWeek: 4, estimatedHours: 3 };
 const finalProject = { courseId: 'cs262', title: 'Final project', dueWeek: 9, estimatedHours: null };

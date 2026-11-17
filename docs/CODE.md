@@ -1,4 +1,4 @@
-Code walkthrough
+# Code walkthrough
 
 Read this once, top to bottom, and you will know the whole prototype. That is the goal — every one of us has to be able to explain any file in here.
 
@@ -126,11 +126,19 @@ US-24: processing what the student hands over. Three steps, each pure, and nothi
 | `applyCrowdEstimates` | fills tasks that have **no** estimate from `crowdEstimate`, matching on course and title (ignoring case and spacing). A student's own estimate is never replaced |
 | `processInputs` | scans each syllabus, adds only assignments the semester does not already have (so processing twice cannot double the workload), applies crowd estimates, then runs `weeklyLoad` and `detectCrunch` over the result |
 
+`scanLine` removes leading separators and calendar date lists such as "Sept 29, Oct 1" from scanner titles without changing the week or inventing an empty title. This cleanup is only for the simple scanner, not AI readings.
+
 A syllabus PDF is turned into text by the server's `POST /syllabus/text` (called through `extractSyllabusText` in `lib/api.ts`), and that text is what `scanSyllabus` reads. Reading photos and scanned PDFs, and matching reports to assignments any way other than course and title, are later work.
 
 ### `src/lib/review.ts`
 
 US-30. `toDraft` turns a scanned assignment into the text in its edit boxes, and `checkDraft` checks one reviewed assignment: a title, a whole-number week from 1 to 15, and hours that `parseEstimate` accepts (blank means no estimate). It returns the first problem as a message the student can read.
+
+`fromReading` (issue #145) does the same for an assignment the AI read. A week or hours the AI did not find stay blank, never guessed: a blank week is a problem the student has to fill in (`checkDraft` refuses it), and blank hours are allowed.
+
+`courseMentioned` matches whole course codes with spaces, hyphens or no gap, ignoring case. It warns only when exactly one other course is mentioned and the chosen course is not.
+
+`isDuplicate` checks the chosen course, a trimmed case-insensitive title and a nonblank matching week against existing semester tasks. Its hint updates as the student edits and never blocks Add or skips a task.
 
 ### `src/lib/pick-pdf.ts`
 
@@ -180,6 +188,10 @@ The one place the app talks to the server. `fetchSemester()` does a `GET /semest
 
 `addReview` posts how long a finished assignment took to POST /courses/:id/reviews (US-23) and returns the stored review, or rejects with the server's message.
 
+`getAiStatus()` asks `GET /ai/status` whether the server has an AI (issue #145). It never throws: any problem counts as "no", so the app uses its simple scanner. `readSyllabusWithAi(text)` posts the text to `POST /ai/syllabus` and returns what the AI read, already checked by the server (`AiReading`). It takes about 30 seconds, and it rejects with the server's own message when it refuses.
+
+`fetchCheckinQuestion()` asks `GET /checkin` for the check-in question on the Forecast tab (#155) and returns `{ courseId, code, text, reason }`, or `null` when there is nothing to ask (no AI on the server, or every course was answered recently). `answerCheckin(courseId, answer, changes?)` posts the student's answer (`on-schedule`, `changed` or `none-of-these`) to `POST /checkin`, with the new weeks and hours for `changed`, and returns the tasks as the server saved them. Both reject with the server's message when it refuses. Tests: `src/lib/checkin-api.test.ts`.
+
 Every request goes through one helper, `send`, which adds the session (US-20) and turns an unreachable server into `Could not reach the server at <address>`. The session registers itself with `setRequestAuth` while the app is signed in with the server: on a phone that adds the saved cookie by hand with `credentials: 'omit'`, and on the web it lets the browser send its own cookie with `credentials: 'include'`. When the server answers `401`, `send` tells the session, which goes back to Log in, and rejects with `SESSION_ENDED_MESSAGE`. With nothing registered (sample-data mode and most tests), requests go out as they did before accounts.
 
 ### `src/lib/auth.ts`, `src/lib/auth-client.ts`
@@ -191,6 +203,12 @@ Signing in (US-20), as [LOGIN_DESIGN.md](LOGIN_DESIGN.md) sets out. `auth.ts` ho
 - `unavailableAuth(reason)` is for a release build with no server address: the app still opens, and every attempt to sign in says why.
 
 `auth-client.ts` is the only file that imports Better Auth. `createCrunchWeekAuthClient` sets up `createAuthClient` with the Expo plugin (`scheme` and `storagePrefix` both `crunchweek`, SecureStore for storage), and `serverAuth()` makes the one the app uses, once, so every screen shares the session. One thing differs from the design's example: in Better Auth 1.7.21 `getCookie()` returns a promise, so it is awaited.
+
+The Expo client also needs `expo-network`, installed with `npx expo install expo-network` to match the Expo SDK. Better Auth's online manager loads it when session state changes, including logout; without it the phone can clear its local cookie while failing to end the server session. The dependency test explicitly resolves `expo-constants`, `expo-linking`, `expo-network` and `expo-secure-store`, and the logout test verifies that a previously valid cookie no longer has a server session with no error reported.
+
+The plugin only loads `expo-web-browser` for a redirect sign-in or social account link. Our email/password sign-in, sign-up, logout, cookie reading and session refresh do not use that branch, so it is not added for those flows.
+
+Ordinary API responses also carry cookie renewals. `SessionProvider` gives `api.ts` the auth response handler, and the phone stores matching `Set-Cookie` headers with the Expo adapter and parser; a response for a session that was logged out or replaced is ignored. Web requests leave cookie storage to the browser. No extra refresh request is needed.
 
 ### `src/data/semester.ts`
 
@@ -213,13 +231,23 @@ No state library. If you know `useState` and `useContext`, you know this file.
 - **`initial` given:** use it as is. Tests do this, and so does the fixture switch in `_layout.tsx`. The server is never called.
 - **`initial` not given:** `SemesterFromServer` calls `fetchSemester()`, shows `LoadingView` while it waits, shows `ErrorView` if it fails, and on success hands the semester to `SemesterState`.
 
-`SemesterState` is the original provider, unchanged: the `useState`, `toggleDone` and `setEstimate`. Splitting it out means the loading logic never touches it, and none of the existing tests had to change.
+`SemesterState` holds the shared semester and its updates. Initial loading stays in `SemesterFromServer`.
 
 For now `toggleDone` and `setEstimate` change the semester in memory only. Saving them back to the server is a later step.
 
 `addTasks` appends tasks the server has already saved (US-30).
 
+`fromServer` is true when the semester came from the server and false with `initial` (tests and the fixture switch), so a screen only calls the server when there is one (#155). `replaceTasks(tasks)` puts in tasks the server has just changed, matched by id, so the forecast redraws from what was saved.
+
 `setWeeklyCapacity(hours)` changes the hours the student has each week (US-32). It keeps them first and only then changes the semester, so the forecast never shows hours that were not kept; if keeping them fails, it rejects and nothing changes. Where they are kept depends on where the semester came from: from the server, `saveWeeklyCapacity` saves them there; with `initial` (tests and the fixture switch), they stay on the device.
+
+`loadSample()` replaces the whole shared semester after the server accepts the sample. `loadingSample` and `sampleError` are shared across tabs, and a pending request blocks duplicate taps. `canLoadSample` is false with `initial`, where loading a sample is a no-op and the button is hidden.
+
+`loadSampleSemester()` in `api.ts` sends POST /semester/sample without a body. On 409 it fetches the existing semester instead. Other failures preserve the server message and leave the current semester untouched.
+
+### `src/components/EmptyState.tsx`
+
+`EmptyState` pairs a title and a sentence with actions. `EmptyAction` provides an accessible busy button. `EmptySemesterScreen` shares the sample action and error across Forecast, This week and Courses when there are no courses, replacing their figures and empty sections. Syllabus uses `EmptyState` to explain that a course comes first and offers Go to Courses instead of an empty picker. It does not request AI availability without a course.
 
 ### `src/state/session.tsx`
 
@@ -257,6 +285,8 @@ US-32. The line under the week strip with **Change** beside it. Change opens a b
 
 One assignment as a row on the This week screen: category tile, title, details (course, hours or "Add estimate", "Was week N", "start now") and a circle with a faint tick, so it reads as the thing to tap. The circle has `accessibilityRole="checkbox"` and a label naming the work it completes.
 
+US-45: with `markedDone`, the row stays where it is but looks finished: the title is struck through, the circle is filled, "Marked done" and an **Undo** link show under the details, and tapping the circle or Undo calls `onUndo`.
+
 ### `src/components/CompletedTasks.tsx`
 
 The finished work on the This week screen (US-31). It draws one "Completed (n)" line, closed by default, and nothing at all when no task is done. Opening the line lists each finished task with a filled tick, and tapping it calls `onUndo` (the store's `toggleDone`), which puts the task back in the This week list and its hours back in the forecast. The circle has `accessibilityRole="checkbox"`, checked, with a label naming the task.
@@ -264,6 +294,11 @@ The finished work on the This week screen (US-31). It draws one "Completed (n)" 
 ### `src/components/HoursReview.tsx`
 
 US-23. The card This week shows when a task is ticked done: "How long did it take you?" with an hours box, Save, and Skip. The hours are checked with `parseEstimate` (more than 0, up to 100) before anything is sent, then stored with `addReview`, which the server saves in the `reviews` table. A thank-you replaces the box once saved; the server's message is shown if saving fails.
+
+### `src/components/CheckinCard.tsx`
+
+#155, AI screen 2 (`docs/ui/ai-screens.html`). One question on the Forecast tab, "Is CS 262 still on schedule?", with the AI's one-line reason, and two buttons. **Yes, still accurate** saves the answer. **Something changed** turns the card into a week box and an hours box for each of the course's open tasks, filled in with what the app has now. **Save** checks every row with `checkDraft` (the US-30 check) and sends only the rows that changed, and the forecast redraws from the saved tasks. **None of these** saves that answer. The card hides once the server has the answer, and stays with the server's message if saving fails.
+
 
 ### `src/components/CategoryTile.tsx`
 
@@ -303,7 +338,7 @@ A row that opens something else: an icon in a tinted circle, a title, one short 
 
 ### `src/app/_layout.tsx`
 
-expo-router's root, and the front door. It holds the `SessionProvider` (with `serverAuth()`, or `localAuth` in sample-data mode) and keeps the splash screen up until the check for a saved session is done, so a student who is still signed in never sees Log in flash past. Below that is a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server.
+expo-router's root, and the front door. It holds the `SessionProvider` (with `serverAuth()`, or `localAuth` in sample-data mode) and keeps the splash screen up until the check for a saved session is done, so a student who is still signed in never sees Log in flash past. Below that is a stack split with `Stack.Protected`: signed out, only `/login` exists; signed in, only the tabs and `/syllabus` do, and expo-router sends the student to whichever side is open. The `SemesterProvider` wraps the stack only once someone has signed in, so the semester loads after Log in and a server that is down never hides the Log in screen. It also reads `EXPO_PUBLIC_USE_FIXTURE`: when that is `1` it passes the fixture as `initial`, otherwise it passes `undefined`, which makes the provider fetch from the server. The back button on Add a Syllabus says "Back" (`headerBackTitle`), not the name of the screen before it, "(tabs)" (issue #163).
 
 ### `src/app/(tabs)/_layout.tsx`
 
@@ -317,6 +352,8 @@ Route: `/`
 
 One focus: the header (with the load label and the log-out icon), the week figures and week strip, and the wall card with its **Plan this week** button. A week's assignments (`WeekDetail`) open when its bar is tapped and close on a second tap. Below, two rows open the Courses tab: **Heads up** (how many notices in the next three weeks) and **Course spikes** (the course with the heaviest single week).
 
+When the semester comes from the server, the screen asks `fetchCheckinQuestion` once and shows `CheckinCard` above the figures if there is a question (#155). With sample data, no AI on the server, or any failure, there is no card and the screen is as before.
+
 It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size and clearer than caching.
 
 ### `src/app/(tabs)/week.tsx` — screen 2, This week
@@ -324,7 +361,7 @@ It calls `weeklyLoad` and `nextWall` on every render. That is fine at this size 
 Route: `/week`
 
 Two figures (hours landing this week against capacity, and items left to do), then the outstanding work in `groupThisWeek`'s groups: Overdue, Due this week, Next week. Each `TaskRow` has a circular checkbox calling `toggleDone` and, when the task has no estimate, an **Add estimate** link calling `setEstimate`. Below the groups, `CompletedTasks` lists the done work behind a "Completed (n)" line, so a mistaken tap can be undone with `toggleDone`, and a **Later this semester** row counts the work due after next week and opens Forecast, where each week's bar lists it.
-Ticking a task done also shows the HoursReview card under the figures (US-23); undoing that task hides it.
+Ticking a task done takes its hours off the figures and the forecast straight away, but the row stays in its group, marked done with Undo, and the HoursReview card (US-23) is drawn directly under it (US-45). The task moves to Completed only when the card is skipped, or saved and closed. Undo puts it back as not done and hides the card. Ticking a second task moves the first one on.
 
 Tick the checkbox and three things happen at once: the task leaves the list, this week's hours drop, and the bar on screen 1 gets shorter. All from that one `done: true`.
 
@@ -338,7 +375,7 @@ The courses first (`CourseCards`), then **Heads up** (`SpikeNotice`) for the nex
 
 Route: `/login`, the first screen of the app (US-27). Log out on Forecast comes back to it.
 
-Two forms on one screen: **Log in** (email and password) and **Create account** (also a name), switched with the link under the button (US-20). Before asking the server it checks that every field is filled in, that the email looks like an email, and, for a new account, that the password has the 8 characters the server asks for. While waiting the button says "Logging in…" or "Creating account…" and cannot be pressed twice. Anything the server refuses shows the server's own message, and a session that ended shows a notice at the top until the student starts typing. On success the root layout opens the app. In sample-data mode a note under the form says any email and password open the app.
+Two forms on one screen: **Log in** (email and password) and **Create account** (also a name), switched with the link under the button (US-20). Before asking the server it checks that every field is filled in, that the email looks like an email, and, for a new account, that the password has the 8 characters the server asks for. While waiting the button says "Logging in…" or "Creating account…" and cannot be pressed twice. Anything the server refuses shows the server's own message, and a session that ended shows a notice at the top until the student starts typing. On success the root layout opens the app. In sample-data mode a note under the form says any email and password open the app. Anything refused (by the checks or by the server) shows its message in red at the top of the form, above every field, and closes the keyboard (issue #157). The field being typed in always stays above the keyboard, so the message does too, even when a field is tapped again to fix the mistake. Dragging the page also closes the keyboard, and the form scrolls clear of it.
 
 ### `src/app/syllabus.tsx` — Add a syllabus
 
@@ -347,6 +384,8 @@ Route: `/syllabus`, reached from the **+ Syllabus** button on the Courses tab (U
 The student picks one of their courses, pastes or types the syllabus text, and presses **Find assignments**. The text goes through `scanSyllabus` from `lib/inputs.ts`, and the screen lists each assignment found (title, due week, and hours when the syllabus states them) and every line it could not read, so nothing is silently dropped. Each assignment found is shown as boxes for its title, due week and hours, with a Remove link (US-30). Add to semester checks every one with checkDraft (lib/review.ts) and shows a message on each bad one. When all are valid it saves them with POST /tasks and only then adds them to the semester, so the forecast never changes while the student is still reviewing.
 
 **Choose PDF** (US-29) opens the file picker (`lib/pick-pdf.ts`), sends the PDF to `POST /syllabus/text` with `extractSyllabusText`, puts the text that comes back in the text box, and scans it like pasted text. When the server cannot read the PDF (scanned, locked, too large), its message is shown above the text box, so the student can paste the text instead.
+
+**Reading with AI** (issue #145). When `getAiStatus` says the server has an AI, **Find assignments** sends the text to `readSyllabusWithAi` instead of `scanSyllabus` (a pasted text and a PDF's text alike). The screen says "Reading your syllabus. This takes about 30 seconds." and disables the button while it waits. The answer fills the same boxes through `fromReading`, so reviewing and adding are unchanged. A week the AI did not find is left blank, highlighted and explained, and the assignment cannot be added until it is filled in. The grade weights and policies it found are listed under the assignments as "not saved yet", since saving them waits on the course tables (#144). Every Find or PDF is a numbered run (a PDF takes its number when the picker returns, and is dropped if anything newer happened while the picker was open; only the PDF that set "Reading the PDF" may clear it), and an answer or failure for an older run (another course chosen, a newer Find or PDF started) is dropped, so a reading never fills the boxes of the wrong course or overwrites a newer one; Add is disabled while a reading is pending. When the server reports `dropped` items, the screen warns that the list may be incomplete. If the AI fails for any reason, the simple scanner runs and a short note says so, so a student always gets a result. With no AI on the server nothing changes.
 
 ### `src/theme.ts`
 
@@ -360,15 +399,21 @@ The Express server uses a Data Access Layer to separate API routes from database
 
 ### `server/src/data/store.ts`
 
-Defines the asynchronous `Store` interface for accessing semesters, courses, tasks, and reviews. `updateSemester(updates)` changes the semester's settings (for now only `weeklyCapacity`, US-32) and returns the semester. The Supabase store reads the one semester row's id and updates that row, because Supabase refuses an update that names no row.
+Defines the asynchronous `Store` interface. `getSemester(userId)`, `updateSemester(userId, updates)`, `listCourses(userId)`, `getCourse(userId, id)`, `listTasks(userId, filters)`, `getTask(userId, id)`, `updateTask(userId, id, updates)` and `addTasks(userId, tasks)` put the student first. `loadSample(userId)` returns the copied semester, or null if any course enrollment or task already exists. The route turns null into 409. Weekly capacity lives in `student_settings`, with fifteen hours when no row exists. Shared syllabus, grade-weight and course-policy methods keep their course-only signatures. Check-ins and week-hour overrides keep their existing student-first signatures; saving details for an unknown catalog course still raises DatabaseError.
+
+The catalog methods are searchCatalog(userId, query), enroll(userId, courseId) and createCourse(userId, { code, name }). A creation returns `{ created, course }`; created=false means a duplicate suggestion, with no enrollment. An unknown enrollment target returns null. The routes map these outcomes to 409 and 404 respectively.
+
+### `server/src/data/course-catalog.ts`
+
+The shared code-normalization rule, readable ID base and course-input validation. Limits of 40 code characters and 200 name characters match the database; character counting follows Postgres char_length rather than JavaScript UTF-16 units. The routes validate here, the memory store compares the same keys, and the Supabase store passes them as named SQL function parameters.
 
 ### `server/src/data/memory-store.ts`
 
-Implements the `Store` interface using the existing in-memory database. This preserves development and test behavior without requiring Supabase credentials.
+Implements the `Store` interface using the existing in-memory database. The catalog is shared, with enrollments, owner-tagged tasks and a settings map kept separately. A new account starts empty; resetDb restores the catalog and clears every student's data. Existing route fixtures call withSample(api) after resetting, so sample-dependent expectations remain explicit. The course details are kept in `details` in `db.ts`, which starts empty like the new tables and is emptied by `resetDb()`. Their methods hand back copies, like rows read from a database.
 
 ### `server/src/data/supabase-store.ts`
 
-Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types.
+Implements the `Store` interface using `@supabase/supabase-js`. It reads and writes data in Supabase and maps database fields to the application's data types. Course reads require an inner enrollment match; task requests filter user_id. loadSample calls load_sample_semester once, which locks the student and copies the whole sample transactionally. Only then does it read the resulting semester. `replaceGradeWeights` calls the database function `replace_grade_weights`, which deletes and inserts a course's weights in one transaction, so a failure keeps the old ones.
 
 ### `server/src/data/task-ids.ts`
 
@@ -395,11 +440,15 @@ The order of what runs on each request matters (US-21, #44):
 
 1. **CORS.** Names Expo Web's address (`CLIENT_ORIGIN`, default `http://localhost:8081`) and allows cookies, in place of `*`, which browsers refuse once a cookie is sent. Answers the browser's OPTIONS preflight, which needs no session.
 2. **`/api/auth/*`**, Better Auth's own routes (see `auth.ts` below). They come before `express.json()`, because Better Auth reads the request body itself.
-3. **`express.json()`.**
-4. **The session check.** Asks Better Auth whose session the cookie belongs to. With no valid session it answers `401 { "error": "Sign in first" }`, so the phone shows the login screen. Otherwise it puts the session on `res.locals.session`, for routes that will later keep each student's own data.
+3. **The session check.** Asks Better Auth whose session the cookie belongs to and appends every renewal cookie to the response. With no valid session it answers `401 { "error": "Sign in first" }`, before parsing a body. The session stays on `res.locals.session` for the routes.
+4. **`express.json()`.** Signed-in requests with broken JSON still get 400.
 5. **Every other route**, `/syllabus` included.
 
 `PATCH /semester` (US-32) takes `{ weeklyCapacity }`, a whole number of hours from 1 to 80, and returns the whole semester with it. Anything else is a 400 with a JSON error, and nothing changes. Its tests are in `server/src/__tests__/weekly-capacity.test.ts` (test plan row TP-36).
+
+### `server/src/rules.ts`
+
+Rules that code checks, shared by the routes (#144). `gradeWeightsProblem` returns the message to show, or null: each grade weight is named and worth more than 0% and at most 100%, and together they add up to 100%, which the database cannot check because it spans rows. `MAX_WEEKLY_CAPACITY` (80) lives here, used by `PATCH /semester`; the database's `week_hours` uses the same limit. `MAX_HOURS` (100) and `isValidHours` (more than 0 and up to 100) moved here from `app.ts` (#155), so both `app.ts` and the check-in route use the same rule. Tests: `rules.test.ts`.
 
 ### `server/src/auth.ts`
 
@@ -410,13 +459,33 @@ Login on the server (US-21), with [Better Auth](https://better-auth.com). `docs/
 - **Who may sign in.** `trustedOrigins` lists the app (`crunchweek://`), Expo Go while developing (`exp://`), and Expo Web. A request that carries a cookie, or comes from a web page, must come from one of these, or Better Auth answers 403. The phone's `expoClient` says where it comes from with an `expo-origin` header.
 - **Not here this sprint:** checking that an email belongs to the student, and forgot-password. Both need the server to send email.
 
+### `server/src/ai/`: the AI reading a syllabus (issue #145)
+
+One module talks to a language model, and everything else goes through it, so tests hand in a fake one. It uses the OpenAI-style chat-completions API, so changing provider is a change to `server/.env` (`AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`, listed in `.env.example` with no values). With any of the three missing there is no model and the app works as before.
+
+- **`model.ts`:** `createModelClient()` returns a `ModelClient` (`complete(prompt)`) or `null`. It understands both a plain JSON answer and the streamed answer Calvin's service always sends, even with `stream: false`. A body that starts with `{` is plain; anything else is read as Server-Sent Events (comment lines and `event:` lines ignored, an event's several `data:` lines joined, pieces joined in order), so a leading `: keep-alive` line does not matter. Reading the body is inside the same error boundary as the request. A failure becomes a `ModelError` with a message safe to show a student, never one that holds the address or the key. One answer can take about 30 seconds, so the wait is 60 seconds.
+- **`syllabus-reading.ts`:** `buildPrompt` asks for JSON in a fixed shape and tells the model that the syllabus text is data, not instructions. `parseReading` checks every field and throws away what does not fit: a week outside 1 to 15, or hours outside 0 to 100, become blank (the student fills them in); an assignment with no title, or a weight that is not a label and a percentage from 0 to 100, is dropped and counted, and so is anything past the caps of 100 assignments and 30 weights, so `dropped` says how much of the answer was lost. The root of the answer must be an object: a list holding one is refused. The model's own "unsure" flag is ignored, because it was wrong for undated quizzes in testing.
+- **`routes.ts`:** `aiRouter(model)` gives `GET /ai/status` (`{ available }`) and `POST /ai/syllabus` (`{ text }` in, the checked reading out; 400 for no text, 413 over 30,000 characters, 502 when the model fails or its answer cannot be used, 503 with no model). `app.ts` mounts it after the session check, so both routes need a signed-in student.
+
+The weights and policies are returned but not saved yet (#144). The reminder (#156) will build on `ModelClient` too.
+
+- **`checkin.ts`** (#155): `buildSnapshot` builds what the AI is shown: the current week, and each course with its open tasks from this week on and when the student last answered about it. It leaves out courses with nothing open and courses answered in the last 7 days (`RECENTLY_CONFIRMED_DAYS`), so "Yes" means "don't ask again for a while". `checkModelAnswer` checks the AI's answer: the course must be one from the snapshot or nothing is asked, and a reason that is blank, over 200 characters or has a digit in it is dropped, because the AI never produces a number. The question's words come from code, not the AI.
+- **`checkin-routes.ts`** (#155): `checkinRouter(store, model)` gives `GET /checkin` (`{ question }` or `{ question: null }`; never an error, since the card is optional, and any AI failure or answer that is not JSON just means no question) and `POST /checkin` (`{ courseId, answer, changes? }`; 400 for a bad answer, a bad change or changes with the wrong answer, 404 for an unknown course; for `changed`, every change is checked before any is saved, then `store.updateTask` gets the new `dueWeek` and `estimatedHours`, and `store.saveCheckin` records the answer and its time). `app.ts` makes the model once with `createModelClient()` and hands the same one to `aiRouter` and `checkinRouter`.
+
+`updateTask` in both stores can now change `dueWeek` too, for the check-in's "Something changed". `PATCH /tasks/:id` does not send it, so that route is unchanged.
+
 ### Supabase SQL Scripts
 
 The database setup scripts are located in `server/db/`:
 
 - `server/db/schema.sql`: creates the Supabase database tables and relationships.
-- `server/db/seed.sql`: populates the database with sample semester, course, and task data.
+- `server/db/seed.sql`: populates the shared calendar and course catalog; it does not create student tasks.
+- `server/db/migration_course_catalog.sql`: backfills normalized course keys, enforces uniqueness, and adds literal catalog search plus transactional create-and-enroll. Existing migrations stay unchanged.
+- `server/db/migration_own_semester.sql`: adds private task ownership and weekly capacity, removes ownerless sample tasks, and creates the atomic sample-copy function.
 - `server/db/reset.sql`: resets the database for a fresh setup.
+- `server/db/migration_144_course_tables.sql`: adds the course tables for the AI screens (#144) to a database that already has data. `docs/DATABASE_DESIGN.md` section 3.7 describes them.
+
+`server/src/__tests__/sql-files.test.ts` keeps these files in agreement, since CI cannot run Postgres: `schema.sql` must define each new table exactly as the migration does, `reset.sql` must drop every table in a safe order, and every table and column the Supabase store uses must exist.
 
 Run the SQL scripts using the Supabase SQL Editor.
 See `server/README.md` for the setup instructions.
@@ -426,7 +495,8 @@ The server does not require these scripts when running with
 
 ## Tests
 
-838 tests across forty test suites.
+
+Client: 980 tests across 50 suites. Server: 693 passing tests across 31 suites, with 4 optional hosted-database checks skipped and 5 existing TODO cases. The server includes 12 student-isolation route tests, 6 PostgREST request checks and 3 migration consistency checks.
 
 ```bash
 npm test                      # all of them
@@ -436,10 +506,12 @@ npx jest --watch              # while you work
 
 | File | Count | Covers |
 |------|-------|--------|
+| `src/__tests__/empty-semester.test.tsx` | 8 | empty tabs, shared sample replacement, busy taps, conflict recovery, retry after refusal, syllabus without courses and fixture isolation |
+| `src/__tests__/load-sample-api.test.ts` | 5 | sample POST, conflict refetch, server message, invalid data and expired session |
 | `src/lib/workload.test.ts` | 52 | the forecast, bands, walls, start weeks and display helpers |
 | `src/lib/tasks.test.ts` | 26 | ranking, grouping, Coming up, start now, attendance |
 | `src/lib/estimate.test.ts` | 5 | `parseEstimate` |
-| `src/lib/inputs.test.ts` | 287 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, and hostile or oversized input |
+| `src/lib/inputs.test.ts` | 296 | US-24: syllabus scanning, crowd estimates and `processInputs`, including boundaries, seeded random input, hostile or oversized input, and calendar date prefixes with normal titles preserved |
 | `src/lib/api.test.ts` | 12 | `fetchSemester` (success, bad status, wrong shape, unreachable) and `resolveBaseUrl` |
 | `src/lib/syllabus-api.test.ts` | 24 | `extractSyllabusText`: posting the PDF, passing the server's message on when it refuses one, replies that are the wrong shape, and an unreachable server |
 | `src/__tests__/screens.test.tsx` | 11 | both screens render; checking off work; the two screens together |
@@ -456,32 +528,45 @@ npx jest --watch              # while you work
 | `src/__tests__/capacity-from-server.test.tsx` | 2 | US-02 with server data: the capacity on screen is the one the server sent |
 | `src/__tests__/login.test.tsx` | 9 | US-27: the email and password form, the checks on both fields, signing in with a valid form, the sample-data note, and Log out on Forecast |
 | `src/__tests__/login-accounts.test.tsx` | 27 | US-20 on the Log in screen: the right and wrong password, an unknown email, no connection, messages clearing, the busy button that cannot send twice, Create account (its name field, the 8-character check, an email already used, signing up then logging back in), and the notice when a session has ended |
+| `src/__tests__/login-keyboard.test.tsx` | 8 | Issue #157: the keyboard closes when a sign-in, a Create account or the checks before asking the server refuse; it stays open when the screen first opens; the message is drawn at the top of the form, above every field (on Log in and on Create account), and in red; a drag closes the keyboard and the form keeps clear of it |
+| `src/__tests__/layout.test.tsx` | 2 | Issue #163: the root stack gives Add a Syllabus its title and a back button that says "Back", and still hides the stack header on the tabs and on Log in (the stack's screens are stand-ins that record their options) |
 | `src/__tests__/session.test.tsx` | 22 | US-20: the session in sample-data mode and with the server, restoring a saved session (found, none, offline, failing), signing in and up, the cookie on requests from the very first one, a 401 sending the student back to Log in, and Log out |
 | `src/lib/auth.test.ts` | 43 | US-20: the message for each answer (401, 422, 400, 500, no status, no connection), restoring a session (on a phone and on the web), Log out never failing, what each request carries on a phone and on the web, sample-data mode, and a missing server address |
-| `src/lib/auth-client.test.ts` | 22 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection |
-| `src/lib/api-session.test.ts` | 55 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, and nothing added in sample-data mode |
+| `src/lib/auth-client.test.ts` | 28 | US-20 against real Better Auth: the phone's real client talks to a real Better Auth server kept in memory, checking every route and answer in LOGIN_DESIGN.md, that the session survives the app closing, and that Log out ends it on the server and on the phone, with and without a connection, a successful logout sending its cookie without a reported error, the Expo dependencies needed on the phone being installed, ordinary API renewal persisted through the Expo adapter, and late responses after logout or a newer sign-in ignored |
+| `src/lib/api-session.test.ts` | 57 | US-20 on every route the app calls: the cookie and `credentials: 'omit'`, a 401 ending the session, other refusals and no connection not ending it, nothing added in sample-data mode, renewal responses delivered with the sent cookie, and 401 handled before renewal storage |
 | `src/__tests__/input-processing.test.ts` | 16 | US-24 told as the story: scan a syllabus, see the forecast and crunch change, crowd estimates, nothing mutated. Runs the real workload functions, nothing mocked |
 | `src/lib/difficulty.test.ts` | 5 | course spike threshold, peaks, ignored work, project spreading, lookahead and notice limit |
 | `src/__tests__/difficulty-summary.test.tsx` | 6 | the Heads up cards (week, course, hours, label, empty state) and the course cards (peak week, heavy weeks in words and labels, a course with none) |
 | `src/__tests__/syllabus-reminder.test.tsx` | 6 | US-26: the reminder's text and screen reader label, the Dismiss button, and that it shows on the Courses screen in place of the old one-line text |
 | `src/__tests__/syllabus-text.test.tsx` | 7 |  US-28: choosing a course, the assignments found shown in edit boxes with their week and hours, the lines it could not read, the empty case, that nothing is added to the semester, and the button on the Courses screen |
 | `src/__tests__/undo-done.test.tsx` | 7 | US-31: the Completed line and its count, opening and closing it, moving a task there and back, the hours returning to this week and the forecast, the line going away after the last undo, and nothing drawn when no task is done. Queries by role and name, so the open and checked states are tested too |
-| `src/lib/review.test.ts` | 18 | US-30: `toDraft`, and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number |
+| `src/lib/review.test.ts` | 36 | US-30: `toDraft`, `fromReading` (issue #145: the boxes for an assignment the AI read, with a week or hours it did not find left blank), and `checkDraft` accepting good values and rejecting a blank title, weeks outside 1 to 15 or not whole, and hours of 0, over 100 or not a number; whole-course-code warnings and same-course/title/week duplicate hints |
 | `src/lib/add-tasks-api.test.ts` | 5 | `addTasks`: what it posts, the saved tasks it returns, the server's message on a refusal, an unreachable server, a reply that is not a list |
 | `src/__tests__/review-before-adding.test.tsx` | 8 | US-30: editing and removing found assignments, messages for a bad week, bad hours or a blank title, the forecast unchanged while reviewing, adding on confirm, and a failed save |
 | `src/lib/pick-pdf.test.ts` | 4 | US-29: PDFs only, cancelling, the File on the web, reading the local file on a phone |
 | `src/__tests__/pdf-upload.test.tsx` | 7 | US-29: sending the chosen PDF, scanning its text like pasted text and showing it in the box, cancelling, a PDF with no text offering the paste box, the server's message on a refusal, nothing added until confirmed |
+| `src/lib/ai-api.test.ts` | 16 | Issue #145: `getAiStatus` (true only when the server says available, false and never throwing for an error, a wrong shape, bad JSON or no server) and `readSyllabusWithAi` (the JSON it posts, the server's message on a refusal, six wrong shapes rejected, the unreachable-server message) |
+| `src/__tests__/ai-syllabus.test.tsx` | 24 | Issue #145, AI screen 1: the AI's answer filling the review boxes, a missing week left blank with a hint and not addable, weights and policies shown as not saved, the waiting message and disabled button, the scanner as the fallback when the AI fails or is absent, a PDF's text read by the AI, an answer or a failure that arrives after the student changed course or started a newer reading dropped (a PDF picked after the course changed while the picker was open too, and cancelling the picker stops nothing), an older PDF finishing without clearing a newer PDF's "Reading the PDF" state, no adding while a newer reading is pending, a warning when the server dropped items, a non-blocking wrong-course warning cleared on a course switch, and duplicate hints that update on edits and allow Add or Remove |
 | `src/lib/add-review-api.test.ts` | 5 | `addReview`: what it posts and where, the stored review it returns, the server's message on a refusal, an unreachable server, a reply that is not a review |
 | `src/lib/capacity.test.ts` | 15 | US-32: `parseWeeklyHours` reading whole hours from 1 to 80, and refusing blank, 0, 81, decimals, negatives and words |
 | `src/lib/save-capacity-api.test.ts` | 5 | `saveWeeklyCapacity`: what it sends and where, the hours it returns, the server's message on a refusal, an unreachable server, a reply that is not a semester |
 | `src/__tests__/weekly-capacity.test.tsx` | 15 | US-32: Change and the box with the current hours, the forecast and This week redrawn after Save (pill, wall, crunch, "/ 20 hrs"), refused values, nothing moving while typing, Cancel, saving on the server first, a failed save keeping the old hours, and the same hours not saved again |
 | `src/__tests__/hours-review.test.tsx` | 5 | US-23: the question appearing when a task is ticked done, sending the hours for the task's course and the thank-you, blank or impossible hours not sent, the server's message on a failure, Skip |
+| `src/lib/checkin-api.test.ts` | 6 | #155: `fetchCheckinQuestion` (the question, null when there is none, a wrong shape rejected) and `answerCheckin` (what it posts for Yes and for changes, the saved tasks, the server's message) |
+| `src/__tests__/checkin-question.test.tsx` | 8 | #155, AI screen 2: the question and reason above the figures, no card with no question, Yes, the week and hours boxes for the course's open tasks, Save sending only what changed and the forecast redrawing, a bad week refused, None of these, a failed save keeping the card |
+| `src/__tests__/marked-done.test.tsx` | 8 | US-45: the ticked task staying in place marked done with Undo and not yet in Completed, the hours question directly under it, the figures dropping straight away, moving to Completed on Skip and on Save then Close, Undo and the filled circle putting it back, and a second tick moving the first task on |
 
 
 
 
-The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 412 of them in seventeen files, plus 12 still marked to-do and 4 that only run against a test database. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`. 
+
+The server has its own tests in `server/src/__tests__/`, run with `npm test` inside `server/` or `npm run test:server` from the root: 695 passing in 31 files, plus 5 existing TODO cases and 4 optional hosted-database checks. Two of them cover US-02: `GET /semester` has to include the weekly capacity and the current week. The PDF reader's tests are `pdf-text.test.ts` (rebuilding lines from text positions), `pdf-extract.test.ts` (real PDFs read through the worker), `pdf-worker.test.ts` (the worker's clean-up) and `syllabus-route.test.ts` (the `POST /syllabus/text` endpoint). `reviews.test.ts` covers US-22: `POST /courses/:id/reviews` (saving, 400 for a missing title or hours that are not a number more than 0 and up to 100, 404 for an unknown course) and `GET /courses/:id/reviews` (including 404 for an unknown course). `taskts.test.ts` also checks that `PATCH /tasks/:id` refuses an estimate of 0 or over 100, the same limits as the client and the database (TP-25, TP-26). It also checks that a PATCH with one good field and one bad field changes nothing. bad-json.test.ts checks that a body that is not valid JSON gets a 400, not a 500. The course details (#144) are covered by `course-details-store.test.ts` (each method against the in-memory store: saving, replacing, keeping courses and students apart, refusing an unknown course), `supabase-course-details.test.ts` (what the Supabase store sends, with a stand-in client), `rules.test.ts` and `sql-files.test.ts`. `no-secrets.test.ts` fails if a Supabase key is in any file git would commit, and checks that `server/.env` is ignored (TP-44). The SQL that builds the Supabase database is in `server/db/`; see `server/README.md`.
+The check-in question (#155) is covered by `checkin.test.ts` (the snapshot and the check on the AI's answer) and `checkin-routes.test.ts` (both routes with a fake AI: no AI means no question, a foreign course dropped, an AI that fails or answers with non-JSON, no repeat after answering, saving changes all or nothing, 400s, 404, and 401 without login).
 `add-tasks.test.ts` covers US-30: POST /tasks adds every task with a new id, saves them, rejects ten kinds of bad input with 400, and adds nothing when any one task is bad.
+
+`ai-model.test.ts`, `ai-syllabus-reading.test.ts` and `ai-routes.test.ts` cover issue #145 with a fake model, so no service is called and no key is needed: reading a streamed or a plain answer, what the client sends and that errors never include the key or the address, the checks on every field of the AI's answer (weeks outside 1 to 15 and hours outside 0 to 100 become blank, bad titles and weights are dropped), and the routes (400, 413, 502 and 503, and 401 without a session).
+`session-renewal.test.ts` adds five server tests: renewal headers and forward expiry for an aged session, multiple cookies preserved, signed-out broken or oversized JSON refused with 401, and signed-in broken JSON still returning 400.
+
 `auth.test.ts` covers US-21: signing up and in, a wrong password, an email already used, a short password, a sign-in from a web page that is not trusted, the 30-day session, 401 from every other route without a session or after signing out, and 200 with one. Since every route needs a session, the other route tests sign in first with `signedIn()` from `src/testing/session.ts`, which signs up a test student and returns a supertest agent that sends the cookie.
 
 
@@ -522,3 +607,5 @@ The server now supports Supabase as its persistent database through the Data Acc
 Email and password are the only way to sign in: no email check and no forgotten-password link this sprint, as LOGIN_DESIGN.md decides. No model. The syllabus scanner in `lib/inputs.ts` reads text in one fixed format, and the server can pull that text out of a PDF, but no screen uses either yet, and photos and scanned PDFs are not read at all. No real dates: weeks are integers 1–15, which removes an entire category of bug from a prototype.
 
 No running grades. That needs the student to enter every score, which is the least reliable input available to us. DESIGN.md section 3 has the argument.
+
+The 28 course-catalog route tests and 7 Supabase request tests cover search, joining and creation. The course-catalog route tests exercise normalized spellings, name search, enrollment flags and isolation, explicit idempotent joining, new creation, duplicate409 with no enrollment, simultaneous creates, readable-ID collisions, ten-result ranking, input boundaries and session requirements. supabase-course-catalog.test.ts checks actual outgoing request shapes with a local fetch stand-in, including literal parameter data, idempotent upsert and one transactional create call. sql-files.test.ts checks schema/migration agreement, uniqueness handling and private function permissions. These checks do not execute a hosted PostgreSQL migration.

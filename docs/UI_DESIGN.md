@@ -528,3 +528,52 @@ The Semester screen, shown at its full length: everything in one scroll.
   thirty would not.
 - **What the course cards open.** They are not tappable yet; course detail (§13) is
   the natural target.
+
+## Empty semesters
+
+With no courses, Forecast, This week and Courses show one short explanation and Try a sample semester. The button says Loading sample semester while waiting and blocks repeated taps across tabs. A successful load replaces the shared semester; a refusal leaves the empty screen with the server's message and lets the student try again. If a semester already exists, it is loaded instead. The offline fixture keeps its existing behavior and never offers the server action.
+
+Syllabus says Add a course first and offers Add a course directly, without a course picker or upload controls. Empty Forecast, This week and Courses also offer Add a course beside the sample action. The course action waits while a sample is loading and is hidden in sample-data mode.
+
+## Adding a course
+
+Courses offers **Add a course** separately from **Syllabus**. The new screen
+starts with a code-or-name search. Results show the code, full name and either
+Join or Already yours. Nothing is joined by searching. Create a new course
+opens code and name fields, with the search text prefilled as the code. If
+that code already exists, the existing course is shown with an explicit Join
+action. Saving first updates the shared semester and then returns to the
+previous screen. Failures stay on screen with the server's explanation.
+
+Sample-data mode hides the Courses entry point and explains the server
+requirement if the route is opened directly. The screen is in the signed-in
+stack with the title Add a course and the back title Back.
+
+## App icon
+
+Five rounded weekly bars stand for the shape of a 15-week semester. The line is the hours a student has available; one week breaks through it to show a crunch week. The symbol has no words because the app name is not final.
+
+The palette uses the theme tokens: calm `#3F7F6E`, moderate `#B8912A`, heavy `#A93F30`, accent `#1F5C6B` and accentSoft `#E2EDEF`.
+
+| File in `client/assets/images/` | Use | Size |
+|---|---|---|
+| `icon.png` | iOS and the default app icon | 1024 x 1024 |
+| `android-icon-foreground.png` | Android adaptive foreground | 512 x 512 |
+| `android-icon-background.png` | Android adaptive background | 512 x 512 |
+| `android-icon-monochrome.png` | Android themed icon, tinted by the launcher | 432 x 432 |
+| `splash-icon.png` | White symbol on the accent splash background | 512 x 512 |
+| `favicon.png` | Browser tab icon | 48 x 48 |
+
+The splash plugin displays its image at width 120 on `#1F5C6B`. The approved sheet below retains its earlier 76-wide splash example; it records the chosen artwork, while `client/app.json` sets the final splash size.
+
+![Approved app icon sheet](ui/logo/preview.png)
+
+The master colour and monochrome symbols, every platform SVG and the generator are in `docs/ui/logo/`. To rebuild from that folder in PowerShell without adding a repository dependency:
+
+```powershell
+npm install --prefix "$env:TEMP\crunch-week-logo-renderer" --no-save --package-lock=false @resvg/resvg-js@2.6.2
+$env:NODE_PATH = "$env:TEMP\crunch-week-logo-renderer\node_modules"
+node .\build.js
+```
+
+Generated files go to the ignored `out/` folder beside the script. Its six platform PNGs can be copied to `client/assets/images/`. Preview rendering uses system fonts, so text on the sheet can vary on another machine. The shorter `npx -p @resvg/resvg-js@2.6.2 node build.js` command did not resolve the package here; the temporary install above was verified instead.

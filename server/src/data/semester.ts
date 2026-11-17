@@ -1,16 +1,14 @@
 import { Semester } from '../types';
 
 /**
- * Mock database for the detailed-design sprint.
+ * Sample semester available when a student explicitly chooses it.
  *
- * The assignment asks us to hardcode the data in the server instead of using
- * a real database. This is a copy of client/src/data/semester.ts, so the
- * client and server start from the same semester. A real database
- * (Postgres) replaces this file in a later phase; the routes in app.ts
- * won't need to change when it does.
+ * This matches client/src/data/semester.ts for offline demonstrations.
+ * Shared courses seed the catalog, while loadSample copies tasks only into
+ * the signed-in student's account. New accounts start without those tasks.
  *
- * Don't change this object at runtime. Routes work on the copy in db.ts,
- * so tests can reset to this known starting point.
+ * Don't change this object at runtime. Sample copies are independent, so
+ * ticking a student's task never changes the next student's sample.
  */
 export const semester: Semester = {
   label: 'Fall 2026',
@@ -73,3 +71,5 @@ export const semester: Semester = {
     { id: 's-6', courseId: 'stat243', title: 'Final exam', category: 'exam', dueWeek: 15, estimatedHours: 10, spreadWeeks: 2, done: false },
   ],
 };
+/** Weekly hours for a new student until they choose their own number. */
+export const DEFAULT_WEEKLY_CAPACITY = 15;

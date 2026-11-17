@@ -1,0 +1,133 @@
+# Team code review record: server API and data layer (VV10)
+
+The written record of the team code review of the server API and data layer.
+Tracked in the umbrella issue [#111](https://github.com/Tysonbb9/GroupB/issues/111).
+
+- **Session:** Wednesday 11/11 at 9:30 pm, on Teams.
+- **Checklist:** [CodingStandard.md](CodingStandard.md).
+- **Reviewed against:** `main` after the data layer (PR [#121](https://github.com/Tysonbb9/GroupB/pull/121)) merged.
+- **Scribe:** TJ.
+
+> **Status of this record:** sections 2, 3 and 4 are fully resolved and merged.
+> Sections 1 and 5 are reviewed and their findings agreed, but the fix PRs are
+> not merged yet, so those rows are marked **Pending PR** and will be filled in
+> when the PRs land. See [Open items](#open-items) at the bottom.
+
+## Attendance
+
+All six team members attended: Tyson Bobeldyk, Gabby Odhiambo, Nhyira Mante,
+TJ French, Bithiah Botsha, Colin Redder.
+
+## The five sections
+
+The reviewing was split into five section issues, one per reviewer. Each
+reviewer posted their findings as comments on their issue before the session,
+presented them at the session, and the author of each section responded. Every
+finding ended either fixed in a PR or declined with a reason.
+
+| Section | Issue | Reviewer | Findings | Resolved in | Status |
+| --- | --- | --- | --- | --- | --- |
+| 1. Read routes | [#112](https://github.com/Tysonbb9/GroupB/issues/112) | TJ | 4 | see below | **Pending PR** |
+| 2. Write routes, reviews, request handling | [#113](https://github.com/Tysonbb9/GroupB/issues/113) | Gabby | 6 | PR [#167](https://github.com/Tysonbb9/GroupB/pull/167) | Closed |
+| 3. PDF endpoint and safety checks | [#114](https://github.com/Tysonbb9/GroupB/issues/114) | Tyson | 9 | PR [#151](https://github.com/Tysonbb9/GroupB/pull/151) | Closed |
+| 4. Reading the PDF: worker and lines | [#115](https://github.com/Tysonbb9/GroupB/issues/115) | Colin | 6 | PR [#150](https://github.com/Tysonbb9/GroupB/pull/150) | Closed |
+| 5. Data, configuration, database layer | [#116](https://github.com/Tysonbb9/GroupB/issues/116) | Bithiah | 2 | see below | **Pending PR** |
+
+Severity uses the card's three levels: **must fix**, **should fix**, **nit**.
+A fourth label, **needs team decision**, was used once in section 1 and was
+settled at the session.
+
+## Findings register
+
+Every finding, its severity, and how it was resolved. "Fixed in #NNN" means the
+fix is merged on `main`. "Declined" means the team agreed to leave it as is,
+with the reason given.
+
+### Section 1 — Read routes ([#112](https://github.com/Tysonbb9/GroupB/issues/112), reviewer TJ)
+
+| # | Where | Severity | Resolution |
+| --- | --- | --- | --- |
+| 1 | `app.ts:87` — `?week=` (empty) passes validation because `Number('')` is `0`, so the request returns `200 []` instead of `400` | should fix | **Pending PR** — fix agreed: reject empty/whitespace before converting. Lands with the section 1 fix PR. |
+| 2 | `app.ts:100` — unknown/empty filters (`?courseId=nope`, `?courseId=`, `?week=99`) return `200 []` with no validation | needs team decision | **Decided** (settled in [#109](https://github.com/Tysonbb9/GroupB/issues/109)): `?courseId=nope` → `200` empty list (agreed); `?week=99` and `?week=` (empty) → `400` with a JSON error (agreed). **Pending PR** — the small `GET /tasks` check and the tests land in the [#109](https://github.com/Tysonbb9/GroupB/issues/109) PR (Bithiah). |
+| 3 | `tasks.test.ts:23-33` — eight read-route tests are still `it.todo` placeholders | must fix | **Pending PR** — Bithiah completes the to-do tests (TP-08 to TP-17) in the [#109](https://github.com/Tysonbb9/GroupB/issues/109) PR. |
+| 4 | `app.ts:51-73` — `GET /courses/:id` and `GET /tasks/:id` repeat the same fetch/404/return shape | nit | **Declined** — only two occurrences; a helper is not worth it until a third single-resource route appears. (Team nit policy: nits are not actioned.) |
+
+### Section 2 — Write routes, reviews and request handling ([#113](https://github.com/Tysonbb9/GroupB/issues/113), reviewer Gabby)
+
+All fixes merged in PR [#167](https://github.com/Tysonbb9/GroupB/pull/167).
+
+| # | Where | Severity | Resolution |
+| --- | --- | --- | --- |
+| 1 | `app.ts:294` — a body that is not valid JSON returns `500` and is logged as a server failure | must fix | **Fixed in [#167](https://github.com/Tysonbb9/GroupB/pull/167)** — `entity.parse.failed` now returns `400` with `{ error }` and is not logged as a failure. |
+| 2 | `tasks.test.ts:51` — no test proves a half-update can't happen (one good field, one bad) | should fix | **Fixed in [#167](https://github.com/Tysonbb9/GroupB/pull/167)** — test sends `{ done: true, estimatedHours: -1 }`, expects `400`, then confirms the task is unchanged. |
+| 3 | `app.ts:166` — the "more than 0, up to 100" hours check is written out three times | should fix | **Fixed in [#167](https://github.com/Tysonbb9/GroupB/pull/167)** — one `isValidHours()` helper with a `MAX_HOURS = 100` constant, used in all three routes. |
+| 4 | `reviews.test.ts:44` — `POST /courses/:id/reviews` only tests `hours = 0` | should fix | **Fixed in [#167](https://github.com/Tysonbb9/GroupB/pull/167)** — `it.each` added: 100 accepted; 101, -1 and "5" return 400. |
+| 5 | `cors.test.ts` — no test sends a broken JSON body | should fix | **Fixed in [#167](https://github.com/Tysonbb9/GroupB/pull/167)** — test sends `'{bad'` with `application/json` and expects `400` with `{ error }`. |
+| 6 | `reviews.test.ts:51` — `GET /courses/:id/reviews` has no test for an unknown course | should fix | **Fixed in [#167](https://github.com/Tysonbb9/GroupB/pull/167)** — `GET /courses/nope/reviews` expects `404`. |
+
+### Section 3 — The PDF endpoint and its safety checks ([#114](https://github.com/Tysonbb9/GroupB/issues/114), reviewer Tyson)
+
+All fixes merged in PR [#151](https://github.com/Tysonbb9/GroupB/pull/151).
+
+| # | Where | Severity | Resolution |
+| --- | --- | --- | --- |
+| 1 | `routes.ts:51` — non-`PdfReadError` errors go to a generic 500 and are never logged | must fix | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — the error is logged (`console.error`) before the generic 500; the student's message stays generic. |
+| 2 | `pdf-text.ts:286-290` — no cap on concurrent PDF reads; a burst of uploads could ask for gigabytes | should fix | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — `MAX_CONCURRENT_PDF_READS = 3`; beyond that the route answers `503` (`busy`). |
+| 3 | `pdf-text.ts:247-254` — the error-name list treats our own bugs as file faults | should fix | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — only genuine file-fault errors become a `PdfReadError`; the rest fall through to a logged 500. |
+| 4 | `pdf-text.ts:277` — the worker `.mjs` file is not copied by `tsc` into `dist/` | should fix (verify) | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — the worker file is copied into the build and its presence is checked. |
+| 5 | `routes.ts:34,48,51,63` — the `{ error, code }` response is written by hand in four spots | should fix | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — one `sendPdfError()` helper; the 500 now carries a `server_error` code. |
+| 6 | `routes.ts:61-68` — some body-reading errors skip the JSON shape and return HTML | should fix | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — a router-level `bodyReadError` handler answers every body-read error in the JSON shape (`bad_upload`). |
+| 7 | `pdf-text.ts:78-91`, `routes.ts:35` — several messages say what's wrong but not what to do | nit | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — messages end with the same fallback ("...or paste the syllabus text instead"). |
+| 8 | `routes.ts:25` — `timeout` returns 422, blaming the student for what can be server load | nit (discussion) | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — `timeout` now maps to `503`, with a comment explaining why. |
+| 9 | `syllabus-route.test.ts:18-94` — several status codes, the exact 10 MB limit, signature offsets, worker failures and logging are untested | should fix | **Fixed in [#151](https://github.com/Tysonbb9/GroupB/pull/151)** — `it.each` over every `PdfReadError` code, the exact-size and signature-offset cases, and the logging check were added. |
+
+### Section 4 — Reading the PDF: the worker and rebuilding lines ([#115](https://github.com/Tysonbb9/GroupB/issues/115), reviewer Colin)
+
+All six fixes merged in PR [#150](https://github.com/Tysonbb9/GroupB/pull/150). Full write-up: [CODE_REVIEW_4_PDF_READING.md](CODE_REVIEW_4_PDF_READING.md).
+
+| # | Where | Severity | Resolution |
+| --- | --- | --- | --- |
+| 1 | `pdf-text.ts:191` (`joinLine`), worker `:33-39` — sideways text runs two lines together | should fix | **Fixed in [#150](https://github.com/Tysonbb9/GroupB/pull/150)** — the worker reports each run's angle and each angle is read as its own group, so rotated lines no longer run together. |
+| 2 | `pdf-text.ts:121` (`normalizeText`) — NFKC splits "½" so "1½ hours" becomes "11⁄2 hours" | should fix | **Fixed in [#150](https://github.com/Tysonbb9/GroupB/pull/150)** — ½, ¼ and ¾ become decimals before NFKC, so the scanner reads 1.5 hours. |
+| 3 | `pdf-text.ts:133-147,191-212` — five tuning numbers, only two named | should fix | **Fixed in [#150](https://github.com/Tysonbb9/GroupB/pull/150)** — `SAME_LINE_OVERLAP`, `FAKE_BOLD_DISTANCE` and `WORD_GAP` named, every constant now says where its value comes from. Values unchanged. |
+| 4 | `pageToLines` comment — offset two-column pages read left/right/left/right | nit | **Fixed in [#150](https://github.com/Tysonbb9/GroupB/pull/150)** — documented as a known limit with a test. Not fixed properly: telling columns apart needs layout analysis and could break schedule tables. |
+| 5 | `pdf-text.ts:191` (`joinLine`) — right-to-left text comes out reversed | nit | **Fixed in [#150](https://github.com/Tysonbb9/GroupB/pull/150)** — the worker passes pdf.js's direction through and mostly-RTL lines are mirrored. |
+| 6 | `read-pdf.worker.mjs:45-49` — a failure freeing PDF memory replaces an already-read result | nit | **Fixed in [#150](https://github.com/Tysonbb9/GroupB/pull/150)** — clean-up gets its own try/catch that logs and keeps the result (`freeMemory`). |
+
+### Section 5 — Data, configuration and the new database layer ([#116](https://github.com/Tysonbb9/GroupB/issues/116), reviewer Bithiah)
+
+| # | Where | Severity | Resolution |
+| --- | --- | --- | --- |
+| 1 | `supabase-store.ts:185-210` — task IDs are generated by reading existing IDs first, so concurrent requests can pick the same next ID | should fix | **Pending PR** — Bithiah will fix it and will choose the approach (database-generated IDs, UUIDs, or atomic sequential generation). |
+| 2 | `create-store.ts:5-13` — an incomplete Supabase config (only one of the two variables set) silently falls back to `MemoryStore` | should fix | **Pending PR** — Bithiah will fix it: keep `MemoryStore` when neither variable is set, but throw a clear error when only one is, and log the chosen storage mode (never printing the secret key). |
+
+## Decisions made at the session
+
+- **Nit policy:** nits are noted but not actioned unless a fix is already
+  written and cheap (as in section 4, where Colin had them ready). Section 1's
+  duplicate-404 nit was declined on this basis.
+- **Who fixes what:** Gabby did all of section 2's fixes; Tyson did section 3
+  except as noted; Colin's section 4 fixes were already written and merged;
+  Bithiah completes section 1's to-do tests and both of section 5's findings,
+  and decides how to fix her first finding; TJ reviewed section 1 and is the
+  scribe.
+- **Filter behavior (section 1, finding 2):** settled in
+  [#109](https://github.com/Tysonbb9/GroupB/issues/109) — unknown `courseId`
+  returns an empty list, but a non-numeric, out-of-range, or empty `week`
+  returns `400`.
+
+## Open items
+
+These are the parts of the record that are not final until the fix PRs merge.
+Fill in the PR number and change **Pending PR** to **Fixed in #NNN** when each
+lands.
+
+- [ ] Section 1 ([#112](https://github.com/Tysonbb9/GroupB/issues/112)) —
+  findings 1, 2 and 3: the `?week=` empty-value fix, the filter-validation
+  check, and the eight to-do tests. Expected to land in the
+  [#109](https://github.com/Tysonbb9/GroupB/issues/109) PR (Bithiah).
+- [ ] Section 5 ([#116](https://github.com/Tysonbb9/GroupB/issues/116)) —
+  findings 1 and 2: the task-ID race condition and the silent
+  `MemoryStore` fallback (Bithiah).
+- [ ] Close [#112](https://github.com/Tysonbb9/GroupB/issues/112) and
+  [#116](https://github.com/Tysonbb9/GroupB/issues/116) once their PRs merge.

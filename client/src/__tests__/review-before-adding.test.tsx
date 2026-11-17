@@ -15,6 +15,8 @@ jest.mock('expo-router', () => ({
 jest.mock('../lib/api', () => ({
   fetchSemester: jest.fn(),
   addTasks: jest.fn(),
+  getAiStatus: jest.fn().mockResolvedValue(false), // no AI here: the scanner reads the text
+  readSyllabusWithAi: jest.fn(),
 }));
 const addTasksMock = addTasks as jest.MockedFunction<typeof addTasks>;
 

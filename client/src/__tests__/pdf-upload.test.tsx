@@ -17,6 +17,8 @@ jest.mock('../lib/api', () => ({
   fetchSemester: jest.fn(),
   addTasks: jest.fn(),
   extractSyllabusText: jest.fn(),
+  getAiStatus: jest.fn().mockResolvedValue(false), // no AI here: the scanner reads the text
+  readSyllabusWithAi: jest.fn(),
 }));
 const pickPdfMock = pickPdf as jest.MockedFunction<typeof pickPdf>;
 const extractMock = extractSyllabusText as jest.MockedFunction<typeof extractSyllabusText>;
