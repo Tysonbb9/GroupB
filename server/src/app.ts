@@ -7,7 +7,7 @@ import { syllabusRouter } from './syllabus/routes';
 import { createModelClient } from './ai/model';
 import { aiRouter } from './ai/routes';
 import { DatabaseError } from './data/database-error';
-import { isValidHours, MAX_WEEKLY_CAPACITY } from './rules';
+import { isValidHours, MAX_WEEKLY_CAPACITY, WEEKS_IN_SEMESTER } from './rules';
 import { checkinRouter } from './ai/checkin-routes';
 
 export const app = express();
@@ -233,8 +233,12 @@ app.get('/tasks', async (req, res) => {
 
 /**
  * PATCH /tasks/:id
- * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null }.
- * Returns the updated task, 400 if a field is invalid, 404 if the id is unknown.
+ * Body: { done?: boolean, estimatedHours?: number (more than 0, up to 100) | null,
+ *         dueWeek?: whole number from 1 to 15 }.
+ * The due week can be corrected on the task's details (US-44).
+ * Any other field, such as title, is ignored.
+ * Returns the updated task, 400 if a field is invalid or none is sent (TP-28),
+ * 404 if the id is unknown.
  */
 app.patch('/tasks/:id', async (req, res) => {
   const task = await store.getTask(studentId(res), req.params.id);
@@ -243,7 +247,13 @@ app.patch('/tasks/:id', async (req, res) => {
     return;
   }
 
-  const { done, estimatedHours } = req.body ?? {};
+  const { done, estimatedHours, dueWeek } = req.body ?? {};
+
+  // A body with none of the fields would change nothing (TP-28).
+  if ([done, estimatedHours, dueWeek].every((field) => field === undefined)) {
+    res.status(400).json({ error: 'Nothing to update: send done, estimatedHours or dueWeek' });
+    return;
+  }
 
   // Check every field before changing anything, so a bad request
   // never leaves a task half-updated.
@@ -259,6 +269,13 @@ app.patch('/tasks/:id', async (req, res) => {
     res.status(400).json({ error: 'estimatedHours must be a number more than 0 and up to 100, or null' });
     return;
   }
+  if (
+    dueWeek !== undefined &&
+    (!Number.isInteger(dueWeek) || dueWeek < 1 || dueWeek > WEEKS_IN_SEMESTER)
+  ) {
+    res.status(400).json({ error: `dueWeek must be a whole number from 1 to ${WEEKS_IN_SEMESTER}` });
+    return;
+  }
 
   if (done === undefined && estimatedHours === undefined) {
     res.status(400).json({
@@ -270,6 +287,7 @@ app.patch('/tasks/:id', async (req, res) => {
   const updatedTask = await store.updateTask(studentId(res), req.params.id, {
     done,
     estimatedHours,
+    dueWeek,
   });
 
   res.json(updatedTask);

@@ -214,11 +214,14 @@ async updateTask(userId: string, id: string, updates: TaskUpdates) {
     changes.estimated_hours = updates.estimatedHours;
   }
 
+  if (updates.dueWeek !== undefined) {
+    changes.due_week = updates.dueWeek;
+  }
+
+  // Every field is gathered before this check. It used to come before due_week,
+  // so a change of week alone (the check-in card, #155) was never saved.
   if (Object.keys(changes).length === 0) {
     return this.getTask(userId, id);
-  }
-  if (updates.dueWeek !== undefined){
-    changes.due_week = updates.dueWeek;
   }
 
   const { data, error } = await this.client

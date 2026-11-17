@@ -6,7 +6,8 @@ import { theme } from '../theme';
 type Props = {
   taskId: string;
   title: string;
-  onSave: (hours: number) => void;
+  /** Keeps the hours (US-44: on the server). Rejects when they could not be kept. */
+  onSave: (hours: number) => Promise<void>;
 };
 
 /**
@@ -17,8 +18,10 @@ export function EstimateEditor({ taskId, title, onSave }: Props) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const [invalid, setInvalid] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     const parsed = parseEstimate(text);
     // Blank means "still unknown", which is what the task already is.
     if (parsed.ok && parsed.hours === null) {
@@ -29,8 +32,17 @@ export function EstimateEditor({ taskId, title, onSave }: Props) {
       setInvalid(true);
       return;
     }
-    onSave(parsed.hours);
-    setEditing(false);
+    setSaving(true);
+    setFailed(false);
+    try {
+      await onSave(parsed.hours);
+      setEditing(false);
+    } catch {
+      // The box stays open with the hours typed, so trying again is one tap.
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!editing) {
@@ -57,6 +69,7 @@ export function EstimateEditor({ taskId, title, onSave }: Props) {
           onChangeText={(value) => {
             setText(value);
             setInvalid(false);
+            setFailed(false);
           }}
           keyboardType="decimal-pad"
           placeholder="hours"
@@ -66,9 +79,11 @@ export function EstimateEditor({ taskId, title, onSave }: Props) {
           testID={`estimate-save-${taskId}`}
           accessibilityRole="button"
           accessibilityLabel={`Save estimate for ${title}`}
+          accessibilityState={{ busy: saving }}
+          disabled={saving}
           onPress={save}
         >
-          <Text style={styles.link}>Save</Text>
+          <Text style={styles.link}>{saving ? 'Saving…' : 'Save'}</Text>
         </Pressable>
         <Pressable
           testID={`estimate-cancel-${taskId}`}
@@ -82,6 +97,11 @@ export function EstimateEditor({ taskId, title, onSave }: Props) {
       {invalid && (
         <Text testID={`estimate-error-${taskId}`} style={styles.error}>
           Enter hours between 0 and {MAX_ESTIMATE_HOURS}.
+        </Text>
+      )}
+      {failed && (
+        <Text testID={`estimate-failed-${taskId}`} style={styles.error} accessibilityLiveRegion="polite">
+          Could not save. Try again.
         </Text>
       )}
     </View>

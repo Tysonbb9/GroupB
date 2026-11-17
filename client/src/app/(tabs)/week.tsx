@@ -34,7 +34,7 @@ import { theme } from '../../theme';
  */
 export default function WeekScreen() {
   const router = useRouter();
-  const { semester, toggleDone, setEstimate } = useSemester();
+  const { semester, toggleDone, saveTask } = useSemester();
   /** The task just ticked done, so we can ask how long it took (US-23). */
   const [justDone, setJustDone] = useState<Task | null>(null);
 
@@ -114,7 +114,8 @@ export default function WeekScreen() {
                         toggleDone(task.id);
                         setJustDone(task);
                       }}
-                      onEstimate={(hours) => setEstimate(task.id, hours)}
+                      onEstimate={(hours) => saveTask(task.id, { estimatedHours: hours })}
+                      onOpen={() => router.push({ pathname: '/task/[id]', params: { id: task.id } })}
                       markedDone={marked}
                       onUndo={() => undoJustDone(task.id)}
                     />

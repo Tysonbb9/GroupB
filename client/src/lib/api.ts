@@ -343,6 +343,42 @@ export async function addTasks(tasks: NewTask[]): Promise<Task[]> {
   }
   return json as Task[];
 }
+/** What the task details can change (US-44): either or both, the rest stay. */
+export type TaskChange = {
+  /** null clears the hours. */
+  estimatedHours?: number | null;
+  dueWeek?: number;
+};
+
+/**
+ * PATCH /tasks/:id (US-44). Saves a task's changed fields (its hours, which
+ * null clears, or its due week) and returns the task as the server now holds
+ * it. Rejects with a message the user can read.
+ */
+export async function updateTask(id: string, change: TaskChange): Promise<Task> {
+  const response = await send(`/tasks/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(change),
+  });
+
+  if (!response.ok) {
+    throw new Error((await serverErrorMessage(response)) ?? `The server answered ${response.status}`);
+  }
+
+  const json: unknown = await response.json();
+  if (
+    !isObject(json) ||
+    json.id !== id ||
+    typeof json.title !== 'string' ||
+    typeof json.dueWeek !== 'number' ||
+    !(json.estimatedHours === null || typeof json.estimatedHours === 'number')
+  ) {
+    throw new Error('The server sent invalid task data');
+  }
+  return json as Task;
+}
+
 /** US-23: one student's report of how long an assignment took them, as the server stored it. */
 export type Review = {
   id: string;
